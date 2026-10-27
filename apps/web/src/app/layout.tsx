@@ -7,11 +7,12 @@ import {
   organizationName,
   productName,
   seoKeywords,
+  siteUrl,
 } from "@/lib/seo-content";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pseudoeditor.dev"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: homeSeoTitle,
     template: "%s | PseudoEditor",
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: "https://pseudoeditor.dev",
+    url: siteUrl,
     siteName: productName,
     title: homeSeoTitle,
     description: homeSeoDescription,
