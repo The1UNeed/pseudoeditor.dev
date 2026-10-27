@@ -16,9 +16,9 @@ export function PublicHeader({ active }: PublicHeaderProps) {
   return (
     <header className="sticky top-0 z-[var(--z-sticky)] border-b border-[var(--separator)] bg-[var(--titlebar)] px-4 md:px-6">
       <nav className="mx-auto flex h-[52px] max-w-6xl items-center gap-4">
-        <Link href="/" className="flex items-center gap-2 transition hover:opacity-80">
+        <Link href="/" aria-label="PseudoEditor home" className="flex items-center gap-2 transition hover:opacity-80">
           <Image src="/branding/app-icon-128.png" alt="" width={24} height={24} className="h-6 w-6" />
-          <span className="text-[13px] font-semibold text-[var(--text)]">PseudoEditor</span>
+          <span className="hidden text-[13px] font-semibold text-[var(--text)] sm:inline">PseudoEditor</span>
         </Link>
         <div className="flex flex-1 items-center justify-center gap-1">
           {navItems.map((item) => (

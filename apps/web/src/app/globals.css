@@ -493,8 +493,11 @@ code {
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-  overflow: visible;
   transform: none;
+}
+
+.manual-shell-modal .manual-card {
+  overflow: visible;
 }
 
 .manual-shell .manual-card > .relative {
