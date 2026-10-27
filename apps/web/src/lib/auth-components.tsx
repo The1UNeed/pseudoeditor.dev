@@ -119,12 +119,13 @@ export function SignInButton({
   children,
   ...props
 }: ComponentProps<typeof ClerkSignInButton>) {
+  const locale = useLocale();
   if (!cloudAuthRequired() || !isCloudAuthConfigured()) {
     return <>{children}</>;
   }
 
   return (
-    <ClerkSignInButton fallbackRedirectUrl="/app" {...props}>
+    <ClerkSignInButton fallbackRedirectUrl={localePath(locale, "/app")} {...props}>
       {children}
     </ClerkSignInButton>
   );
@@ -134,12 +135,13 @@ export function SignUpButton({
   children,
   ...props
 }: ComponentProps<typeof ClerkSignUpButton>) {
+  const locale = useLocale();
   if (!cloudAuthRequired() || !isCloudAuthConfigured()) {
     return <>{children}</>;
   }
 
   return (
-    <ClerkSignUpButton fallbackRedirectUrl="/app" {...props}>
+    <ClerkSignUpButton fallbackRedirectUrl={localePath(locale, "/app")} {...props}>
       {children}
     </ClerkSignUpButton>
   );

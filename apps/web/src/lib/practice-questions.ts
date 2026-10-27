@@ -270,7 +270,7 @@ Names[5] <- "Chris"
     ],
     sample: {
       input: [],
-      output: ["4"],
+      output: ["3"],
     },
     starter: `// Count how many values in the array are greater than 0, then output the count.
 DECLARE Values : ARRAY[1:6] OF INTEGER

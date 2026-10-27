@@ -190,7 +190,7 @@ Names[5] <- "Chris"
     ],
     sample: {
       input: [],
-      output: ["4"],
+      output: ["3"],
     },
     starter: `// 统计数组中大于 0 的值的个数，然后输出该个数。
 DECLARE Values : ARRAY[1:6] OF INTEGER
