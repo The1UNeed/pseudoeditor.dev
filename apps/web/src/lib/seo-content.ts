@@ -1,4 +1,4 @@
-export const siteUrl = "https://pseudoeditor.dev";
+export const siteUrl = "https://www.pseudoeditor.dev";
 
 export const productName = "PseudoEditor";
 
