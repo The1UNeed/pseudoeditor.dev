@@ -28,15 +28,15 @@ export default defineConfig({
       },
       { find: "@", replacement: path.resolve(__dirname, "src") },
       {
-        find: /^@igcse\/compiler$/,
+        find: /^@pseudoeditor\/compiler$/,
         replacement: path.resolve(__dirname, "../../packages/compiler/src/index.ts"),
       },
       {
-        find: /^@igcse\/compiler\/types$/,
+        find: /^@pseudoeditor\/compiler\/types$/,
         replacement: path.resolve(__dirname, "../../packages/compiler/src/types.ts"),
       },
       {
-        find: /^@igcse\/workspace$/,
+        find: /^@pseudoeditor\/workspace$/,
         replacement: path.resolve(__dirname, "../../packages/workspace/src/index.ts"),
       },
     ],

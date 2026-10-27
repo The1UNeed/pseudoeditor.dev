@@ -13,11 +13,13 @@ beforeAll(async () => {
 function runSource(source: string, options?: {
   stdinLines?: string[];
   virtualFiles?: Record<string, string[]>;
+  syntaxId?: string;
 }): RunResult {
   const compileResult = compilePseudocode({
     source,
     filename: "main.pseudo",
     strict: true,
+    syntaxId: options?.syntaxId,
   });
 
   expect(compileResult.success).toBe(true);
@@ -35,6 +37,17 @@ function runSource(source: string, options?: {
 }
 
 describe("WASM pseudocode runtime integration", () => {
+  it("runs exam-board operators and routines added for selectable syntax", () => {
+    expect(runSource('print(17 div 5)\nprint(17 mod 5)\nprint("ab" + "cd")', { syntaxId: "ocr-gcse" })).toMatchObject({
+      success: true,
+      stdout: "3\n2\nabcd",
+    });
+    expect(runSource('OUTPUT 17 DIV 5\nOUTPUT LEN("Hello")', { syntaxId: "aqa-gcse" })).toMatchObject({
+      success: true,
+      stdout: "3\n5",
+    });
+  });
+
   it("runs arithmetic, loops, and arrays from compiler AST JSON", () => {
     const result = runSource(`DECLARE Total : INTEGER
 DECLARE Numbers : ARRAY[1:3] OF INTEGER

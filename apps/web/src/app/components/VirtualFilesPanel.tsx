@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useDictionary } from "@/i18n/context";
 
 interface VirtualFilesPanelProps {
   files: Record<string, string[]>;
@@ -15,6 +16,7 @@ export function VirtualFilesPanel({
   selectedFileName,
   onSelectedFileNameChange,
 }: VirtualFilesPanelProps) {
+  const t = useDictionary().editor;
   const fileNames = useMemo(() => Object.keys(files).sort(), [files]);
   const [internalSelected, setInternalSelected] = useState<string>(selectedFileName ?? "");
   const [newFileName, setNewFileName] = useState("");
@@ -87,7 +89,7 @@ export function VirtualFilesPanel({
           Add
         </button>
         <button type="button" className="rounded-lg bg-[var(--surface2)] px-3 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--surface3)] disabled:opacity-40" onClick={handleDeleteFile} disabled={!activeSelected}>
-          Delete
+          {t.common.delete}
         </button>
       </div>
       {fileError ? <p className="text-sm text-[var(--red)]">{fileError}</p> : null}

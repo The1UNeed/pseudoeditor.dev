@@ -1,6 +1,6 @@
 import type { Connection, Edge, Node } from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
-import { parseSource } from "@igcse/compiler";
+import { parseSource } from "@pseudoeditor/compiler";
 import type {
   ArrayAccessNode,
   ExpressionNode,
@@ -10,7 +10,7 @@ import type {
   SourceSpan,
   StatementNode,
   WhileStatementNode,
-} from "@igcse/compiler/types";
+} from "@pseudoeditor/compiler/types";
 import { FlowchartNodeData, FlowchartNodeType, NODE_TYPE_CONFIG } from "./types";
 
 export interface FlowchartPaletteItem {
@@ -893,8 +893,8 @@ function layoutItems(
   };
 }
 
-function buildAstFlowchart(source: string): FlowchartGraphSnapshot | null {
-  const { ast, diagnostics } = parseSource(source);
+function buildAstFlowchart(source: string, syntaxId?: string): FlowchartGraphSnapshot | null {
+  const { ast, diagnostics } = parseSource(source, syntaxId);
   if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
     return null;
   }
@@ -1315,13 +1315,13 @@ function buildFallbackFlowchart(source: string): FlowchartGraphSnapshot {
   };
 }
 
-export function buildFlowchartFromPseudocode(source: string): FlowchartGraphSnapshot {
+export function buildFlowchartFromPseudocode(source: string, syntaxId?: string): FlowchartGraphSnapshot {
   const normalized = source.replace(/\r\n/g, "\n");
   if (normalizeSourceForSync(normalized).length === 0) {
     return { nodes: [], edges: [] };
   }
 
-  return buildAstFlowchart(normalized) ?? buildFallbackFlowchart(normalized);
+  return buildAstFlowchart(normalized, syntaxId) ?? buildFallbackFlowchart(normalized);
 }
 
 export function getProcessStatements(data: FlowchartNodeData): string[] {

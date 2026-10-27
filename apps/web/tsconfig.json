@@ -26,16 +26,16 @@
       "@/*": [
         "./src/*"
       ],
-      "@igcse/compiler": [
+      "@pseudoeditor/compiler": [
         "../../packages/compiler/src/index.ts"
       ],
-      "@igcse/compiler/*": [
+      "@pseudoeditor/compiler/*": [
         "../../packages/compiler/src/*"
       ],
-      "@igcse/workspace": [
+      "@pseudoeditor/workspace": [
         "../../packages/workspace/src/index.ts"
       ],
-      "@igcse/workspace/*": [
+      "@pseudoeditor/workspace/*": [
         "../../packages/workspace/src/*"
       ]
     }

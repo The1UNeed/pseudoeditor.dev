@@ -1,32 +1,25 @@
+import type { Locale } from "@/i18n/config";
+import { docsZh, faqZh, postsZh } from "./seo-content.zh";
+
 export const siteUrl = "https://www.pseudoeditor.dev";
 
 export const productName = "PseudoEditor";
 
-export const authorName = "Alex Xin LIU";
+export const organizationName = "PseudoEditor";
 
-export const homeSeoTitle = "PseudoEditor and Compiler - Pseudocode Editor";
+export const authorName = "Alex Xin Liu";
 
-export const homeSeoDescription =
-  "Built by Alex Xin LIU, PseudoEditor is a free, open-source, cross-platform pseudocode compiler and editor to write, run, debug, and learn IGCSE pseudocode.";
+export const githubUrl = "https://github.com/Lumora-Studio/PseudocodeCompiler";
 
-export const seoKeywords = [
-  "PseudoEditor",
-  "pseudocode editor",
-  "pseudocode compiler",
-  "free pseudocode compiler",
-  "open source pseudocode editor",
-  "cross-platform pseudocode editor",
-  "IGCSE pseudocode",
-  "IGCSE pseudocode compiler",
-  "browser pseudocode editor",
-  "browser pseudocode compiler",
-  "pseudo code editor",
-  "pseudo code compiler",
-  "Cambridge pseudocode",
-];
+/** Monitored mailbox for privacy, security, and legal requests. */
+export const contactEmail = "privacy@pseudoeditor.dev";
+
+export const securityEmail = "security@pseudoeditor.dev";
+
+export const productSlogan = "Free and open-source pseudo code editor and compiler.";
 
 export const productTagline =
-  "A free, open-source pseudocode compiler and editor for writing, running, debugging, and learning IGCSE-style pseudocode in the browser.";
+  "A free and open-source pseudo code editor and compiler for writing, running, debugging, and learning structured pseudocode in the browser.";
 
 export type SeoDoc = {
   slug: string;
@@ -90,7 +83,7 @@ OUTPUT "Hello ", Name`,
         heading: "Core statements",
         body: [
           "Use DECLARE for variables, <- for assignment, INPUT for user input, and OUTPUT for displayed values.",
-          "Keywords are intentionally close to Cambridge-style pseudocode conventions so programs stay readable for exam practice.",
+          "Pick Cambridge IGCSE, Cambridge A Level, IB, OCR, or AQA in Settings so the compiler follows that board's notation.",
         ],
         example: `DECLARE Total : INTEGER
 Total <- 0
@@ -198,7 +191,7 @@ OUTPUT Scores[1]`,
     slug: "flowcharts",
     title: "Flowcharts from pseudocode",
     description:
-      "Use PseudoEditor's flowchart mode to reason about process, input/output, and decision nodes.",
+      "Use the PseudoEditor flowchart mode to reason about process, input/output, and decision nodes.",
     updated: "2026-05-04",
     sections: [
       {
@@ -244,6 +237,29 @@ OUTPUT Scores[1]`,
         heading: "Check declarations and block endings",
         body: [
           "Many beginner errors come from using an undeclared variable, mixing value types, or forgetting an ENDIF, NEXT, ENDWHILE, or UNTIL.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "exam-style-practice",
+    title: "How to practise random pseudocode questions",
+    description:
+      "Use PseudoEditor's random practice questions to rehearse IGCSE, O Level, and A Level algorithm tasks in the browser editor.",
+    updated: "2026-09-19",
+    sections: [
+      {
+        heading: "Start with a random task",
+        body: [
+          "Open Practice and click Practice a random question. The page picks an original exam-style task so you cannot memorise a fixed order.",
+          "Filter by topic when you want only loops, arrays, strings, or procedures. Leave the filter on any topic for mixed Paper 2 revision.",
+        ],
+      },
+      {
+        heading: "Write it in the editor",
+        body: [
+          "Each question has a starter file. Open it in the editor, complete the algorithm, then use Run with the sample input.",
+          "Treat the sample output as a first check, then trace one edge case by hand before moving to another question.",
         ],
       },
     ],
@@ -369,13 +385,38 @@ export const posts: SeoPost[] = [
       },
     ],
   },
+  {
+    slug: "random-pseudocode-practice",
+    title: "Why random questions beat a fixed worksheet",
+    description:
+      "A shuffled bank of original pseudocode tasks is closer to an unseen exam paper than repeating the same five examples.",
+    date: "2026-09-19",
+    readingTime: "4 min read",
+    tags: ["Practice", "IGCSE", "Revision"],
+    sections: [
+      {
+        heading: "Unseen is the point",
+        body: [
+          "Exam papers do not reuse last week's worksheet in the same order. Random practice forces you to choose a loop, a condition, or an array traversal from the problem text instead of from memory.",
+        ],
+      },
+      {
+        heading: "Keep the compiler in the loop",
+        body: [
+          "Write the answer in the editor, run it against the sample, then draw another question. The compiler catches missing ENDIF and undeclared names before you practise the same mistake on paper.",
+        ],
+      },
+    ],
+  },
 ];
 
-export const faqItems = [
+export type FaqItem = { question: string; answer: string };
+
+export const faqItems: FaqItem[] = [
   {
-    question: "Is PseudoEditor the same as Pseudocode Compiler?",
+    question: "What is PseudoEditor?",
     answer:
-      "PseudoEditor is the website and browser home for the Pseudocode Compiler app. The compiler, editor, runner, manual, and workspace tools are available in the browser app.",
+      "PseudoEditor is a free and open-source pseudo code editor and compiler. The editor, compiler, runner, flowchart view, manual, and workspace tools all run in the browser app.",
   },
   {
     question: "Can I run pseudocode in the browser?",
@@ -390,14 +431,50 @@ export const faqItems = [
   {
     question: "Is this only for IGCSE Computer Science?",
     answer:
-      "The syntax and manual are designed around IGCSE-style pseudocode practice, but the editor is useful for anyone learning structured algorithms.",
+      "No. Settings lets you switch between Cambridge IGCSE, Cambridge AS and A Level, IB Diploma Programme, OCR GCSE, and AQA GCSE notation. The compiler, highlighter, and completions follow the syntax you pick.",
+  },
+  {
+    question: "Which exam boards does the pseudocode follow?",
+    answer:
+      "The syntax follows the Cambridge International pseudocode guide used in IGCSE Computer Science (0478 and 0984), O Level Computer Science (2210), and AS and A Level Computer Science (9618). PseudoEditor is an independent project and is not affiliated with or endorsed by Cambridge.",
+  },
+  {
+    question: "Do I need to install anything?",
+    answer:
+      "No. The editor, compiler, and runtime load in any modern browser on a laptop, Chromebook, or tablet. Nothing is installed and nothing needs to be approved by school IT.",
+  },
+  {
+    question: "Is PseudoEditor really free and open source?",
+    answer:
+      "Yes. PseudoEditor is free to use and the source code is published under the GNU GPL v3 on GitHub. You can read it, run it yourself, and contribute.",
+  },
+  {
+    question: "Can I practise random exam-style questions?",
+    answer:
+      "Yes. The practice page draws an original IGCSE, O Level, or A Level style task at random. You can filter by topic, open a starter file in the editor, and run your answer in the browser.",
   },
 ];
 
-export function getDoc(slug: string) {
-  return docs.find((doc) => doc.slug === slug);
+const docsByLocale: Record<Locale, SeoDoc[]> = { en: docs, zh: docsZh };
+const postsByLocale: Record<Locale, SeoPost[]> = { en: posts, zh: postsZh };
+const faqByLocale: Record<Locale, FaqItem[]> = { en: faqItems, zh: faqZh };
+
+export function getDocs(locale: Locale): SeoDoc[] {
+  return docsByLocale[locale];
 }
 
-export function getPost(slug: string) {
-  return posts.find((post) => post.slug === slug);
+export function getPosts(locale: Locale): SeoPost[] {
+  return postsByLocale[locale];
+}
+
+export function getFaq(locale: Locale): FaqItem[] {
+  return faqByLocale[locale];
+}
+
+export function getDoc(locale: Locale, slug: string) {
+  return getDocs(locale).find((doc) => doc.slug === slug);
+}
+
+export function getPost(locale: Locale, slug: string) {
+  return getPosts(locale).find((post) => post.slug === slug);
 }

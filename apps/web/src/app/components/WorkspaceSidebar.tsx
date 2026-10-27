@@ -26,9 +26,10 @@ import {
   getChildNodes,
   type WorkspaceNode,
   type WorkspaceState,
-} from "@igcse/workspace";
+} from "@pseudoeditor/workspace";
 import packageJson from "../../../package.json";
 import { supportsDesktopNativeDragAndDrop } from "@/lib/appleTouch";
+import { useDictionary } from "@/i18n/context";
 
 interface WorkspaceSidebarProps {
   workspace: WorkspaceState;
@@ -73,7 +74,7 @@ interface SelectionModifierState {
 const CONTEXT_MENU_WIDTH = 248;
 const CONTEXT_MENU_HEIGHT = 320;
 const CONTEXT_MENU_MARGIN = 14;
-const EXPLORER_RELEASE_LABEL = `${packageJson.version}-Preveiw`;
+const EXPLORER_RELEASE_LABEL = `${packageJson.version}-Preview`;
 const DRAG_EDGE_SCROLL_ZONE = 34;
 const DRAG_EDGE_SCROLL_STEP = 14;
 
@@ -161,6 +162,7 @@ export function WorkspaceSidebar({
   onDeleteNodes,
   onMoveNodes,
 }: WorkspaceSidebarProps) {
+  const t = useDictionary().editor;
   const flattened = useMemo(() => flattenVisibleNodes(workspace), [workspace]);
   const visibleNodeIds = useMemo(() => flattened.map(({ node }) => node.id), [flattened]);
   const [selectionState, setSelectionState] = useState<string[]>(
@@ -869,29 +871,29 @@ export function WorkspaceSidebar({
       {/* Sidebar Header */}
       <div className="flex h-10 items-center gap-2 px-4">
         <div className="flex min-w-0 flex-col items-start">
-          <span className="text-[11px] font-semibold tracking-[0.8px] text-[var(--text2)]">Explorer</span>
+          <span className="text-[11px] font-semibold tracking-[0.8px] text-[var(--text2)]">{t.files.explorer}</span>
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-1">
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-lg px-2 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
-            aria-label="Create File"
-            title="Create File"
+            aria-label={t.files.createFile}
+            title={t.files.createFile}
             onClick={() => onCreateDocument(createTargetParentId)}
           >
             <Plus size={16} />
-            <span className="text-[11px] font-medium">File</span>
+            <span className="text-[11px] font-medium">{t.files.file}</span>
           </button>
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-lg px-2 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
-            aria-label="Create Folder"
-            title="Create Folder"
+            aria-label={t.files.createFolder}
+            title={t.files.createFolder}
             onClick={() => onCreateFolder(createTargetParentId)}
           >
             <FolderPlus size={16} />
-            <span className="text-[11px] font-medium">Folder</span>
+            <span className="text-[11px] font-medium">{t.files.folder}</span>
           </button>
         </div>
       </div>
@@ -986,6 +988,7 @@ export function WorkspaceSidebar({
 
                   <button
                     type="button"
+                    data-workspace-item="true"
                     className="min-w-0 flex-1 text-left"
                     onClick={(event) => handleNodeClick(event, node)}
                     onDoubleClick={(event) => {
@@ -1026,7 +1029,7 @@ export function WorkspaceSidebar({
       {contextMenu ? (
         <div
           role="menu"
-          aria-label="Explorer actions"
+          aria-label={t.files.explorerActions}
           className="fixed z-[var(--z-dropdown)] w-[248px] overflow-hidden rounded-lg border border-[var(--surface3)] bg-[var(--surface)] shadow-[var(--shadow-dropdown)]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
@@ -1035,13 +1038,13 @@ export function WorkspaceSidebar({
           <div className="border-b border-[var(--separator)] bg-[var(--surface2)] px-3 py-2.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
               {contextMenu.selection.length > 1
-                ? `${contextMenu.selection.length} items selected`
+                ? t.files.itemsSelected(contextMenu.selection.length)
                 : contextNode?.type === "folder"
-                  ? "Folder actions"
-                  : "File actions"}
+                  ? t.files.folderActions
+                  : t.files.fileActions}
             </p>
             <p className="mt-1 truncate text-sm font-semibold text-[var(--text)]">
-              {contextMenu.selection.length > 1 ? "Batch actions" : contextNode?.name}
+              {contextMenu.selection.length > 1 ? t.files.batchActions : contextNode?.name}
             </p>
           </div>
           <div className="p-1.5">
@@ -1049,6 +1052,7 @@ export function WorkspaceSidebar({
               <>
                 <button
                   type="button"
+                  role="menuitem"
                   className={contextMenuButtonClassName}
                   style={{ color: "var(--text)" }}
                   onClick={() => {
@@ -1056,10 +1060,11 @@ export function WorkspaceSidebar({
                     setContextMenu(null);
                   }}
                 >
-                  New File Here
+                  {t.files.newFileHere}
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   className={contextMenuButtonClassName}
                   style={{ color: "var(--text)" }}
                   onClick={() => {
@@ -1067,10 +1072,11 @@ export function WorkspaceSidebar({
                     setContextMenu(null);
                   }}
                 >
-                  New Folder Here
+                  {t.files.newFolderHere}
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   className={contextMenuButtonClassName}
                   style={{ color: "var(--text)" }}
                   onClick={() => {
@@ -1078,7 +1084,7 @@ export function WorkspaceSidebar({
                     setContextMenu(null);
                   }}
                 >
-                  {(workspace.expandedFolderIds ?? []).includes(contextNode.id) ? "Collapse Folder" : "Expand Folder"}
+                  {(workspace.expandedFolderIds ?? []).includes(contextNode.id) ? t.files.collapseFolder : t.files.expandFolder}
                 </button>
                 <div className="my-1 h-px bg-[var(--separator)]" />
               </>
@@ -1087,6 +1093,7 @@ export function WorkspaceSidebar({
               <>
                 <button
                   type="button"
+                  role="menuitem"
                   className={contextMenuButtonClassName}
                   disabled={!canMoveContextNodeUp}
                   style={{
@@ -1099,10 +1106,11 @@ export function WorkspaceSidebar({
                     setContextMenu(null);
                   }}
                 >
-                  Move Up
+                  {t.files.moveUp}
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   className={contextMenuButtonClassName}
                   disabled={!canMoveContextNodeDown}
                   style={{
@@ -1115,39 +1123,42 @@ export function WorkspaceSidebar({
                     setContextMenu(null);
                   }}
                 >
-                  Move Down
+                  {t.files.moveDown}
                 </button>
               </>
             ) : null}
             <button
               type="button"
-              className={contextMenuButtonClassName}
+              role="menuitem"
+                  className={contextMenuButtonClassName}
               style={{ color: "var(--text)" }}
               onClick={() => moveSelectionToTopLevel(contextMenu.selection)}
             >
-              Move to Top Level
+              {t.files.moveTopLevel}
             </button>
             {contextMenu.selection.length === 1 ? (
               <button
                 type="button"
-                className={contextMenuButtonClassName}
+                role="menuitem"
+                  className={contextMenuButtonClassName}
                 style={{ color: "var(--text)" }}
                 onClick={() => {
                   onRenameNode(contextMenu.nodeId);
                   setContextMenu(null);
                 }}
               >
-                Rename
+                {t.files.rename}
               </button>
             ) : null}
             <div className="my-1 h-px bg-[var(--separator)]" />
             <button
               type="button"
+              role="menuitem"
               className={contextMenuDangerButtonClassName}
               style={{ color: "var(--red)" }}
               onClick={handleDeleteSelection}
             >
-              {contextMenu.selection.length > 1 ? `Delete ${contextMenu.selection.length} items` : "Delete"}
+              {contextMenu.selection.length > 1 ? t.files.deleteItems(contextMenu.selection.length) : t.common.delete}
             </button>
           </div>
         </div>

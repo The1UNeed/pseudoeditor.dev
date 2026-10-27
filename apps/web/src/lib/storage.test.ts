@@ -4,7 +4,7 @@ import {
   createEmptyWorkspace,
   getActiveDocument,
   updateDocumentSource,
-} from "@igcse/workspace";
+} from "@pseudoeditor/workspace";
 
 const dbStore = new Map<string, unknown>();
 const localStore = new Map<string, string>();

@@ -5,7 +5,7 @@ import {
   createDocument,
   createFolder,
   type WorkspaceState,
-} from "@igcse/workspace";
+} from "@pseudoeditor/workspace";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
 
 function createWorkspaceFixture() {
@@ -117,7 +117,7 @@ describe("WorkspaceSidebar", () => {
       });
 
       expect(screen.getByRole("menu", { name: "Explorer actions" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Rename" })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
@@ -135,7 +135,7 @@ describe("WorkspaceSidebar", () => {
 
     expect(screen.getByText("2 items selected")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete 2 items" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete 2 items" }));
 
     expect(props.onDeleteNodes).toHaveBeenCalledWith(["doc-main", "doc-second"]);
   });
@@ -170,7 +170,7 @@ describe("WorkspaceSidebar", () => {
 
       expect(screen.getByText("2 items selected")).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Delete 2 items" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Delete 2 items" }));
 
       expect(props.onDeleteNodes).toHaveBeenCalledWith(["doc-main", "doc-second"]);
     } finally {

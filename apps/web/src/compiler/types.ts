@@ -1,4 +1,7 @@
 export type {
+  SyntaxId,
+} from "@pseudoeditor/compiler";
+export type {
   Severity,
   Diagnostic,
   CompileRequest,
@@ -43,4 +46,4 @@ export type {
   FunctionSignature,
   ProcedureSignature,
   SemanticResult,
-} from "@igcse/compiler/types";
+} from "@pseudoeditor/compiler/types";
