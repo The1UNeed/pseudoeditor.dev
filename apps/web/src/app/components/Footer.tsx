@@ -1,33 +1,40 @@
 import Link from "next/link";
 
+const productLinks = [
+  { href: "/app", label: "Editor" },
+  { href: "/docs", label: "Docs" },
+  { href: "/manual", label: "Manual" },
+  { href: "/blog", label: "Blog" },
+];
+
+const resourceLinks = [
+  { href: "https://github.com/The1UNeed/pseudoeditor.dev", label: "GitHub" },
+  { href: "https://github.com/The1UNeed/pseudoeditor.dev/issues", label: "Feedback" },
+];
+
+const linkClassName = "text-[var(--text2)] transition hover:text-[var(--text)]";
+const groupLabelClassName = "text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text3)]";
+
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-[#d7ddd0] bg-[#151716] px-5 py-12 text-[#a3ada7] md:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-10 md:flex-row md:items-start md:justify-between">
+    <footer className="border-t border-[var(--separator)] bg-[var(--sidebar)] px-4 py-10 md:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
         <div className="max-w-sm">
-          <p className="text-lg font-black text-white">PseudoEditor</p>
-          <p className="mt-3 text-sm leading-6">
+          <p className="text-sm font-semibold text-[var(--text)]">PseudoEditor</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
             Write, compile, run, and debug IGCSE-style pseudocode directly in your browser.
           </p>
         </div>
 
-        <nav className="flex flex-wrap gap-8 md:gap-12">
+        <nav className="flex flex-wrap gap-10 md:gap-14">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-white">Product</p>
-            <ul className="mt-4 space-y-3 text-sm">
-              {[
-                { href: "/app", label: "Editor" },
-                { href: "/docs", label: "Docs" },
-                { href: "/manual", label: "Manual" },
-                { href: "/blog", label: "Blog" },
-              ].map((item) => (
+            <p className={groupLabelClassName}>Product</p>
+            <ul className="mt-3 space-y-2 text-sm">
+              {productLinks.map((item) => (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="inline-block transition-all duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-x-0.5 hover:text-white"
-                  >
+                  <Link href={item.href} className={linkClassName}>
                     {item.label}
                   </Link>
                 </li>
@@ -36,25 +43,11 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-white">Resources</p>
-            <ul className="mt-4 space-y-3 text-sm">
-              {[
-                {
-                  href: "https://github.com/The1UNeed/pseudoeditor.dev",
-                  label: "GitHub",
-                },
-                {
-                  href: "https://github.com/The1UNeed/pseudoeditor.dev/issues",
-                  label: "Feedback",
-                },
-              ].map((item) => (
+            <p className={groupLabelClassName}>Resources</p>
+            <ul className="mt-3 space-y-2 text-sm">
+              {resourceLinks.map((item) => (
                 <li key={item.href}>
-                  <a
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block transition-all duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-x-0.5 hover:text-white"
-                  >
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className={linkClassName}>
                     {item.label}
                   </a>
                 </li>
@@ -64,7 +57,7 @@ export function Footer() {
         </nav>
       </div>
 
-      <div className="mx-auto mt-10 flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-white/8 pt-8 text-xs md:flex-row">
+      <div className="mx-auto mt-8 flex max-w-6xl flex-col justify-between gap-2 border-t border-[var(--separator)] pt-6 text-xs text-[var(--text3)] md:flex-row">
         <p>&copy; {year} Alex Xin LIU. Licensed under the Apache License 2.0.</p>
         <p>Built for students and teachers practicing IGCSE pseudocode.</p>
       </div>

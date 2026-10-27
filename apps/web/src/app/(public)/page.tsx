@@ -1,17 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   BookOpen,
-  CheckCircle2,
   Cloud,
   Code2,
-  FileText,
+  FileCode2,
   GitBranch,
   Play,
-  TerminalSquare,
+  Settings,
 } from "lucide-react";
+import { HighlightedPseudocode } from "@/app/(public)/manual/CopyableCodeBlock";
 import { PublicHeader } from "@/app/components/PublicHeader";
+import {
+  PublicListLink,
+  PublicSectionHeading,
+  publicEyebrowClassName,
+  publicListClassName,
+  publicMainClassName,
+  publicPrimaryButtonClassName,
+  publicSecondaryButtonClassName,
+} from "@/app/components/PublicUi";
 import {
   docs,
   faqItems,
@@ -149,30 +159,7 @@ function JsonLd() {
   );
 }
 
-function EditorBackdrop() {
-  return (
-    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="absolute inset-0 bg-[#101214]" />
-      <div className="absolute inset-x-0 top-0 h-20 bg-[#0b6e4f]" />
-      <div className="absolute left-1/2 top-16 w-[min(1120px,92vw)] -translate-x-1/2 overflow-hidden rounded-lg border border-white/14 bg-[#191d1d] shadow-2xl">
-        <div className="flex h-10 items-center gap-2 border-b border-white/10 bg-[#242827] px-4">
-          <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-          <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-          <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-          <span className="ml-4 text-xs font-semibold text-white/64">main.pseudo</span>
-        </div>
-        <div className="grid min-h-[520px] grid-cols-[220px_1fr]">
-          <aside className="hidden border-r border-white/10 bg-[#222625] p-4 text-xs text-white/55 md:block">
-            <div className="mb-4 font-semibold uppercase text-white/80">Workspace</div>
-            <div className="space-y-2">
-              <div className="rounded bg-white/8 px-3 py-2 text-white">main.pseudo</div>
-              <div className="px-3 py-2">loops.pseudo</div>
-              <div className="px-3 py-2">array-search.pseudo</div>
-            </div>
-          </aside>
-          <div className="grid grid-rows-[1fr_150px]">
-            <pre className="m-0 overflow-hidden p-6 font-mono text-sm leading-7 text-[#e5e5ea] opacity-90 md:text-base">
-{`DECLARE Number : INTEGER
+const previewSource = `DECLARE Number : INTEGER
 DECLARE Total : INTEGER
 Total <- 0
 
@@ -180,164 +167,195 @@ FOR Number <- 1 TO 5
     Total <- Total + Number
 NEXT Number
 
-OUTPUT "Total = ", Total`}
-            </pre>
-            <div className="border-t border-white/10 bg-[#111313] p-4 font-mono text-sm text-[#30d158]">
-              <div className="mb-2 flex items-center gap-2 text-white/60">
-                <TerminalSquare size={16} /> Terminal
-              </div>
-              <div>&gt; Total = 15</div>
+OUTPUT "Total = ", Total`;
+
+const textLinkClassName =
+  "inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] transition hover:brightness-110";
+
+const previewFiles = ["main.pseudo", "loops.pseudo", "array-search.pseudo"];
+
+/** A static replica of the /app workspace window. */
+function EditorPreview() {
+  const lineCount = previewSource.split("\n").length;
+
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border border-[var(--separator)] bg-[var(--bg)] shadow-[var(--shadow-xl)]"
+      aria-hidden="true"
+    >
+      <div className="flex h-[52px] items-center border-b border-[var(--separator)] bg-[var(--titlebar)] px-4">
+        <div className="flex w-[120px] items-center gap-2">
+          <span className="window-dot bg-[var(--traffic-red)]" />
+          <span className="window-dot bg-[var(--traffic-yellow)]" />
+          <span className="window-dot bg-[var(--traffic-green)]" />
+        </div>
+        <p className="flex-1 text-center text-[13px] font-medium text-[var(--text2)]">
+          Pseudocode Compiler
+        </p>
+        <div className="flex w-[120px] items-center justify-end gap-2.5 text-[var(--text3)]">
+          <BookOpen size={16} />
+          <Settings size={16} />
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--green)] text-white">
+            <Play size={13} fill="currentColor" />
+          </span>
+        </div>
+      </div>
+      <div className="grid md:grid-cols-[220px_1fr]">
+        <aside className="hidden border-r border-[var(--separator)] bg-[var(--sidebar)] px-2 py-3 md:block">
+          <p className="px-2 pb-2 text-[11px] font-semibold text-[var(--text2)]">Explorer</p>
+          {previewFiles.map((file, index) => (
+            <div
+              key={file}
+              className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] ${
+                index === 0
+                  ? "bg-[var(--selected)] text-[var(--text)]"
+                  : "text-[var(--text2)]"
+              }`}
+            >
+              <FileCode2 size={14} className="shrink-0 text-[var(--accent)]" />
+              {file}
             </div>
+          ))}
+        </aside>
+        <div className="min-w-0">
+          <div className="flex h-10 items-end border-b border-[var(--separator)] bg-[var(--surface)] px-2">
+            <span className="rounded-t-lg border border-b-0 border-[var(--separator)] bg-[var(--bg)] px-3 py-2 text-xs font-medium text-[var(--text)]">
+              main.pseudo
+            </span>
+          </div>
+          <div className="flex overflow-hidden py-4 font-mono text-[13px] leading-6">
+            <div className="select-none px-4 text-right text-[var(--line-num)]">
+              {Array.from({ length: lineCount }, (_, index) => (
+                <div key={index}>{index + 1}</div>
+              ))}
+            </div>
+            <pre className="m-0 min-w-0 flex-1 overflow-hidden pr-4 text-[var(--code-text)]">
+              <code>
+                <HighlightedPseudocode code={previewSource} />
+              </code>
+            </pre>
+          </div>
+          <div className="border-t border-[var(--separator)] bg-[var(--surface)] px-4 py-3 font-mono text-[13px]">
+            <p className="mb-1.5 font-sans text-xs font-semibold text-[var(--text2)]">Terminal</p>
+            <p className="text-[var(--text)]">Total = 15</p>
+            <p className="text-[var(--text3)]">Program finished</p>
           </div>
         </div>
       </div>
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(16,18,20,0.94),rgba(16,18,20,0.76)_45%,rgba(16,18,20,0.22))]" />
     </div>
   );
 }
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#f7f8f3] text-[#151716]">
+    <main className={publicMainClassName}>
       <JsonLd />
-      <section className="relative min-h-[88vh] overflow-hidden text-white">
-        <EditorBackdrop />
-        <PublicHeader />
+      <PublicHeader />
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(88vh-80px)] max-w-7xl items-center px-5 pb-20 pt-16 md:px-8">
-          <div className="max-w-2xl">
-            <p className="mb-5 inline-flex rounded-md border border-white/18 bg-white/8 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#dce8d1]">
-              Free pseudocode compiler and editor
-            </p>
-            <h1 className="text-5xl font-black leading-[1.02] md:text-7xl">
-              PseudoEditor and Compiler
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-white/78 md:text-xl">
-              Built by Alex Xin LIU, PseudoEditor is a free, open-source pseudocode compiler and editor for writing, running, debugging, and learning IGCSE-style pseudocode anywhere.
-            </p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/app"
-                className="cta-primary group inline-flex h-12 items-center gap-2 rounded-md bg-[#dce8d1] px-5 text-sm font-black text-[#111313] hover:bg-white"
-              >
-                Launch editor
-                <Play
-                  size={17}
-                  className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110"
-                />
-              </Link>
-              <Link
-                href="/docs"
-                className="inline-flex h-12 items-center gap-2 rounded-md border border-white/22 px-5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/10 hover:border-white/35"
-              >
-                Read docs <BookOpen size={17} />
-              </Link>
-            </div>
+      <section className="px-4 pb-16 pt-14 md:px-6 md:pt-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <Image
+            src="/branding/app-icon-128.png"
+            alt=""
+            width={56}
+            height={56}
+            className="mx-auto h-14 w-14"
+            priority
+          />
+          <p className={`mt-6 ${publicEyebrowClassName}`}>Free pseudocode compiler and editor</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
+            PseudoEditor and Compiler
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[var(--text2)] md:text-lg md:leading-8">
+            Built by Alex Xin LIU, PseudoEditor is a free, open-source pseudocode compiler and editor for writing, running, debugging, and learning IGCSE-style pseudocode anywhere.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-2.5">
+            <Link href="/app" className={publicPrimaryButtonClassName}>
+              <Play size={16} />
+              Launch editor
+            </Link>
+            <Link href="/docs" className={publicSecondaryButtonClassName}>
+              Read docs
+            </Link>
           </div>
+        </div>
+
+        <div className="mx-auto mt-14 max-w-6xl">
+          <EditorPreview />
         </div>
       </section>
 
-      <section className="border-b border-[#d7ddd0] bg-[#eef3e9] px-5 py-14 md:px-8">
-        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-4">
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <article
-                key={feature.title}
-                className="feature-card rounded-lg border border-[#d7ddd0] bg-white p-5 shadow-sm"
-              >
-                <div className="mb-5 inline-flex rounded-lg bg-[#eef3e9] p-2.5">
-                  <Icon className="text-[#0b6e4f]" size={22} />
-                </div>
-                <h2 className="text-lg font-black">{feature.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-[#4b5650]">{feature.body}</p>
+              <article key={feature.title}>
+                <Icon size={20} className="text-[var(--accent)]" />
+                <h2 className="mt-3 text-base font-semibold">{feature.title}</h2>
+                <p className="mt-1.5 text-sm leading-6 text-[var(--text2)]">{feature.body}</p>
               </article>
             );
           })}
         </div>
       </section>
 
-      <section className="px-5 py-16 md:px-8">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b3412e]">
-              Learn while you build
-            </p>
-            <h2 className="mt-3 text-3xl font-black md:text-5xl">
-              Docs and examples beside the app.
-            </h2>
-            <p className="mt-5 max-w-xl leading-7 text-[#4b5650]">
+            <PublicSectionHeading eyebrow="Learn while you build" title="Docs and examples beside the app." />
+            <p className="mt-4 max-w-md text-sm leading-6 text-[var(--text2)]">
               The new pseudoeditor.dev site gives search engines useful learning pages while giving students a direct path from explanation to practice.
             </p>
-            <Link
-              href="/manual"
-              className="group mt-7 inline-flex items-center gap-2 rounded-md bg-[#151716] px-4 py-3 text-sm font-bold text-white transition-all duration-300 hover:bg-[#1f2421] hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:translate-y-[1px] active:scale-[0.98]"
-            >
-              Open manual
-              <FileText
-                size={16}
-                className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5"
-              />
+            <Link href="/manual" className={`mt-6 ${textLinkClassName}`}>
+              Open manual <ArrowRight size={15} />
             </Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className={publicListClassName}>
             {docs.slice(0, 4).map((doc) => (
-              <Link
+              <PublicListLink
                 key={doc.slug}
                 href={`/docs/${doc.slug}`}
-                className="doc-card rounded-lg border border-[#d7ddd0] bg-white p-5"
-              >
-                <CheckCircle2 className="mb-4 text-[#1f4e79]" size={22} />
-                <h3 className="font-black">{doc.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#5c665f]">{doc.description}</p>
-              </Link>
+                title={doc.title}
+                description={doc.description}
+              />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-y border-[#d7ddd0] bg-white px-5 py-16 md:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="flex flex-wrap items-end justify-between gap-5">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0b6e4f]">Blog</p>
-              <h2 className="mt-3 text-3xl font-black md:text-5xl">Pseudocode practice notes.</h2>
-            </div>
-            <Link
-              href="/blog"
-              className="group inline-flex items-center gap-2 text-sm font-black text-[#0b6e4f] transition-all duration-300 hover:gap-3"
-            >
-              View all posts
-              <ArrowRight
-                size={16}
-                className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5"
-              />
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <PublicSectionHeading eyebrow="Blog" title="Pseudocode practice notes." />
+            <Link href="/blog" className={`mt-6 ${textLinkClassName}`}>
+              View all posts <ArrowRight size={15} />
             </Link>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className={publicListClassName}>
             {posts.slice(0, 3).map((post) => (
-              <Link
+              <PublicListLink
                 key={post.slug}
                 href={`/blog/${post.slug}`}
-                className="blog-card rounded-lg border border-[#d7ddd0] bg-[#f7f8f3] p-5"
-              >
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#b3412e]">{post.readingTime}</p>
-                <h3 className="mt-3 text-xl font-black">{post.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-[#5c665f]">{post.description}</p>
-              </Link>
+                meta={post.readingTime}
+                title={post.title}
+                description={post.description}
+              />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="px-5 py-16 md:px-8">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="text-3xl font-black md:text-4xl">Questions</h2>
-          <div className="mt-6 divide-y divide-[#d7ddd0] rounded-lg border border-[#d7ddd0] bg-white">
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+          <PublicSectionHeading eyebrow="FAQ" title="Questions" />
+          <div className={publicListClassName}>
             {faqItems.map((item) => (
-              <details key={item.question} className="group p-5">
-                <summary className="cursor-pointer font-black transition-colors duration-200 hover:text-[#0b6e4f]">{item.question}</summary>
-                <p className="mt-3 leading-7 text-[#4b5650]">{item.answer}</p>
+              <details key={item.question} className="py-4">
+                <summary className="cursor-pointer text-sm font-semibold transition hover:text-[var(--accent)]">
+                  {item.question}
+                </summary>
+                <p className="mt-2 text-sm leading-6 text-[var(--text2)]">{item.answer}</p>
               </details>
             ))}
           </div>

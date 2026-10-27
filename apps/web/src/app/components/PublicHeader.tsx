@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { Play } from "lucide-react";
 
 type PublicHeaderProps = {
   active?: "docs" | "blog" | "manual";
@@ -14,31 +14,22 @@ const navItems = [
 
 export function PublicHeader({ active }: PublicHeaderProps) {
   return (
-    <header className="relative z-20 border-b border-white/8 bg-[#0f1615] text-white shadow-[0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="absolute inset-0 bg-[linear-gradient(100deg,#101315_0%,#103c31_56%,#0b6e4f_100%)] opacity-95" />
-      <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-8">
-        <Link
-          href="/"
-          className="group flex items-center gap-3 font-bold transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.02]"
-        >
-          <Image
-            src="/branding/app-icon-128.png"
-            alt=""
-            width={36}
-            height={36}
-            className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[-4deg]"
-          />
-          <span className="transition-colors duration-200">PseudoEditor</span>
+    <header className="sticky top-0 z-[var(--z-sticky)] border-b border-[var(--separator)] bg-[var(--titlebar)] px-4 md:px-6">
+      <nav className="mx-auto flex h-[52px] max-w-6xl items-center gap-4">
+        <Link href="/" aria-label="PseudoEditor home" className="flex items-center gap-2 transition hover:opacity-80">
+          <Image src="/branding/app-icon-128.png" alt="" width={24} height={24} className="h-6 w-6" />
+          <span className="hidden text-[13px] font-semibold text-[var(--text)] sm:inline">PseudoEditor</span>
         </Link>
-        <div className="hidden items-center gap-8 text-sm font-semibold text-white/76 md:flex">
+        <div className="flex flex-1 items-center justify-center gap-1">
           {navItems.map((item) => (
             <Link
               key={item.key}
               href={item.href}
-              className={`nav-link relative py-1 transition-colors duration-250 ${
+              aria-current={active === item.key ? "page" : undefined}
+              className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${
                 active === item.key
-                  ? "text-white"
-                  : "hover:text-white"
+                  ? "bg-[var(--selected)] text-[var(--text)]"
+                  : "text-[var(--text2)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
               }`}
             >
               {item.label}
@@ -47,9 +38,11 @@ export function PublicHeader({ active }: PublicHeaderProps) {
         </div>
         <Link
           href="/app"
-          className="cta-primary inline-flex h-10 items-center gap-2 rounded-md bg-white px-4 text-sm font-bold text-[#151716] hover:bg-[#dce8d1]"
+          aria-label="Open editor"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-semibold text-white transition hover:brightness-110"
         >
-          Open app <ArrowRight size={16} className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5" />
+          <Play size={14} />
+          <span className="hidden sm:inline">Open editor</span>
         </Link>
       </nav>
     </header>

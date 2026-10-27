@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, Code2, FileText, GitBranch, Play } from "lucide-react";
+import { ArrowRight, BookOpen, Code2, FileText, GitBranch, Play } from "lucide-react";
+import CopyableCodeBlock from "@/app/(public)/manual/CopyableCodeBlock";
 import { PublicHeader } from "@/app/components/PublicHeader";
+import {
+  PublicPageIntro,
+  PublicSectionHeading,
+  publicListClassName,
+  publicMainClassName,
+  publicPrimaryButtonClassName,
+  publicSecondaryButtonClassName,
+} from "@/app/components/PublicUi";
 import { siteUrl } from "@/lib/seo-content";
 
 export const metadata: Metadata = {
@@ -84,84 +93,76 @@ const structuredData = {
 
 export default function ManualPage() {
   return (
-    <main className="min-h-screen bg-[#f7f8f3] text-[#151716]">
+    <main className={publicMainClassName}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <PublicHeader active="manual" />
 
-      <section className="mx-auto max-w-6xl px-5 py-14">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0b6e4f]">Manual</p>
-        <h1 className="mt-3 text-4xl font-black md:text-6xl">Pseudocode manual for practical writing.</h1>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-[#4b5650]">
-          A managed reference for the syntax, control flow, and tracing habits used across PseudoEditor. Keep it open beside the browser editor while you practise.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/app" className="inline-flex items-center gap-2 rounded-md bg-[#151716] px-4 py-3 text-sm font-bold text-white">
-            Open editor <Play size={16} />
-          </Link>
-          <Link href="/docs" className="inline-flex items-center gap-2 rounded-md border border-[#c7d0c0] px-4 py-3 text-sm font-bold text-[#151716]">
-            Browse docs <ArrowRight size={16} />
-          </Link>
+      <PublicPageIntro
+        eyebrow="Manual"
+        title="Pseudocode manual for practical writing."
+        description="A managed reference for the syntax, control flow, and tracing habits used across PseudoEditor. Keep it open beside the browser editor while you practise."
+      >
+        <Link href="/app" className={publicPrimaryButtonClassName}>
+          <Play size={15} /> Open editor
+        </Link>
+        <Link href="/docs" className={publicSecondaryButtonClassName}>
+          Browse docs <ArrowRight size={15} />
+        </Link>
+      </PublicPageIntro>
+
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-x-12 gap-y-10 md:grid-cols-2">
+          {manualSections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <article key={section.title}>
+                <Icon size={20} className="text-[var(--accent)]" />
+                <h2 className="mt-3 text-lg font-semibold">{section.title}</h2>
+                <p className="mt-1.5 text-sm leading-6 text-[var(--text2)]">{section.body}</p>
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[var(--text2)] marker:text-[var(--text3)]">
+                  {section.bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-4 px-5 pb-16 md:grid-cols-2">
-        {manualSections.map((section) => {
-          const Icon = section.icon;
-          return (
-            <article key={section.title} className="rounded-lg border border-[#d7ddd0] bg-white p-6 transition hover:border-[#0b6e4f]">
-              <Icon className="mb-5 text-[#1f4e79]" size={24} />
-              <h2 className="text-2xl font-black">{section.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-[#4b5650]">{section.body}</p>
-              <ul className="mt-5 space-y-2">
-                {section.bullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2 text-sm font-bold text-[#4b5650]">
-                    <CheckCircle2 className="mt-0.5 shrink-0 text-[#0b6e4f]" size={16} />
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="border-y border-[#d7ddd0] bg-white px-5 py-16">
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
         <div className="mx-auto max-w-6xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b3412e]">Examples</p>
-          <h2 className="mt-3 text-3xl font-black md:text-5xl">Small patterns you can run.</h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <PublicSectionHeading eyebrow="Examples" title="Small patterns you can run." />
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
             {examples.map((example) => (
-              <article key={example.title} className="rounded-lg border border-[#d7ddd0] bg-[#f7f8f3] p-5">
-                <h3 className="text-xl font-black">{example.title}</h3>
-                <pre className="mt-5 overflow-x-auto rounded-md bg-[#151716] p-4 font-mono text-sm leading-6 text-[#dce8d1]">
-                  {example.code}
-                </pre>
+              <article key={example.title}>
+                <h3 className="text-sm font-semibold">{example.title}</h3>
+                <CopyableCodeBlock code={example.code} className="mt-3" />
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-16 lg:grid-cols-[0.85fr_1.15fr]">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0b6e4f]">Before you submit</p>
-          <h2 className="mt-3 text-3xl font-black md:text-5xl">A compact checking routine.</h2>
-          <p className="mt-5 leading-7 text-[#4b5650]">
-            Treat the manual as a working checklist, not a long rules page. Write the algorithm, run it, then trace the parts that change state.
-          </p>
-        </div>
-        <div className="rounded-lg border border-[#d7ddd0] bg-white p-6">
-          <ul className="space-y-4">
-            {checklist.map((item) => (
-              <li key={item} className="flex items-start gap-3 text-sm font-bold leading-6 text-[#4b5650]">
-                <CheckCircle2 className="mt-0.5 shrink-0 text-[#0b6e4f]" size={18} />
+      <section className="border-t border-[var(--separator)] px-4 py-14 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <PublicSectionHeading eyebrow="Before you submit" title="A compact checking routine." />
+            <p className="mt-4 text-sm leading-6 text-[var(--text2)]">
+              Treat the manual as a working checklist, not a long rules page. Write the algorithm, run it, then trace the parts that change state.
+            </p>
+          </div>
+          <ol className={publicListClassName}>
+            {checklist.map((item, index) => (
+              <li key={item} className="flex items-baseline gap-4 py-3.5 text-sm leading-6 text-[var(--text2)]">
+                <span className="w-4 shrink-0 font-mono text-xs text-[var(--text3)]">{index + 1}</span>
                 <span>{item}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       </section>
     </main>

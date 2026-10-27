@@ -43,6 +43,7 @@ import {
   type WorkspaceEditorPanelInstance,
 } from "@igcse/workspace";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
+import { EditorLoader } from "@/app/components/EditorLoader";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
 import ManualContent from "@/app/(public)/manual/ManualContent";
 import { useWorkspaceSession } from "@/app/hooks/useWorkspaceSession";
@@ -99,15 +100,6 @@ const PSEUDO_EXTENSION = ".pseudo";
 type TouchTab = "editor" | "files" | "output" | "settings";
 type ManualSaveStatus = "idle" | "saving" | "saved" | "error";
 
-function LazyPanelFallback({ label }: { label: string }) {
-  return (
-    <div className="flex h-full min-h-[240px] items-center justify-center bg-[var(--bg)] text-sm font-medium text-[var(--text2)]">
-      <LoaderCircle className="mr-2 animate-spin" size={16} />
-      {label}
-    </div>
-  );
-}
-
 const MonacoPseudocodeEditor = dynamic(
   () =>
     import("@/app/components/MonacoPseudocodeEditor").then(
@@ -115,13 +107,13 @@ const MonacoPseudocodeEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <LazyPanelFallback label="Loading editor" />,
+    loading: () => <EditorLoader />,
   },
 );
 
 const FlowchartEditor = dynamic(() => import("@/app/components/flowchart/FlowchartEditor"), {
   ssr: false,
-  loading: () => <LazyPanelFallback label="Loading flowchart" />,
+  loading: () => <EditorLoader />,
 });
 
 /* ── dialog state types ── */
@@ -1119,7 +1111,7 @@ export default function HomePage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="workspace-manual-title"
-          className="mx-auto h-full w-full max-w-6xl overflow-auto bg-[#f7f8f3] shadow-[var(--shadow-modal)] md:rounded-[24px] md:border md:border-[#d7ddd0]"
+          className="mx-auto h-full w-full max-w-6xl overflow-auto bg-[var(--bg)] shadow-[var(--shadow-modal)] md:rounded-[24px] md:border md:border-[var(--separator)]"
         >
           <h2 id="workspace-manual-title" className="sr-only">
             Pseudocode manual
@@ -1521,20 +1513,8 @@ export default function HomePage() {
 
   if (!workspace) {
     return (
-      <main className="min-h-dvh bg-[var(--bg)]">
-        <div className="flex min-h-dvh items-center justify-center px-4 py-10">
-          <section className="w-full max-w-lg rounded-xl border border-[var(--separator)] bg-[var(--surface)] p-6">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
-              Workspace
-            </p>
-            <h1 className="mt-3 text-2xl font-semibold text-[var(--text)]">
-              Loading workspace…
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-[var(--text2)]">
-              Preparing the editor layout and runtime panels.
-            </p>
-          </section>
-        </div>
+      <main>
+        <EditorLoader fullScreen />
       </main>
     );
   }

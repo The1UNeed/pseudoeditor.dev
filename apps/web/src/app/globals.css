@@ -424,31 +424,7 @@ code {
 /* ── Manual / Guidelines Design System ────────────────────────── */
 
 .manual-shell {
-  --bg: #f7f8f3;
-  --surface: #ffffff;
-  --surface2: #eef3e9;
-  --surface3: #dce8d1;
-  --separator: #d7ddd0;
-  --accent: #0b6e4f;
-  --text: #151716;
-  --text2: #4b5650;
-  --text3: #6b746e;
-  --code-text: #111111;
-  --code-keyword: #9b2d63;
-  --code-type: #0f7a94;
-  --code-func: #7856b3;
-  --code-string: #b45438;
-  --code-number: #8d6a12;
-  --code-operator: #2a241f;
-  --code-comment: #8c7b6a;
-  --code-variable: #2d7a6d;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 0.5rem;
-  --shadow-card: 0 1px 2px rgba(17, 19, 19, 0.06);
-  --shadow-card-hover: 0 10px 26px rgba(17, 19, 19, 0.08);
-  background:
-    linear-gradient(180deg, rgba(238, 243, 233, 0.8), transparent 18rem),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -470,7 +446,7 @@ code {
 
 .manual-card {
   position: relative;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-xl);
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
@@ -500,31 +476,34 @@ code {
     0 0 48px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.manual-shell-modal .manual-container {
+/* Cards render flat, separated by dividers, to match the editor. */
+.manual-shell .manual-container {
   --card-bg: transparent;
-  --card-border: transparent;
   --card-shadow: none;
   --card-shadow-hover: none;
   --card-glow: none;
 }
 
-.manual-shell-modal .manual-card,
-.manual-shell-modal .manual-card:hover,
-.manual-shell-modal .manual-card-accent,
-.manual-shell-modal .manual-card-accent:hover {
+.manual-shell .manual-card,
+.manual-shell .manual-card:hover,
+.manual-shell .manual-card-accent,
+.manual-shell .manual-card-accent:hover {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-  overflow: visible;
   transform: none;
 }
 
-.manual-shell-modal .manual-card > .relative {
+.manual-shell-modal .manual-card {
+  overflow: visible;
+}
+
+.manual-shell .manual-card > .relative {
   padding: 0;
 }
 
-.manual-shell-modal .manual-container > .manual-card:not(:first-child) {
+.manual-shell .manual-container > .manual-card:not(:first-child) {
   padding-top: 1.2rem;
   border-top: 1px solid color-mix(in srgb, var(--separator) 72%, transparent);
   border-radius: 0;
@@ -564,323 +543,10 @@ code {
 }
 
 .manual-code-block {
-  border-radius: var(--radius-xl);
-  background: #ffffff;
-  border: 1px solid color-mix(in srgb, var(--separator) 72%, transparent);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  border: 1px solid var(--separator);
   overflow: hidden;
-}
-
-/* ── Public Site Motion ──────────────────────────────────────── */
-
-.public-motion-shell {
-  overflow-x: clip;
-}
-
-.public-motion-shell :where(header, main > section, main > article, footer) {
-  animation: public-fade-up 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.public-motion-shell main > section:nth-of-type(1),
-.public-motion-shell main > article:nth-of-type(1) {
-  animation-delay: 40ms;
-}
-
-.public-motion-shell main > section:nth-of-type(2) {
-  animation-delay: 120ms;
-}
-
-.public-motion-shell main > section:nth-of-type(3) {
-  animation-delay: 190ms;
-}
-
-.public-motion-shell main > section:nth-of-type(4) {
-  animation-delay: 260ms;
-}
-
-.public-motion-shell footer {
-  animation-delay: 320ms;
-}
-
-.public-motion-shell :where(article, details, a, button) {
-  transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    box-shadow 220ms ease,
-    color 220ms ease,
-    opacity 220ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.public-motion-shell :where(section, article) > :where(div, p, h1, h2, h3, a, ul, pre, details),
-.public-motion-shell :where(section, article) :where(article, details),
-.public-motion-shell :where(section, article) :where(a.rounded-lg, a.rounded-md, a.inline-flex) {
-  animation: public-soft-reveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.public-motion-shell :where(section, article) > :where(div, p, h1, h2, h3, a, ul, pre, details):nth-child(1),
-.public-motion-shell :where(section, article) :where(article, details):nth-child(1),
-.public-motion-shell :where(section, article) :where(a.rounded-lg, a.rounded-md, a.inline-flex):nth-child(1) {
-  animation-delay: 80ms;
-}
-
-.public-motion-shell :where(section, article) > :where(div, p, h1, h2, h3, a, ul, pre, details):nth-child(2),
-.public-motion-shell :where(section, article) :where(article, details):nth-child(2),
-.public-motion-shell :where(section, article) :where(a.rounded-lg, a.rounded-md, a.inline-flex):nth-child(2) {
-  animation-delay: 140ms;
-}
-
-.public-motion-shell :where(section, article) > :where(div, p, h1, h2, h3, a, ul, pre, details):nth-child(3),
-.public-motion-shell :where(section, article) :where(article, details):nth-child(3),
-.public-motion-shell :where(section, article) :where(a.rounded-lg, a.rounded-md, a.inline-flex):nth-child(3) {
-  animation-delay: 200ms;
-}
-
-.public-motion-shell :where(section, article) > :where(div, p, h1, h2, h3, a, ul, pre, details):nth-child(n + 4),
-.public-motion-shell :where(section, article) :where(article, details):nth-child(n + 4),
-.public-motion-shell :where(section, article) :where(a.rounded-lg, a.rounded-md, a.inline-flex):nth-child(n + 4) {
-  animation-delay: 260ms;
-}
-
-.public-motion-shell :where(a.rounded-lg, article.rounded-lg, details) {
-  transition:
-    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 320ms ease,
-    background-color 320ms ease;
-}
-
-.public-motion-shell :where(a.rounded-lg, article.rounded-lg, details):hover {
-  transform: translateY(-5px);
-  box-shadow:
-    0 20px 40px rgba(21, 23, 22, 0.08),
-    0 8px 16px rgba(21, 23, 22, 0.06);
-}
-
-.public-motion-shell :where(a.rounded-lg, article.rounded-lg, details):active {
-  transform: translateY(-2px) scale(0.985);
-  box-shadow:
-    0 8px 16px rgba(21, 23, 22, 0.06),
-    0 2px 4px rgba(21, 23, 22, 0.04);
-  transition-duration: 120ms;
-}
-
-.public-motion-shell :where(a.inline-flex, button) {
-  transition:
-    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 220ms ease,
-    box-shadow 320ms ease,
-    border-color 220ms ease;
-}
-
-.public-motion-shell :where(a.inline-flex, button):hover {
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-.public-motion-shell :where(a.inline-flex, button):active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  transition-duration: 100ms;
-}
-
-/* Enhanced link underline animation */
-.public-motion-shell .nav-link {
-  position: relative;
-  text-decoration: none;
-}
-
-.public-motion-shell .nav-link::after {
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: right;
-  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.public-motion-shell .nav-link:hover::after {
-  transform: scaleX(1);
-  transform-origin: left;
-}
-
-/* Accessible focus states - only enhance, never remove */
-.public-motion-shell :where(a, button):focus-visible {
-  outline: 2px solid rgba(11, 110, 79, 0.6);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-
-/* Card lift with glow on feature cards */
-.public-motion-shell .feature-card {
-  transition:
-    transform 450ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 450ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 320ms ease;
-}
-
-.public-motion-shell .feature-card:hover {
-  transform: translateY(-6px);
-  box-shadow:
-    0 24px 48px rgba(21, 23, 22, 0.1),
-    0 12px 24px rgba(21, 23, 22, 0.06),
-    0 0 0 1px rgba(11, 110, 79, 0.12);
-  border-color: rgba(11, 110, 79, 0.25);
-}
-
-.public-motion-shell .feature-card:active {
-  transform: translateY(-2px) scale(0.99);
-  transition-duration: 150ms;
-}
-
-/* Blog card hover with accent color */
-.public-motion-shell .blog-card {
-  transition:
-    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 380ms ease;
-}
-
-.public-motion-shell .blog-card:hover {
-  transform: translateY(-4px);
-  box-shadow:
-    0 20px 40px rgba(21, 23, 22, 0.09),
-    0 8px 16px rgba(21, 23, 22, 0.05);
-  border-color: rgba(179, 65, 46, 0.35);
-}
-
-.public-motion-shell .blog-card:active {
-  transform: translateY(-1px) scale(0.99);
-}
-
-/* Doc link card hover */
-.public-motion-shell .doc-card {
-  transition:
-    transform 400ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 400ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 350ms ease;
-}
-
-.public-motion-shell .doc-card:hover {
-  transform: translateY(-4px);
-  box-shadow:
-    0 16px 32px rgba(21, 23, 22, 0.08),
-    0 6px 12px rgba(21, 23, 22, 0.05);
-  border-color: rgba(31, 78, 121, 0.35);
-}
-
-/* Button glow effect for primary CTA */
-.public-motion-shell .cta-primary {
-  transition:
-    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 250ms ease,
-    box-shadow 400ms ease;
-}
-
-.public-motion-shell .cta-primary:hover {
-  box-shadow:
-    0 0 0 1px rgba(220, 232, 209, 0.3),
-    0 8px 24px rgba(220, 232, 209, 0.2),
-    0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.public-motion-shell .cta-primary:active {
-  transform: translateY(1px) scale(0.97);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  transition-duration: 100ms;
-}
-
-/* Footer link hover */
-.public-motion-shell footer a {
-  transition:
-    color 250ms ease,
-    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.public-motion-shell footer a:hover {
-  transform: translateX(2px);
-}
-
-/* FAQ details smooth open */
-.public-motion-shell details {
-  transition: background-color 250ms ease;
-}
-
-.public-motion-shell details:hover {
-  background-color: rgba(11, 110, 79, 0.03);
-}
-
-.public-motion-shell details summary {
-  transition: color 200ms ease;
-}
-
-.public-motion-shell details summary:hover {
-  color: #0b6e4f;
-}
-
-.public-motion-shell .absolute.inset-0[aria-hidden="true"] > * {
-  animation: public-drift-in 980ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.public-motion-shell .absolute.inset-0[aria-hidden="true"] > *:nth-child(2) {
-  animation-delay: 100ms;
-}
-
-.public-motion-shell .absolute.inset-0[aria-hidden="true"] > *:nth-child(3) {
-  animation-delay: 180ms;
-}
-
-.public-motion-shell .absolute.inset-0[aria-hidden="true"] > *:nth-child(n + 4) {
-  animation-delay: 260ms;
-}
-
-@keyframes public-fade-up {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 18px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes public-soft-reveal {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 12px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes public-drift-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 20px, 0) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .public-motion-shell *,
-  .public-motion-shell *::before,
-  .public-motion-shell *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
-  }
 }
 
 .manual-code-block pre {
@@ -888,7 +554,7 @@ code {
   font-size: 0.78rem;
   line-height: 1.7;
   color: var(--code-text);
-  background: #ffffff;
+  background: transparent;
   tab-size: 4;
 }
 
@@ -1044,7 +710,7 @@ code {
   padding: 0.55rem 1rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--separator) 80%, transparent);
-  background: color-mix(in srgb, var(--surface2) 86%, white);
+  background: var(--surface2);
   color: var(--text2);
   font-size: 0.8rem;
   font-weight: 600;
