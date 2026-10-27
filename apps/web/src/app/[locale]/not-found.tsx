@@ -13,15 +13,15 @@ import { productName } from "@/lib/seo-content";
  * Reading it on the client keeps every page under [locale] statically renderable.
  */
 const styles = `
-  .nf { font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: #f7f8f3; color: #151716; }
+  .nf { font-family: var(--font-sans), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--text); }
   .nf { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; }
-  .nf-brand { font-weight: 800; font-size: 15px; letter-spacing: -0.01em; color: #151716; text-decoration: none; }
-  .nf-eyebrow { margin: 40px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0b6e4f; }
-  .nf h1 { margin: 16px 0 0; font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
-  .nf p { margin: 20px 0 0; max-width: 32rem; font-size: 17px; line-height: 1.6; color: #4b5650; }
+  .nf-brand { font-weight: 600; font-size: 13px; color: var(--text); text-decoration: none; }
+  .nf-eyebrow { margin: 40px 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text3); }
+  .nf h1 { margin: 12px 0 0; font-size: clamp(1.875rem, 5vw, 3rem); font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; }
+  .nf p { margin: 16px 0 0; max-width: 32rem; font-size: 16px; line-height: 1.75; color: var(--text2); }
   .nf-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 32px; }
-  .nf-btn { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 10px; font-weight: 700; font-size: 14px; text-decoration: none; border: 1px solid #151716; color: #151716; }
-  .nf-btn-accent { background: #0b6e4f; border-color: #0b6e4f; color: #fff; }
+  .nf-btn { display: inline-flex; align-items: center; height: 40px; padding: 0 20px; border-radius: 12px; font-weight: 500; font-size: 14px; text-decoration: none; border: 1px solid var(--separator); background: var(--surface2); color: var(--text2); }
+  .nf-btn-accent { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 `;
 
 export default function NotFound() {

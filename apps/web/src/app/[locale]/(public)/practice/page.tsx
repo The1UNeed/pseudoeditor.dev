@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PublicHeader } from "@/app/components/PublicHeader";
+import { publicListClassName } from "@/app/components/PublicUi";
 import { localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
@@ -77,21 +78,27 @@ export default async function PracticeIndexPage({ params }: LocaleParams) {
 
       <section className="site-wrap pb-20">
         <h2 className="sr-only">{t.allQuestions}</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-        {questions.map((question) => (
-          <Link key={question.id} href={href(`/practice/${question.id}`)} className="site-card p-6">
-            <div className="flex flex-wrap gap-2">
-              <span className="site-chip">{t.topics[question.topic]}</span>
-              <span className="site-chip">{t.difficulty[question.difficulty]}</span>
-              <span className="site-chip">{question.exam}</span>
-            </div>
-            <h2 className="mt-4 text-xl font-extrabold tracking-tight">{question.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--ink-2)]">{question.description}</p>
-            <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold">
-              {t.openQuestion} <ArrowRight size={16} />
-            </span>
-          </Link>
-        ))}
+        <div className={publicListClassName}>
+          {questions.map((question) => (
+            <Link
+              key={question.id}
+              href={href(`/practice/${question.id}`)}
+              className="group flex items-start justify-between gap-6 py-5"
+            >
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  <span className="site-chip">{t.topics[question.topic]}</span>
+                  <span className="site-chip">{t.difficulty[question.difficulty]}</span>
+                  <span className="site-chip">{question.exam}</span>
+                </div>
+                <h2 className="text-base font-semibold transition group-hover:text-[var(--accent)]">{question.title}</h2>
+                <p className="mt-1 text-sm leading-6 text-[var(--text2)]">{question.description}</p>
+              </div>
+              <span className="mt-1 hidden shrink-0 items-center gap-1 text-sm font-medium text-[var(--text3)] transition group-hover:text-[var(--accent)] sm:inline-flex">
+                {t.openQuestion} <ArrowRight size={15} />
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
     </main>

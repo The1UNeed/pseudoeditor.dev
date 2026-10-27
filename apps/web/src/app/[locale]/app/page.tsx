@@ -48,6 +48,7 @@ import {
 } from "@pseudoeditor/workspace";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import { Dialog } from "@/app/components/Dialog";
+import { EditorLoader } from "@/app/components/EditorLoader";
 import { PracticeQuestionBanner } from "@/app/components/PracticeQuestionBanner";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
 import ManualContent from "@/app/[locale]/(public)/manual/ManualContent";
@@ -114,21 +115,12 @@ const DIALOG_CARD_CLASS =
 type TouchTab = "editor" | "files" | "output" | "settings";
 type ManualSaveStatus = "idle" | "saving" | "saved" | "error";
 
-function LazyPanelFallback({ label }: { label: string }) {
-  return (
-    <div className="flex h-full min-h-[240px] items-center justify-center bg-[var(--bg)] text-sm font-medium text-[var(--text2)]">
-      <LoaderCircle className="mr-2 animate-spin" size={16} />
-      {label}
-    </div>
-  );
-}
-
 function EditorLoadingFallback() {
-  return <LazyPanelFallback label={useDictionary().editor.loading.editor} />;
+  return <EditorLoader label={useDictionary().editor.loading.editor} />;
 }
 
 function FlowchartLoadingFallback() {
-  return <LazyPanelFallback label={useDictionary().editor.loading.flowchart} />;
+  return <EditorLoader label={useDictionary().editor.loading.flowchart} />;
 }
 
 const MonacoPseudocodeEditor = dynamic(
@@ -1216,7 +1208,7 @@ export default function HomePage() {
       <Dialog
         labelledBy="workspace-manual-title"
         onClose={() => setShowManualPanel(false)}
-        className="h-full max-h-none w-full max-w-6xl overflow-auto border-0 bg-[#f7f8f3] p-0 shadow-[var(--shadow-modal)] md:h-[calc(100%-2.5rem)] md:w-[calc(100%-2.5rem)] md:rounded-[24px] md:border md:border-[#d7ddd0]"
+        className="h-full max-h-none w-full max-w-6xl overflow-auto border-0 bg-[var(--bg)] p-0 shadow-[var(--shadow-modal)] md:h-[calc(100%-2.5rem)] md:w-[calc(100%-2.5rem)] md:rounded-[24px] md:border md:border-[var(--separator)]"
       >
         <h2 id="workspace-manual-title" className="sr-only">
           {t.manual.title}
@@ -1780,20 +1772,8 @@ export default function HomePage() {
 
   if (!workspace) {
     return (
-      <main className="min-h-dvh bg-[var(--bg)]">
-        <div className="flex min-h-dvh items-center justify-center px-4 py-10">
-          <section className="w-full max-w-lg rounded-xl border border-[var(--separator)] bg-[var(--surface)] p-6">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
-          {t.loading.workspaceEyebrow}
-            </p>
-            <h1 className="mt-3 text-2xl font-semibold text-[var(--text)]">
-          {t.loading.workspace}
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-[var(--text2)]">
-          {t.loading.preparing}
-            </p>
-          </section>
-        </div>
+      <main>
+        <EditorLoader fullScreen label={t.loading.workspace} />
       </main>
     );
   }

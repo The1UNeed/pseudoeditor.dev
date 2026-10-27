@@ -62,8 +62,8 @@ export function RandomPracticeControls({
               onClick={() => setTopic(option.value)}
               className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
                 selected
-                  ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-                  : "border-[var(--line)] bg-white text-[var(--ink-2)] hover:border-[var(--ink)]"
+                  ? "border-[var(--accent)] bg-[var(--selected)] text-[var(--text)]"
+                  : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
               }`}
             >
               {option.label}

@@ -436,31 +436,7 @@ code {
 /* ── Manual / Guidelines Design System ────────────────────────── */
 
 .manual-shell {
-  --bg: #f7f8f3;
-  --surface: #ffffff;
-  --surface2: #eef3e9;
-  --surface3: #dce8d1;
-  --separator: #d7ddd0;
-  --accent: #0b6e4f;
-  --text: #151716;
-  --text2: #4b5650;
-  --text3: #6b746e;
-  --code-text: #111111;
-  --code-keyword: #9b2d63;
-  --code-type: #0f7a94;
-  --code-func: #7856b3;
-  --code-string: #b45438;
-  --code-number: #8d6a12;
-  --code-operator: #2a241f;
-  --code-comment: #8c7b6a;
-  --code-variable: #2d7a6d;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 0.5rem;
-  --shadow-card: 0 1px 2px rgba(17, 19, 19, 0.06);
-  --shadow-card-hover: 0 10px 26px rgba(17, 19, 19, 0.08);
-  background:
-    linear-gradient(180deg, rgba(238, 243, 233, 0.8), transparent 18rem),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -482,7 +458,7 @@ code {
 
 .manual-card {
   position: relative;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-xl);
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
@@ -512,31 +488,34 @@ code {
     0 0 48px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.manual-shell-modal .manual-container {
+/* Cards render flat, separated by dividers, to match the editor. */
+.manual-shell .manual-container {
   --card-bg: transparent;
-  --card-border: transparent;
   --card-shadow: none;
   --card-shadow-hover: none;
   --card-glow: none;
 }
 
-.manual-shell-modal .manual-card,
-.manual-shell-modal .manual-card:hover,
-.manual-shell-modal .manual-card-accent,
-.manual-shell-modal .manual-card-accent:hover {
+.manual-shell .manual-card,
+.manual-shell .manual-card:hover,
+.manual-shell .manual-card-accent,
+.manual-shell .manual-card-accent:hover {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-  overflow: visible;
   transform: none;
 }
 
-.manual-shell-modal .manual-card > .relative {
+.manual-shell-modal .manual-card {
+  overflow: visible;
+}
+
+.manual-shell .manual-card > .relative {
   padding: 0;
 }
 
-.manual-shell-modal .manual-container > .manual-card:not(:first-child) {
+.manual-shell .manual-container > .manual-card:not(:first-child) {
   padding-top: 1.2rem;
   border-top: 1px solid color-mix(in srgb, var(--separator) 72%, transparent);
   border-radius: 0;
@@ -576,360 +555,10 @@ code {
 }
 
 .manual-code-block {
-  border-radius: var(--radius-xl);
-  background: #ffffff;
-  border: 1px solid color-mix(in srgb, var(--separator) 72%, transparent);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  border: 1px solid var(--separator);
   overflow: hidden;
-}
-
-/* ── Public Site (PseudoEditor) ─────────────────────────────── */
-
-.site {
-  --paper: #f7f8f3;
-  --paper-2: #eef3e9;
-  --paper-3: #dce8d1;
-  --ink: #151716;
-  --ink-2: #4b5650;
-  --ink-3: #6b746e;
-  --line: #d7ddd0;
-  --accent: #0b6e4f;
-  --accent-ink: #085a40;
-  --blue: #1f4e79;
-  --code-bg: #151716;
-  --radius: 10px;
-  color: var(--ink);
-  background-color: var(--paper);
-  min-height: 100vh;
-  overflow-x: clip;
-}
-
-.site ::selection {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-.site-wrap {
-  margin: 0 auto;
-  width: 100%;
-  max-width: 76rem;
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
-}
-
-@media (min-width: 768px) {
-  .site-wrap {
-    padding-left: 2rem;
-    padding-right: 2rem;
-  }
-}
-
-.site-header {
-  background: linear-gradient(100deg, #101315 0%, #103c31 60%, #0b6e4f 100%);
-  color: #fff;
-}
-
-.site-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.site-h1 {
-  font-size: clamp(2.4rem, 6vw, 4.5rem);
-  font-weight: 800;
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-}
-
-.site-h2 {
-  font-size: clamp(1.75rem, 3.5vw, 2.6rem);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.site-lede {
-  font-size: 1.125rem;
-  line-height: 1.7;
-  color: var(--ink-2);
-}
-
-.site-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  height: 2.75rem;
-  padding: 0 1.1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  border: 1px solid var(--ink);
-  background: var(--ink);
-  color: #fff;
-  text-decoration: none;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
-
-.site-btn:hover {
-  background: #1f2421;
-  border-color: #1f2421;
-}
-
-.site-btn-ghost {
-  background: transparent;
-  color: var(--ink);
-  border-color: var(--line);
-}
-
-.site-btn-ghost:hover {
-  background: var(--paper-2);
-  border-color: var(--line);
-}
-
-.site-btn-accent {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.site-btn-accent:hover {
-  background: var(--accent-ink);
-  border-color: var(--accent-ink);
-}
-
-.site-header .site-btn {
-  background: #fff;
-  border-color: #fff;
-  color: var(--ink);
-}
-
-.site-header .site-btn:hover {
-  background: var(--paper-3);
-  border-color: var(--paper-3);
-}
-
-.site-card {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  transition: border-color 160ms ease;
-}
-
-a.site-card:hover,
-.site-card-hover:hover {
-  border-color: var(--accent);
-}
-
-.site-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  background: var(--paper-2);
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.site-nav-link {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.76);
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-
-.site-nav-link:hover,
-.site-nav-link[aria-current="page"] {
-  color: #fff;
-}
-
-.site-code {
-  border-radius: 8px;
-  background: var(--code-bg);
-  color: #dce8d1;
-  font-family: var(--font-mono), "Fira Code", monospace;
-  font-size: 0.85rem;
-  line-height: 1.7;
-  padding: 1rem 1.25rem;
-  overflow-x: auto;
-  tab-size: 4;
-}
-
-.site-prose h2 {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  margin-top: 2.5rem;
-  scroll-margin-top: 5rem;
-}
-
-.site-prose h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-top: 1.75rem;
-}
-
-.site-prose p,
-.site-prose li {
-  line-height: 1.75;
-  color: var(--ink-2);
-}
-
-.site-prose p {
-  margin-top: 1rem;
-}
-
-.site-prose ul {
-  margin-top: 0.75rem;
-  padding-left: 1.25rem;
-  list-style: disc;
-}
-
-.site-prose li {
-  margin-top: 0.4rem;
-}
-
-.site-prose li::marker {
-  color: var(--accent);
-}
-
-.site-prose a {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.site-prose code {
-  font-size: 0.85em;
-  background: var(--paper-2);
-  border-radius: 4px;
-  padding: 0.05em 0.35em;
-}
-
-.site-prose table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-}
-
-.site-prose th,
-.site-prose td {
-  text-align: left;
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-
-.site-prose th {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
-  font-weight: 700;
-}
-
-.site-toc a {
-  display: block;
-  padding: 0.3rem 0;
-  font-size: 0.85rem;
-  color: var(--ink-2);
-  text-decoration: none;
-  border-left: 2px solid var(--line);
-  padding-left: 0.75rem;
-}
-
-.site-toc a:hover {
-  color: var(--ink);
-  border-color: var(--accent);
-}
-
-.site-footer {
-  background: var(--ink);
-  color: #a3ada7;
-}
-
-.site-footer a {
-  color: inherit;
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-
-.site-footer a:hover {
-  color: #fff;
-}
-
-.site-window {
-  border-radius: 10px;
-  background: #191d1d;
-  color: #e5e5ea;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-
-.site-window-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  height: 2.5rem;
-  padding: 0 0.9rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #242827;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.site-window-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.site-token-kw { color: #7fd1b5; }
-.site-token-type { color: #8fd3ff; }
-.site-token-str { color: #f3c98b; }
-.site-token-num { color: #f2d479; }
-.site-token-cmt { color: #6c7986; font-style: italic; }
-
-.site-reveal {
-  animation: site-reveal 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.site-reveal-2 { animation-delay: 80ms; }
-.site-reveal-3 { animation-delay: 160ms; }
-.site-reveal-4 { animation-delay: 240ms; }
-
-@keyframes site-reveal {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-.site :where(a, button):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .site *,
-  .site *::before,
-  .site *::after {
-    animation-duration: 1ms !important;
-    transition-duration: 1ms !important;
-  }
 }
 
 .manual-code-block pre {
@@ -937,7 +566,7 @@ a.site-card:hover,
   font-size: 0.78rem;
   line-height: 1.7;
   color: var(--code-text);
-  background: #ffffff;
+  background: transparent;
   tab-size: 4;
 }
 
@@ -1093,7 +722,7 @@ a.site-card:hover,
   padding: 0.55rem 1rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--separator) 80%, transparent);
-  background: color-mix(in srgb, var(--surface2) 86%, white);
+  background: var(--surface2);
   color: var(--text2);
   font-size: 0.8rem;
   font-weight: 600;
@@ -1134,3 +763,276 @@ a.site-card:hover,
 .manual-card-enter {
   animation: manualCardEnter 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+
+/* ── Public site ────────────────────────────────────────────── */
+/* The public pages share the editor's theme tokens, title bar, and type so the site and app look alike.
+   The --paper/--ink/--line aliases keep older markup on the same palette in light and dark. */
+
+.site {
+  --paper: var(--bg);
+  --paper-2: var(--surface);
+  --paper-3: var(--surface2);
+  --ink: var(--text);
+  --ink-2: var(--text2);
+  --ink-3: var(--text3);
+  --line: var(--separator);
+  --radius: 12px;
+  min-height: 100vh;
+  overflow-x: clip;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.site-wrap {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 72rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 768px) {
+  .site-wrap {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+.site-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.site-h1 {
+  font-size: 1.875rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.site-h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 768px) {
+  .site-h1 { font-size: 3rem; }
+  .site-h2 { font-size: 1.875rem; }
+}
+
+.site-lede {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--text2);
+}
+
+.site-btn {
+  display: inline-flex;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--separator);
+  background: var(--surface2);
+  padding: 0 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text2);
+  transition: background-color 150ms, color 150ms, filter 150ms;
+}
+
+.site-btn:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+.site-btn-accent {
+  border-color: var(--accent);
+  background: var(--accent);
+  font-weight: 600;
+  color: var(--on-accent);
+}
+
+.site-btn-accent:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+  filter: brightness(1.1);
+}
+
+.site-card {
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.site-card-hover {
+  transition: border-color 150ms, background-color 150ms;
+}
+
+.site-card-hover:hover {
+  border-color: var(--text3);
+  background: var(--hover);
+}
+
+.site-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: var(--surface2);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text2);
+}
+
+.site-nav-link {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  transition: background-color 150ms, color 150ms;
+}
+
+.site-nav-link:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.site-nav-link[aria-current="page"] {
+  background: var(--selected);
+  color: var(--text);
+}
+
+.site-code {
+  overflow-x: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem 1.25rem;
+  font-family: var(--font-mono), "Fira Code", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--code-text);
+  white-space: pre;
+}
+
+.site-card .site-code {
+  border: 0;
+  background: var(--bg);
+}
+
+.site-prose h2 {
+  margin-top: 2.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.site-prose > :first-child > h2:first-child,
+.site-prose > h2:first-child {
+  margin-top: 0;
+}
+
+.site-prose h3 {
+  margin-top: 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.site-prose p,
+.site-prose li {
+  line-height: 1.75;
+  color: var(--text2);
+}
+
+.site-prose p {
+  margin-top: 0.875rem;
+}
+
+.site-prose ul {
+  margin-top: 0.875rem;
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.site-prose li {
+  margin-top: 0.375rem;
+}
+
+.site-prose li::marker {
+  color: var(--text3);
+}
+
+.site-prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-prose code {
+  border-radius: 0.375rem;
+  background: var(--surface2);
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-mono), "Fira Code", ui-monospace, monospace;
+  font-size: 0.875em;
+  color: var(--text);
+}
+
+.site-prose table {
+  margin-top: 1rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.site-prose th,
+.site-prose td {
+  border-bottom: 1px solid var(--separator);
+  padding: 0.625rem 0.75rem 0.625rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.site-prose th {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.site-prose td {
+  color: var(--text2);
+}
+
+.site-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.site-toc a {
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text2);
+  transition: background-color 150ms, color 150ms;
+}
+
+.site-toc a:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.site :where(a, button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+

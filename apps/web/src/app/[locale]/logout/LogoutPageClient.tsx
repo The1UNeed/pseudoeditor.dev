@@ -26,7 +26,7 @@ function ConfiguredLogout() {
 function LogoutFallback() {
   return (
     <div className="site-card p-8 text-center">
-      <h1 className="text-2xl font-extrabold tracking-tight">Signing out</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Signing out</h1>
       <p className="mt-3 leading-7 text-[var(--ink-2)]">You will be returned to the PseudoEditor homepage.</p>
       <Link href="/" className="site-btn mt-6">
         Go home

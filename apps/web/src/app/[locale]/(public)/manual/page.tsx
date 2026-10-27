@@ -83,7 +83,7 @@ export default async function ManualPage({ params }: LocaleParams) {
               <span className="inline-flex rounded-lg bg-[var(--paper-2)] p-2.5 text-[var(--accent)]">
                 <Icon size={22} />
               </span>
-              <h2 className="mt-5 text-2xl font-extrabold tracking-tight">{section.title}</h2>
+              <h2 className="mt-5 text-2xl font-semibold tracking-tight">{section.title}</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--ink-2)]">{section.body}</p>
               <ul className="mt-5 space-y-2">
                 {section.bullets.map((bullet) => (
@@ -98,14 +98,14 @@ export default async function ManualPage({ params }: LocaleParams) {
         })}
       </section>
 
-      <section className="border-y border-[var(--line)] bg-white">
+      <section className="border-y border-[var(--line)]">
         <div className="site-wrap py-16">
           <p className="site-eyebrow">{t.examplesEyebrow}</p>
           <h2 className="site-h2 mt-3">{t.examplesTitle}</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {t.examples.map((example, index) => (
               <article key={example.title}>
-                <h3 className="text-lg font-extrabold tracking-tight">{example.title}</h3>
+                <h3 className="text-lg font-semibold tracking-tight">{example.title}</h3>
                 <pre className="site-code mt-4">{exampleCode[index]}</pre>
               </article>
             ))}

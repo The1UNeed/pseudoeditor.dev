@@ -1,10 +1,10 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { BrandMark } from "@/app/components/BrandMark";
+import { Play } from "lucide-react";
 import { localePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
-import { githubUrl, productName } from "@/lib/seo-content";
+import { productName } from "@/lib/seo-content";
 
 export type PublicNavKey = "docs" | "practice" | "blog" | "manual" | "legal";
 
@@ -13,6 +13,7 @@ type PublicHeaderProps = {
   active?: PublicNavKey;
 };
 
+/** The same 52px title bar as the editor, so moving between the site and /app feels like one product. */
 export function PublicHeader({ locale, active }: PublicHeaderProps) {
   const t = getDictionary(locale).nav;
   const navItems = [
@@ -23,40 +24,36 @@ export function PublicHeader({ locale, active }: PublicHeaderProps) {
   ] as const;
 
   return (
-    <header className="site-header">
-      <nav className="site-wrap flex h-16 items-center justify-between gap-6">
+    <header className="sticky top-0 z-[var(--z-sticky)] border-b border-[var(--separator)] bg-[var(--titlebar)] px-4 md:px-6">
+      <nav className="mx-auto flex h-[52px] max-w-6xl items-center gap-4">
         <Link
           href={localePath(locale, "/")}
-          className="flex items-center gap-2.5 text-[15px] font-extrabold tracking-tight text-white"
+          aria-label={productName}
+          className="flex items-center gap-2 transition hover:opacity-80"
         >
-          <BrandMark size={28} />
-          {productName}
+          <Image src="/branding/app-icon-128.png" alt="" width={24} height={24} className="h-6 w-6" />
+          <span className="hidden text-[13px] font-semibold text-[var(--text)] sm:inline">{productName}</span>
         </Link>
-
-        <div className="hidden items-center gap-7 md:flex">
+        <div className="flex flex-1 items-center justify-center gap-1">
           {navItems.map((item) => (
             <Link
               key={item.key}
               href={localePath(locale, item.href)}
-              className="site-nav-link"
               aria-current={active === item.key ? "page" : undefined}
+              className="site-nav-link hidden sm:inline-flex"
             >
               {item.label}
             </Link>
           ))}
-          <a
-            href={githubUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="site-nav-link inline-flex items-center gap-1"
-          >
-            {t.github} <ArrowUpRight size={14} />
-          </a>
-          <LocaleSwitcher className="site-nav-link" />
         </div>
-
-        <Link href={localePath(locale, "/app")} className="site-btn h-10 px-4 text-[13px]">
-          {t.openEditor}
+        <LocaleSwitcher className="site-nav-link" />
+        <Link
+          href={localePath(locale, "/app")}
+          aria-label={t.openEditor}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-semibold text-[var(--on-accent)] transition hover:brightness-110"
+        >
+          <Play size={14} />
+          <span className="hidden sm:inline">{t.openEditor}</span>
         </Link>
       </nav>
     </header>

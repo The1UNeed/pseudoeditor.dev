@@ -1,13 +1,15 @@
 type EditorLoaderProps = {
   fullScreen?: boolean;
+  /** Accessible name; defaults to English for callers outside a locale. */
+  label?: string;
 };
 
 /** The single loading indicator shown while the workspace, editor, or flowchart loads. */
-export function EditorLoader({ fullScreen = false }: EditorLoaderProps) {
+export function EditorLoader({ fullScreen = false, label = "Loading" }: EditorLoaderProps) {
   return (
     <div
       role="status"
-      aria-label="Loading"
+      aria-label={label}
       className={`flex items-center justify-center bg-[var(--bg)] ${
         fullScreen ? "min-h-dvh" : "h-full min-h-[240px]"
       }`}

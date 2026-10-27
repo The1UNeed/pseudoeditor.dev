@@ -72,10 +72,10 @@ export default async function BlogPostPage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <PublicHeader locale={locale} active="blog" />
       <article className="site-wrap max-w-3xl py-12 md:py-16">
-        <Link href={localePath(locale, "/blog")} className="inline-flex items-center gap-2 text-sm font-bold">
+        <Link href={localePath(locale, "/blog")} className="inline-flex items-center gap-2 text-sm font-semibold">
           <ArrowLeft size={16} /> {t.blog.back}
         </Link>
-        <p className="mt-8 text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-3)]">
+        <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-3)]">
           {formatDate(locale, post.date)} · {post.readingTime}
         </p>
         <h1 className="site-h1 mt-4 text-[2.4rem] md:text-[3.4rem]">{post.title}</h1>

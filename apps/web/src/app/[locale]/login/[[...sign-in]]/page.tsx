@@ -17,7 +17,7 @@ export default function LoginPage() {
   return (
     <ClerkProvider>
       <main className="site flex min-h-screen flex-col items-center justify-center px-5 py-12">
-        <Link href="/" className="mb-8 flex items-center gap-2.5 text-[15px] font-extrabold tracking-tight">
+        <Link href="/" className="mb-8 flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
           <BrandMark size={28} />
           {productName}
         </Link>

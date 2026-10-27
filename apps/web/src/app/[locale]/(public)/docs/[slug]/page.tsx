@@ -71,7 +71,7 @@ export default async function DocPage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <PublicHeader locale={locale} active="docs" />
       <article className="site-wrap max-w-3xl py-12 md:py-16">
-        <Link href={localePath(locale, "/docs")} className="inline-flex items-center gap-2 text-sm font-bold">
+        <Link href={localePath(locale, "/docs")} className="inline-flex items-center gap-2 text-sm font-semibold">
           <ArrowLeft size={16} /> {t.back}
         </Link>
         <h1 className="site-h1 mt-6 text-[2.4rem] md:text-[3.4rem]">{doc.title}</h1>

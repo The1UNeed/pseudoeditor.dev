@@ -46,7 +46,7 @@ export function LegalPage({ locale, document, effectiveDate }: LegalPageProps) {
 
       <section className="site-wrap grid gap-10 pb-20 lg:grid-cols-[220px_1fr]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-3)]">{t.onThisPage}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-3)]">{t.onThisPage}</p>
           <nav className="site-toc mt-3">
             {document.sections.map((section) => (
               <a key={section.id} href={`#${section.id}`}>
@@ -54,7 +54,7 @@ export function LegalPage({ locale, document, effectiveDate }: LegalPageProps) {
               </a>
             ))}
           </nav>
-          <p className="mt-8 text-xs font-bold uppercase tracking-[0.14em] text-[var(--ink-3)]">{t.related}</p>
+          <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-3)]">{t.related}</p>
           <nav className="site-toc mt-3">
             {legalLinks.map((link) => (
               <Link key={link.href} href={localePath(locale, link.href)}>

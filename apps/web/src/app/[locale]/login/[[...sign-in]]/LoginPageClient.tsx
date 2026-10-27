@@ -8,7 +8,7 @@ export default function LoginPageClient() {
   if (!isCloudAuthConfigured()) {
     return (
       <div className="site-card w-full max-w-md p-8">
-        <h1 className="text-2xl font-extrabold tracking-tight">Login is not configured</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Login is not configured</h1>
         <p className="mt-3 leading-7 text-[var(--ink-2)]">
           Add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to enable account login.
         </p>

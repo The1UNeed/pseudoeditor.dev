@@ -1,22 +1,25 @@
 import Link from "next/link";
-import { BrandMark } from "@/app/components/BrandMark";
 import { localePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
 import { authorName, githubUrl, productName } from "@/lib/seo-content";
 
+const linkClassName = "text-[var(--text2)] transition hover:text-[var(--text)]";
+const groupLabelClassName = "text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text3)]";
+
 export function Footer({ locale }: { locale: Locale }) {
   const year = new Date().getFullYear();
-  const t = getDictionary(locale).footer;
+  const dict = getDictionary(locale);
+  const t = dict.footer;
   const columns = [
     {
       title: t.product,
       links: [
         { href: localePath(locale, "/app"), label: t.editor },
         { href: localePath(locale, "/practice"), label: t.practice },
-        { href: localePath(locale, "/docs"), label: getDictionary(locale).nav.docs },
-        { href: localePath(locale, "/manual"), label: getDictionary(locale).nav.manual },
-        { href: localePath(locale, "/blog"), label: getDictionary(locale).nav.blog },
+        { href: localePath(locale, "/docs"), label: dict.nav.docs },
+        { href: localePath(locale, "/manual"), label: dict.nav.manual },
+        { href: localePath(locale, "/blog"), label: dict.nav.blog },
       ],
     },
     {
@@ -38,44 +41,43 @@ export function Footer({ locale }: { locale: Locale }) {
   ];
 
   return (
-    <footer className="site-footer">
-      <div className="site-wrap grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div>
-          <div className="flex items-center gap-2.5 text-white">
-            <BrandMark size={28} />
-            <span className="text-lg font-extrabold tracking-tight">{productName}</span>
-          </div>
-          <p className="mt-4 max-w-xs text-sm leading-6">{t.slogan}</p>
-          <p className="mt-2 text-sm leading-6">{t.slogan2}</p>
-          <p className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-white">{t.language}</p>
+    <footer className="border-t border-[var(--separator)] bg-[var(--sidebar)] px-4 py-10 md:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
+        <div className="max-w-sm">
+          <p className="text-sm font-semibold text-[var(--text)]">{productName}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text2)]">{t.slogan}</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--text2)]">{t.slogan2}</p>
+          <p className={`mt-6 ${groupLabelClassName}`}>{t.language}</p>
           <p className="mt-2 text-sm">
-            <LocaleSwitcher />
+            <LocaleSwitcher className={linkClassName} />
           </p>
         </div>
 
-        {columns.map((column) => (
-          <div key={column.title}>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">{column.title}</p>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              {column.links.map((link) =>
-                "external" in link ? (
+        <nav className="flex flex-wrap gap-10 md:gap-14">
+          {columns.map((column) => (
+            <div key={column.title}>
+              <p className={groupLabelClassName}>{column.title}</p>
+              <ul className="mt-3 space-y-2 text-sm">
+                {column.links.map((link) => (
                   <li key={link.href}>
-                    <a href={link.href} target="_blank" rel="noopener noreferrer">
-                      {link.label}
-                    </a>
+                    {"external" in link ? (
+                      <a href={link.href} target="_blank" rel="noopener noreferrer" className={linkClassName}>
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link href={link.href} className={linkClassName}>
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
-                ) : (
-                  <li key={link.href}>
-                    <Link href={link.href}>{link.label}</Link>
-                  </li>
-                ),
-              )}
-            </ul>
-          </div>
-        ))}
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
       </div>
 
-      <div className="site-wrap flex flex-col gap-2 border-t border-white/10 py-6 text-xs md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto mt-8 flex max-w-6xl flex-col justify-between gap-2 border-t border-[var(--separator)] pt-6 text-xs text-[var(--text3)] md:flex-row">
         <p>
           &copy; {year} {authorName}. {t.copyright}
         </p>

@@ -210,17 +210,17 @@ export default function CopyableCodeBlock({
 
   return (
     <div className={`manual-code-block ${className}`.trim()}>
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--separator)]/60 px-4 py-2.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">
-          {t("Pseudocode")}
-        </span>
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-2">
+        <span className="text-xs font-medium text-[var(--text3)]">{t("Pseudocode")}</span>
         <button
           type="button"
           onClick={handleCopy}
-          className="manual-nav-pill !px-3 !py-1 !text-[11px]"
+          className="group rounded-lg px-2 py-1 transition hover:bg-[var(--hover)]"
           aria-label={t(copyState === "copied" ? "Code copied to clipboard" : "Copy code to clipboard")}
         >
-          {buttonLabel}
+          <span className="text-xs font-medium text-[var(--text2)] transition group-hover:text-[var(--text)]">
+            {buttonLabel}
+          </span>
         </button>
       </div>
       <pre className="overflow-x-auto p-4 text-xs leading-relaxed">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PublicHeader } from "@/app/components/PublicHeader";
+import { publicListClassName } from "@/app/components/PublicUi";
 import { localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
@@ -49,19 +50,27 @@ export default async function DocsIndexPage({ params }: LocaleParams) {
         <h1 className="site-h1 mt-4">{t.title}</h1>
         <p className="site-lede mt-5 max-w-2xl">{t.lede}</p>
       </section>
-      <section className="site-wrap grid gap-4 pb-20 md:grid-cols-2">
-        {docs.map((doc, index) => (
-          <Link key={doc.slug} href={localePath(locale, `/docs/${doc.slug}`)} className="site-card p-6">
-            <span className="site-chip">
-              {t.guide} {index + 1}
-            </span>
-            <h2 className="mt-4 text-xl font-extrabold tracking-tight">{doc.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--ink-2)]">{doc.description}</p>
-            <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold">
-              {t.readGuide} <ArrowRight size={16} />
-            </span>
-          </Link>
-        ))}
+      <section className="site-wrap pb-20">
+        <div className={publicListClassName}>
+          {docs.map((doc, index) => (
+            <Link
+              key={doc.slug}
+              href={localePath(locale, `/docs/${doc.slug}`)}
+              className="group flex items-start justify-between gap-6 py-5"
+            >
+              <div className="min-w-0">
+                <p className="mb-1 text-xs font-medium text-[var(--text3)]">
+                  {t.guide} {index + 1}
+                </p>
+                <h2 className="text-base font-semibold transition group-hover:text-[var(--accent)]">{doc.title}</h2>
+                <p className="mt-1 text-sm leading-6 text-[var(--text2)]">{doc.description}</p>
+              </div>
+              <span className="mt-1 hidden shrink-0 items-center gap-1 text-sm font-medium text-[var(--text3)] transition group-hover:text-[var(--accent)] sm:inline-flex">
+                {t.readGuide} <ArrowRight size={15} />
+              </span>
+            </Link>
+          ))}
+        </div>
       </section>
     </main>
   );
