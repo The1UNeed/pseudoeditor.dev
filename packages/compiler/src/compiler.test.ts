@@ -17,6 +17,15 @@ OUTPUT Total`;
     expect(result.astJson).toContain('"kind":"output"');
   });
 
+  it("keeps parsing OUTPUT values after a parenthesized first value", () => {
+    const cambridge = compilePseudocode({ source: "OUTPUT (1 + 2), 3", filename: "main.pseudo", strict: true });
+    expect(cambridge.success).toBe(true);
+    expect(JSON.parse(cambridge.astJson ?? "{}").body[0].values).toHaveLength(2);
+
+    const ocr = compilePseudocode({ source: 'print("Total")', filename: "main.pseudo", strict: true, syntaxId: "ocr-gcse" });
+    expect(ocr.diagnostics).toEqual([]);
+  });
+
   it("returns syntax diagnostics for malformed IF blocks", () => {
     const source = `DECLARE Score : INTEGER
 IF Score > 10 THEN

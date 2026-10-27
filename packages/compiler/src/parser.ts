@@ -278,9 +278,7 @@ class Parser {
     const start = this.advance();
     const values: ExpressionNode[] = [];
 
-    if (this.checkType("LPAREN")) {
-      values.push(this.parseExpression());
-    } else if (!this.checkType("NEWLINE") && !this.isAtEnd() && !this.atStop(new Set(["ELSE", "ENDIF", "END"]))) {
+    if (!this.checkType("NEWLINE") && !this.isAtEnd() && !this.atStop(new Set(["ELSE", "ENDIF", "END"]))) {
       values.push(this.parseExpression());
       while (this.matchType("COMMA")) {
         values.push(this.parseExpression());

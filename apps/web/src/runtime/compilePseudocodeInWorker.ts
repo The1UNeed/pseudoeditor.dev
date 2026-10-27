@@ -94,16 +94,21 @@ class CompilerRunner {
     };
 
     this.worker.onerror = (event) => {
-      const error = new Error(event.message || "Compiler worker crashed.");
-      for (const pending of this.pending.values()) {
-        pending.reject(error);
-      }
-      this.pending.clear();
-      this.worker?.terminate();
-      this.worker = null;
+      this.abandonWorker(new Error(event.message || "Compiler worker crashed."));
     };
 
     return this.worker;
+  }
+
+  /** Every pending request went to this worker, so they all fail with it; the next compile starts a new one. */
+  private abandonWorker(error: Error) {
+    const pending = [...this.pending.values()];
+    this.pending.clear();
+    this.worker?.terminate();
+    this.worker = null;
+    for (const entry of pending) {
+      entry.reject(error);
+    }
   }
 
   private setCachedResult(cacheKey: string, result: CompileResult) {
@@ -159,13 +164,9 @@ class CompilerRunner {
 
     return new Promise<CompilerRunResult>((resolve, reject) => {
       const timer = setTimeout(() => {
-        if (!this.pending.has(id)) {
-          return;
+        if (this.pending.has(id)) {
+          this.abandonWorker(new Error("Compiler timed out."));
         }
-        this.pending.delete(id);
-        this.worker?.terminate();
-        this.worker = null;
-        reject(new Error("Compiler timed out."));
       }, COMPILE_TIMEOUT_MS);
       this.pending.set(id, {
         resolve: (value) => {
