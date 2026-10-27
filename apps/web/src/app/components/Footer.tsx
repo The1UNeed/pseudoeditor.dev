@@ -40,11 +40,11 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-sm">
               {[
                 {
-                  href: "https://github.com/Lumora-Studio/PseudocodeCompiler",
+                  href: "https://github.com/The1UNeed/pseudoeditor.dev",
                   label: "GitHub",
                 },
                 {
-                  href: "https://github.com/Lumora-Studio/PseudocodeCompiler/issues",
+                  href: "https://github.com/The1UNeed/pseudoeditor.dev/issues",
                   label: "Feedback",
                 },
               ].map((item) => (
@@ -65,7 +65,7 @@ export function Footer() {
       </div>
 
       <div className="mx-auto mt-10 flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-white/8 pt-8 text-xs md:flex-row">
-        <p>&copy; {year} PseudoEditor. All rights reserved.</p>
+        <p>&copy; {year} Alex Xin LIU. Licensed under the Apache License 2.0.</p>
         <p>Built for students and teachers practicing IGCSE pseudocode.</p>
       </div>
     </footer>

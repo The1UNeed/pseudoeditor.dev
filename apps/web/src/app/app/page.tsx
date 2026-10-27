@@ -2003,15 +2003,15 @@ export default function HomePage() {
                 </div>
                 <div className="mt-6 border-t border-[var(--separator)] pt-4 text-center">
                   <p className="text-xs text-[var(--text3)]">
-                    © 2026 Lumora Studio. All rights reserved.
+                    © 2026 Alex Xin LIU. Licensed under the Apache License 2.0.
                   </p>
                   <a
-                    href="https://www.lumorastudio.top/"
+                    href="https://github.com/The1UNeed/pseudoeditor.dev"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-1 inline-block text-xs text-blue-500 hover:text-blue-600 hover:underline transition"
                   >
-                    Learn more……
+                    View source on GitHub
                   </a>
                 </div>
               </div>
@@ -2035,37 +2035,8 @@ export default function HomePage() {
           isDesktopShell ? "app-drag-region" : ""
         }`}
       >
-        {/* Spacer for native traffic lights (desktop) / brand label (web) */}
-        <div className={`flex items-center gap-2 ${isDesktopShell ? "w-[80px]" : "w-auto"}`}>
-          {isDesktopShell ? null : (
-            <a
-              href="https://www.lumorastudio.top/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 transition hover:opacity-80"
-              aria-label="Lumora Studio"
-            >
-              <svg
-                viewBox="0 0 1024 1024"
-                className="h-5 w-5 text-[var(--text2)]"
-                fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M 460.015625 710.820313 L 732.5625 710.820313 L 748 648.90625 L 748 646.820313 L 477.164063 646.820313 L 599.296875 191 L 533.039063 191 L 393.710938 711 L 459.96875 711 Z"
-                />
-                <path
-                  fillRule="evenodd"
-                  d="M 719.34375 769.007813 L 490.796875 769.054688 L 387 769 L 386.9375 768.367188 C 361.493561 764.306641 342 741.343506 342 713.623291 C 342 706.989502 343.116394 700.628174 345.163605 694.733276 L 411.570313 447.6875 L 480.648438 191 L 414.398438 191 L 321.75 536.75 L 322.070313 536.828125 L 280.226563 692.640625 C 278.773163 700.176086 278 707.994141 278 716 C 278 780.61731 328.36795 833 390.5 833 L 394.03125 832.945313 L 703.390625 833 Z"
-                />
-              </svg>
-              <span className="text-xs font-semibold tracking-[0.12em] text-[var(--text2)]">
-                Lumora Studio
-              </span>
-            </a>
-          )}
-        </div>
+        {/* Spacer for native traffic lights (desktop) */}
+        {isDesktopShell ? <div className="w-[80px]" /> : null}
 
         <div className="flex-1" />
         <p className="text-[13px] font-medium text-[var(--text2)]">Pseudocode Compiler</p>
@@ -2437,15 +2408,15 @@ export default function HomePage() {
             </div>
             <div className="mt-6 border-t border-[var(--separator)] pt-4 text-center">
               <p className="text-xs text-[var(--text3)]">
-                © 2026 Lumora Studio. All rights reserved.
+                © 2026 Alex Xin LIU. Licensed under the Apache License 2.0.
               </p>
               <a
-                href="https://www.lumorastudio.top/"
+                href="https://github.com/The1UNeed/pseudoeditor.dev"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-1 inline-block text-xs text-blue-500 hover:text-blue-600 hover:underline transition"
               >
-                Learn more……
+                View source on GitHub
               </a>
             </div>
           </div>
