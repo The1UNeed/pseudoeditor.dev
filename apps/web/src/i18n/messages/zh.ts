@@ -5,7 +5,7 @@ export const zh: Dictionary = {
   meta: {
     homeTitle: "PseudoEditor - 免费在线伪代码编辑器、编译器与运行器，为学生打造",
     homeDescription:
-      "在浏览器中编写、编译、运行并调试剑桥风格伪代码。免费开源，专为 IGCSE、O Level 与 A Level 计算机科学学生设计。无需安装，无需注册。",
+      "在浏览器中编写、编译、运行并调试剑桥风格伪代码。永久免费且开源，专为 IGCSE、O Level 与 A Level 计算机科学学生设计。无需安装，无需注册。",
     keywords: [
       "PseudoEditor",
       "伪代码编辑器",
@@ -102,14 +102,14 @@ export const zh: Dictionary = {
     freeForever: "永久免费，永久开源。",
   },
   home: {
-    eyebrow: "免费且开源",
+    eyebrow: "永久免费 · 开源",
     h1a: "写出真正能运行的",
     h1b: "伪代码。",
     lede: "编写结构化伪代码，用真实的编译诊断检查它，并直接在浏览器中运行。专为计算机科学学生打造，自由而富有创意地构建你的伪代码项目。",
     ctaStart: "开始构建",
     ctaDocs: "阅读文档",
     ctaPractice: "练习一道随机题",
-    noAccount: "无需账号。只有需要云端同步时才需要登录。",
+    noAccount: "永久免费，无需账号。只有需要云端同步时才需要登录。",
     windowWorkspace: "工作区",
     windowCompiled: "3 毫秒内完成编译",
     windowTerminal: "终端",
@@ -171,9 +171,9 @@ export const zh: Dictionary = {
     blogAll: "全部文章",
     faqEyebrow: "常见问题",
     faqTitle: "在你提问之前，先看看答案。",
-    ossEyebrow: "开源",
-    ossTitle: "阅读代码。自己运行。让它成为你的。",
-    ossBody: "PseudoEditor 基于 Apache License 2.0 许可发布。克隆仓库、在本地运行、提交问题、发送拉取请求。",
+    ossEyebrow: "永久免费，开源",
+    ossTitle: "今天免费，永远免费，永远开源。",
+    ossBody: "PseudoEditor 不收任何费用，以后也不会收。没有付费套餐，没有试用期，也不会把任何功能留到以后收费。编辑器、编译器和运行时都基于 Apache License 2.0 开源，你可以阅读代码、自己运行，也可以提交拉取请求。",
     ossGithub: "在 GitHub 上查看",
     ossSecurity: "安全政策",
   },
