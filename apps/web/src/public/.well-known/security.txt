@@ -1,5 +1,0 @@
-Contact: https://github.com/Lumora-Studio/PseudocodeCompiler/security/advisories/new
-Policy: https://www.pseudoeditor.dev/security
-Preferred-Languages: en
-Canonical: https://www.pseudoeditor.dev/.well-known/security.txt
-Expires: 2027-09-06T00:00:00.000Z
