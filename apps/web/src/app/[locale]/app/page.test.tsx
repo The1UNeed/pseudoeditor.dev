@@ -331,9 +331,9 @@ describe("HomePage workspace flow", () => {
     render(<HomePage />);
 
     await waitFor(() => expect(getExplorerButton("practice.q.pass-or-fail.pseudo")).toBeInTheDocument());
-    expect((screen.getByRole("textbox", { name: "Mock editor" }) as HTMLTextAreaElement).value).toContain(
-      "DECLARE Mark : INTEGER",
-    );
+    // The editor mounts after the explorer updates, so wait for it instead of reading it synchronously.
+    const editor = (await screen.findByRole("textbox", { name: "Mock editor" })) as HTMLTextAreaElement;
+    await waitFor(() => expect(editor.value).toContain("DECLARE Mark : INTEGER"));
     expect(screen.getByText("Pass or fail from a mark")).toBeInTheDocument();
   });
 
