@@ -2,12 +2,12 @@ export const siteUrl = "https://www.pseudoeditor.dev";
 
 export const productName = "PseudoEditor";
 
-export const organizationName = "Lumora Studio";
+export const authorName = "Alex Xin LIU";
 
 export const homeSeoTitle = "PseudoEditor and Compiler - Pseudocode Editor";
 
 export const homeSeoDescription =
-  "Built by Lumora Studio, PseudoEditor is a free, open-source, cross-platform pseudocode compiler and editor to write, run, debug, and learn IGCSE pseudocode.";
+  "Built by Alex Xin LIU, PseudoEditor is a free, open-source, cross-platform pseudocode compiler and editor to write, run, debug, and learn IGCSE pseudocode.";
 
 export const seoKeywords = [
   "PseudoEditor",

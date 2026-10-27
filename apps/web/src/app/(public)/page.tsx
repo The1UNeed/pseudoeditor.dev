@@ -17,7 +17,7 @@ import {
   faqItems,
   homeSeoDescription,
   homeSeoTitle,
-  organizationName,
+  authorName,
   posts,
   productName,
   productTagline,
@@ -87,12 +87,12 @@ const structuredData = [
     url: siteUrl,
     description: productTagline,
     creator: {
-      "@type": "Organization",
-      name: organizationName,
+      "@type": "Person",
+      name: authorName,
     },
     publisher: {
-      "@type": "Organization",
-      name: organizationName,
+      "@type": "Person",
+      name: authorName,
     },
     isAccessibleForFree: true,
     keywords: seoKeywords.join(", "),
@@ -117,8 +117,8 @@ const structuredData = [
     alternateName: ["PseudoEditor and Compiler", "Pseudocode Editor and Compiler"],
     url: siteUrl,
     publisher: {
-      "@type": "Organization",
-      name: organizationName,
+      "@type": "Person",
+      name: authorName,
     },
     potentialAction: {
       "@type": "SearchAction",
@@ -213,7 +213,7 @@ export default function LandingPage() {
               PseudoEditor and Compiler
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-white/78 md:text-xl">
-              Built by Lumora Studio, PseudoEditor is a free, open-source pseudocode compiler and editor for writing, running, debugging, and learning IGCSE-style pseudocode anywhere.
+              Built by Alex Xin LIU, PseudoEditor is a free, open-source pseudocode compiler and editor for writing, running, debugging, and learning IGCSE-style pseudocode anywhere.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link

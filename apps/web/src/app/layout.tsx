@@ -4,7 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import {
   homeSeoDescription,
   homeSeoTitle,
-  organizationName,
+  authorName,
   productName,
   seoKeywords,
   siteUrl,
@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   },
   description: homeSeoDescription,
   applicationName: productName,
-  authors: [{ name: organizationName }],
-  creator: organizationName,
-  publisher: organizationName,
+  authors: [{ name: authorName }],
+  creator: authorName,
+  publisher: authorName,
   keywords: seoKeywords,
   alternates: {
     canonical: "/",

@@ -3,7 +3,8 @@
   "version": "0.1.9",
   "private": true,
   "description": "PseudoEditor website and browser Pseudocode Compiler app.",
-  "author": "Alex",
+  "author": "Alex Xin LIU",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@10.29.3",
   "scripts": {
     "dev": "pnpm --filter @pseudoeditor/web dev",
