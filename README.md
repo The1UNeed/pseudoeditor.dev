@@ -5,7 +5,7 @@
 <h1 align="center">PseudoEditor</h1>
 
 <p align="center"><strong>Free and open-source pseudo code editor and compiler.</strong><br />
-Build your pseudo code project freely and creatively.</p>
+Free forever, open source always. Build your pseudo code project freely and creatively.</p>
 
 <p align="center">
   <a href="https://www.pseudoeditor.dev">pseudoeditor.dev</a> ·

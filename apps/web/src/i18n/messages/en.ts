@@ -4,7 +4,7 @@ export const en = {
   meta: {
     homeTitle: "PseudoEditor - Free online pseudocode editor, compiler and runner for students",
     homeDescription:
-      "Write, compile, run and debug Cambridge-style pseudocode in your browser. Free and open source, built for IGCSE, O Level and A Level Computer Science students. No install, no account needed.",
+      "Write, compile, run and debug Cambridge-style pseudocode in your browser. Free forever and open source, built for IGCSE, O Level and A Level Computer Science students. No install, no account needed.",
     keywords: [
       "PseudoEditor",
       "pseudocode editor",
@@ -105,14 +105,14 @@ export const en = {
     freeForever: "Free and open source, forever.",
   },
   home: {
-    eyebrow: "Free and open source",
+    eyebrow: "Free forever · Open source",
     h1a: "Build pseudo code",
     h1b: "that actually runs.",
     lede: "Write structured pseudocode, compile it with real diagnostics, and run it in your browser. Built for Computer Science students. Build your pseudo code project freely and creatively.",
     ctaStart: "Start building",
     ctaDocs: "Read the docs",
     ctaPractice: "Practice a random question",
-    noAccount: "No account needed. Sign in only if you want cloud sync.",
+    noAccount: "Free forever. No account needed. Sign in only if you want cloud sync.",
     windowWorkspace: "Workspace",
     windowCompiled: "compiled in 3 ms",
     windowTerminal: "Terminal",
@@ -175,9 +175,9 @@ export const en = {
     blogAll: "All posts",
     faqEyebrow: "questions",
     faqTitle: "Answers before you ask.",
-    ossEyebrow: "Open source",
-    ossTitle: "Read the code. Run it yourself. Make it yours.",
-    ossBody: "PseudoEditor is licensed under the Apache License 2.0. Clone the repository, run it locally, file issues, and send pull requests.",
+    ossEyebrow: "Free forever, open source",
+    ossTitle: "Free today. Free forever. Open source, always.",
+    ossBody: "PseudoEditor costs nothing and always will. There is no paid plan, no trial, and no feature held back for later. The editor, compiler, and runtime are open source under the Apache License 2.0, so you can read the code, run it yourself, and send pull requests.",
     ossGithub: "View on GitHub",
     ossSecurity: "Security policy",
   },

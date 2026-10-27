@@ -443,9 +443,9 @@ export const faqItems: FaqItem[] = [
       "No. The editor, compiler, and runtime load in any modern browser on a laptop, Chromebook, or tablet. Nothing is installed and nothing needs to be approved by school IT.",
   },
   {
-    question: "Is PseudoEditor really free and open source?",
+    question: "Is PseudoEditor really free? Will it stay free?",
     answer:
-      "Yes. PseudoEditor is free to use and the source code is published under the Apache License 2.0 on GitHub. You can read it, run it yourself, and contribute.",
+      "Yes, and it always will be. There is no paid plan, no trial, and no premium tier waiting down the road. PseudoEditor is also open source: the code is published under the Apache License 2.0 on GitHub, so you can read it, run it yourself, and contribute.",
   },
   {
     question: "Can I practise random exam-style questions?",

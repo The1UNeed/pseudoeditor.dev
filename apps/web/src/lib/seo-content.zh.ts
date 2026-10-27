@@ -373,9 +373,9 @@ export const faqZh: FaqItem[] = [
       "不需要。编辑器、编译器和运行时可以在笔记本电脑、Chromebook 或平板上的任何现代浏览器中加载。什么都不用安装，也不需要学校 IT 部门审批。",
   },
   {
-    question: "PseudoEditor 真的免费开源吗？",
+    question: "PseudoEditor 真的免费吗？以后会一直免费吗？",
     answer:
-      "是的。PseudoEditor 可以免费使用，源代码基于 Apache License 2.0 发布在 GitHub 上。你可以阅读它、自己运行它，也可以参与贡献。",
+      "是的，而且会一直免费。没有付费套餐，没有试用期，以后也不会推出收费的高级版。PseudoEditor 同时是开源的：源代码基于 Apache License 2.0 发布在 GitHub 上，你可以阅读它、自己运行它，也可以参与贡献。",
   },
   {
     question: "可以练习随机的考试风格题目吗？",

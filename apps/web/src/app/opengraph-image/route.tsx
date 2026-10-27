@@ -50,7 +50,7 @@ export function GET() {
           Pseudocode that actually runs.
         </div>
         <div style={{ marginTop: 18, fontSize: 28, lineHeight: 1.35, color: muted, maxWidth: 900 }}>
-          Free online editor, compiler and runner for IGCSE, O Level and A Level Computer Science.
+          Free forever and open source. Editor, compiler and runner for IGCSE, O Level and A Level Computer Science.
         </div>
 
         <div
