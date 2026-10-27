@@ -479,7 +479,6 @@ code {
 /* Cards render flat, separated by dividers, to match the editor. */
 .manual-shell .manual-container {
   --card-bg: transparent;
-  --card-border: transparent;
   --card-shadow: none;
   --card-shadow-hover: none;
   --card-glow: none;

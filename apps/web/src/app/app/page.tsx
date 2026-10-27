@@ -1111,7 +1111,7 @@ export default function HomePage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="workspace-manual-title"
-          className="mx-auto h-full w-full max-w-6xl overflow-auto bg-[#f7f8f3] shadow-[var(--shadow-modal)] md:rounded-[24px] md:border md:border-[#d7ddd0]"
+          className="mx-auto h-full w-full max-w-6xl overflow-auto bg-[var(--bg)] shadow-[var(--shadow-modal)] md:rounded-[24px] md:border md:border-[var(--separator)]"
         >
           <h2 id="workspace-manual-title" className="sr-only">
             Pseudocode manual
