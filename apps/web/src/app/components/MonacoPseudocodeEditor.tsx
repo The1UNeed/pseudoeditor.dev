@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import { LoaderCircle } from "lucide-react";
+import { EditorLoader } from "@/app/components/EditorLoader";
 import { Diagnostic } from "@/compiler/types";
 import { autoCorrectPseudocodeLine } from "@/app/components/pseudocodeAutocorrect";
 import { isAppleTouchDevice } from "@/lib/appleTouch";
@@ -574,12 +574,7 @@ export function MonacoPseudocodeEditor({
       beforeMount={handleBeforeMount}
       onMount={handleMount}
       options={editorOptions}
-      loading={
-        <div className="flex h-full min-h-[240px] items-center justify-center bg-[var(--bg)] text-sm font-medium text-[var(--text2)]">
-          <LoaderCircle className="mr-2 animate-spin" size={16} />
-          Loading editor
-        </div>
-      }
+      loading={<EditorLoader />}
     />
   );
 }
