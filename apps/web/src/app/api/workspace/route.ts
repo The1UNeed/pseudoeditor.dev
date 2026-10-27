@@ -4,7 +4,7 @@ import {
   DEFAULT_WORKSPACE_PERSISTENCE_LIMITS,
   getUtf8ByteLength,
   validateWorkspaceForPersistence,
-} from "@igcse/workspace";
+} from "@pseudoeditor/workspace";
 import { api } from "../../../../../../convex/_generated/api";
 import { getWorkspaceRequestAuth } from "./workspaceAuth";
 import { buildWorkspaceSyncUser } from "./workspaceUser";
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
 
   const workspace = await getConvexClient(requestAuth.convexToken).query(api.workspaces.getCurrent, {});
 
-  return NextResponse.json({ workspace });
+  return NextResponse.json({ workspace }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function PUT(request: Request) {

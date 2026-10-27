@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAppleTouchDevice, supportsDesktopNativeDragAndDrop } from "@/lib/appleTouch";
+import { getTouchLayout, isAppleTouchDevice, supportsDesktopNativeDragAndDrop } from "@/lib/appleTouch";
 import { getPseudocodeEditorOptions } from "@/lib/pseudocodeEditorOptions";
 
 describe("appleTouch platform helpers", () => {
@@ -75,5 +75,20 @@ describe("appleTouch platform helpers", () => {
     expect(touchOptions.mouseWheelScrollSensitivity).toBeLessThan(
       desktopOptions.mouseWheelScrollSensitivity as number,
     );
+  });
+});
+
+describe("getTouchLayout", () => {
+  it("uses the desktop layout for wide windows with a fine pointer", () => {
+    expect(getTouchLayout(1024, false)).toBeNull();
+  });
+
+  it("uses the phone layout for any window narrower than 744px", () => {
+    expect(getTouchLayout(743, true)).toBe("phone");
+    expect(getTouchLayout(390, false)).toBe("phone");
+  });
+
+  it("uses the tablet layout for wide windows with a coarse pointer", () => {
+    expect(getTouchLayout(744, true)).toBe("tablet");
   });
 });

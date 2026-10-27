@@ -15,6 +15,7 @@ export interface CompilerRunResult {
   cached: boolean;
 }
 
+const COMPILE_TIMEOUT_MS = 10_000;
 const MAX_COMPILE_CACHE_ENTRIES = 40;
 
 function hashString(value: string): string {
@@ -93,16 +94,21 @@ class CompilerRunner {
     };
 
     this.worker.onerror = (event) => {
-      const error = new Error(event.message || "Compiler worker crashed.");
-      for (const pending of this.pending.values()) {
-        pending.reject(error);
-      }
-      this.pending.clear();
-      this.worker?.terminate();
-      this.worker = null;
+      this.abandonWorker(new Error(event.message || "Compiler worker crashed."));
     };
 
     return this.worker;
+  }
+
+  /** Every pending request went to this worker, so they all fail with it; the next compile starts a new one. */
+  private abandonWorker(error: Error) {
+    const pending = [...this.pending.values()];
+    this.pending.clear();
+    this.worker?.terminate();
+    this.worker = null;
+    for (const entry of pending) {
+      entry.reject(error);
+    }
   }
 
   private setCachedResult(cacheKey: string, result: CompileResult) {
@@ -139,7 +145,12 @@ class CompilerRunner {
 
     const worker = this.ensureWorker();
     if (!worker) {
-      const result = compilePseudocode(request);
+      let result: CompileResult;
+      try {
+        result = compilePseudocode(request);
+      } catch (error) {
+        result = compilerErrorResult(error instanceof Error ? error.message : "Unknown compiler error");
+      }
       if (cacheKey) {
         this.setCachedResult(cacheKey, result);
       }
@@ -152,7 +163,22 @@ class CompilerRunner {
     }
 
     return new Promise<CompilerRunResult>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject, cacheKey });
+      const timer = setTimeout(() => {
+        if (this.pending.has(id)) {
+          this.abandonWorker(new Error("Compiler timed out."));
+        }
+      }, COMPILE_TIMEOUT_MS);
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+        cacheKey,
+      });
       worker.postMessage({ kind: "compile", id, request });
     }).catch((error) => {
       const message = error instanceof Error ? error.message : "Unknown compiler error";
@@ -174,8 +200,13 @@ class CompilerRunner {
   }
 }
 
-export function getCompileCacheKey(documentId: string, filename: string, source: string): string {
-  return `${documentId}:${filename}:${hashString(source)}`;
+export function getCompileCacheKey(
+  documentId: string,
+  filename: string,
+  source: string,
+  syntaxId = "cambridge-igcse",
+): string {
+  return `${documentId}:${filename}:${syntaxId}:${hashString(source)}`;
 }
 
 export const pseudocodeCompilerRunner = new CompilerRunner();

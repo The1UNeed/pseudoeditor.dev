@@ -2,37 +2,37 @@
   "name": "pseudoeditor.dev",
   "version": "0.1.9",
   "private": true,
-  "description": "PseudoEditor website and browser Pseudocode Compiler app.",
+  "description": "PseudoEditor: free and open-source pseudo code editor and compiler.",
   "author": "Alex Xin LIU",
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.29.3",
+  "engines": {
+    "node": ">=20.9"
+  },
   "scripts": {
     "dev": "pnpm --filter @pseudoeditor/web dev",
     "dev:web": "pnpm --filter @pseudoeditor/web dev",
     "build": "pnpm --filter @pseudoeditor/web build",
-    "test": "pnpm -r --if-present run test",
-    "test:compiler": "pnpm --filter @igcse/compiler test",
+    "test": "pnpm -r --if-present run test && pnpm test:runtime",
+    "test:coverage": "pnpm -r --if-present run test:coverage",
+    "test:compiler": "pnpm --filter @pseudoeditor/compiler test",
     "test:web": "pnpm --filter @pseudoeditor/web test",
     "build:runtime": "./scripts/build-runtime-wasm.sh",
     "test:runtime": "cargo test -p pseudocode-runtime",
-    "typecheck": "pnpm -r --if-present run typecheck",
+    "typecheck": "pnpm -r --if-present run typecheck && pnpm typecheck:convex",
+    "typecheck:convex": "tsc -p convex/tsconfig.json --noEmit",
     "lint": "pnpm -r --if-present run lint"
   },
   "devDependencies": {
-    "convex": "^1.36.1",
-    "next": "16.2.9"
+    "@types/node": "^20.19.43",
+    "convex": "^1.45.0",
+    "next": "16.3.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   },
   "pnpm": {
     "overrides": {
-      "@babel/core": "^7.29.6",
-      "dompurify": "^3.4.11",
-      "js-cookie": "^3.0.7",
-      "minimatch@^3.0.0": "3.1.4",
-      "minimatch@^9.0.0": "9.0.7",
-      "minimatch@^10.0.0": "10.2.3",
-      "postcss": "^8.5.10",
-      "rollup": "^4.59.0",
-      "ws": "^8.21.0"
+      "dompurify": "^3.4.14"
     },
     "onlyBuiltDependencies": [
       "dtrace-provider",
@@ -40,5 +40,8 @@
       "sharp",
       "unrs-resolver"
     ]
+  },
+  "dependencies": {
+    "svix": "^2.5.0"
   }
 }

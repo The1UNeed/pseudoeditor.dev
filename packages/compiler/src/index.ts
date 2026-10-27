@@ -1,12 +1,69 @@
 import { analyzeProgram } from "./semantics";
 import { parseSource } from "./parser";
+import { resolveSyntax } from "./syntax";
 import { CompileRequest, CompileResult } from "./types";
 
 export { parseSource } from "./parser";
+export {
+  DEFAULT_SYNTAX_ID,
+  SYNTAX_CATALOG,
+  SYNTAX_OPTIONS,
+  displayKeyword,
+  isSyntaxId,
+  resolveSyntax,
+  type KeywordCase,
+  type SyntaxDefinition,
+  type SyntaxId,
+} from "./syntax";
+
+export const MAX_SOURCE_BYTES = 256 * 1024;
 
 export function compilePseudocode(request: CompileRequest): CompileResult {
-  const { ast, diagnostics: parseDiagnostics } = parseSource(request.source);
-  const semanticResult = analyzeProgram(ast);
+  if (request.source.length > MAX_SOURCE_BYTES) {
+    return {
+      success: false,
+      diagnostics: [
+        {
+          code: "CMP413",
+          message: `Source is too large to compile (limit ${MAX_SOURCE_BYTES / 1024} KB).`,
+          severity: "error",
+          line: 1,
+          column: 1,
+          endLine: 1,
+          endColumn: 1,
+          hint: "Split the program into smaller files.",
+        },
+      ],
+      astJson: "",
+    };
+  }
+
+  const syntax = resolveSyntax(request.syntaxId);
+  const { ast, diagnostics: parseDiagnostics } = parseSource(request.source, syntax);
+  let semanticResult: ReturnType<typeof analyzeProgram>;
+  try {
+    semanticResult = analyzeProgram(ast, syntax);
+  } catch (error) {
+    if (!(error instanceof RangeError)) {
+      throw error;
+    }
+    semanticResult = {
+      diagnostics: [
+        {
+          code: "SEM099",
+          message: "Program is too deeply nested to analyze.",
+          severity: "error",
+          line: 1,
+          column: 1,
+          endLine: 1,
+          endColumn: 1,
+        },
+      ],
+      symbolTypes: {},
+      functionSignatures: {},
+      procedureSignatures: {},
+    };
+  }
 
   const diagnostics = [...parseDiagnostics, ...semanticResult.diagnostics].sort((a, b) => {
     if (a.line !== b.line) return a.line - b.line;
@@ -18,13 +75,13 @@ export function compilePseudocode(request: CompileRequest): CompileResult {
     return {
       success: false,
       diagnostics,
-      astJson: JSON.stringify(ast, null, 2),
+      astJson: JSON.stringify(ast),
     };
   }
 
   return {
     success: true,
     diagnostics,
-    astJson: JSON.stringify(ast, null, 2),
+    astJson: JSON.stringify(ast),
   };
 }

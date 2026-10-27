@@ -1,18 +1,20 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import type { WorkspaceNode } from "@igcse/workspace";
+import type { WorkspaceNode } from "@pseudoeditor/workspace";
+import { useDictionary } from "@/i18n/context";
 
 interface BreadcrumbsProps {
   path: WorkspaceNode[];
 }
 
 export function Breadcrumbs({ path }: BreadcrumbsProps) {
+  const t = useDictionary().editor;
   const visiblePath = path.filter((node) => node.parentId !== null);
 
   return (
     <nav
-      aria-label="Document path"
+      aria-label={t.breadcrumbs.documentPath}
       className="flex items-center gap-1 text-[11px] text-[var(--text3)]"
     >
       {visiblePath.map((node, index) => (

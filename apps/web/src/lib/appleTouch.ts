@@ -36,3 +36,17 @@ export function supportsDesktopNativeDragAndDrop(
 
   return !matchMedia("(pointer: coarse)").matches;
 }
+
+/** Below this width every window gets the phone layout; at or above it, coarse pointers get the tablet layout. */
+export const TOUCH_TABLET_BREAKPOINT = 744;
+
+export type TouchLayout = "tablet" | "phone" | null;
+
+/**
+ * Narrow windows use the phone layout whatever the input device, since the desktop panes do not fit.
+ * Wider windows use the tablet layout for any coarse pointer (iPad, Android tablets), not only Apple devices.
+ */
+export function getTouchLayout(width: number, coarsePointer: boolean): TouchLayout {
+  if (width < TOUCH_TABLET_BREAKPOINT) return "phone";
+  return coarsePointer ? "tablet" : null;
+}

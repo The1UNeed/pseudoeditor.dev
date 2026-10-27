@@ -1,12 +1,14 @@
 "use client";
 
 import { Diagnostic } from "@/compiler/types";
+import { useDictionary } from "@/i18n/context";
 
 interface DiagnosticsPanelProps {
   diagnostics: Diagnostic[];
 }
 
 export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
+  const t = useDictionary().editor;
   if (diagnostics.length === 0) {
     return (
       <div className="rounded-lg border border-[var(--separator)] bg-[var(--surface)] p-4">
@@ -30,7 +32,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
             {" "}· {diagnostic.code} · L{diagnostic.line}:C{diagnostic.column}
           </p>
           <p className="mt-1 text-sm leading-5 text-[var(--text)]">{diagnostic.message}</p>
-          {diagnostic.hint ? <p className="mt-1 text-xs leading-5 text-[var(--text2)]">Hint: {diagnostic.hint}</p> : null}
+          {diagnostic.hint ? <p className="mt-1 text-xs leading-5 text-[var(--text2)]">{t.diagnostics.hint} {diagnostic.hint}</p> : null}
         </div>
       ))}
     </div>

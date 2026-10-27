@@ -28,25 +28,13 @@ import {
   serializePaletteItem,
 } from './model';
 import { FlowchartNodeData, FlowchartNodeType, NODE_DIMENSIONS, NODE_TYPE_CONFIG } from './types';
+import { useDictionary } from "@/i18n/context";
 import {
-  ArrowRightLeft,
-  Box,
-  Cpu,
   Download,
-  GitBranch,
   Layout,
-  Play,
   Plus,
   Trash2,
 } from 'lucide-react';
-
-const iconMap = {
-  Play,
-  Cpu,
-  GitBranch,
-  ArrowRightLeft,
-  Box,
-};
 
 // Shape preview components for palette
 function ShapePreview({ type, color }: { type: FlowchartNodeType; color: string }) {
@@ -115,6 +103,9 @@ interface FlowchartEditorProps {
   initialNodes?: Node[];
   initialEdges?: Edge[];
   source?: string;
+  /** False while the editor stays mounted off-screen; the view is refitted when it slides back in. */
+  isVisible?: boolean;
+  syntaxId?: string;
   onCodeChange?: (code: string) => void;
   onGenerateCode?: (code: string) => void;
   onSave?: (nodes: Node[], edges: Edge[]) => void;
@@ -124,10 +115,15 @@ function FlowchartEditorInner({
   initialNodes = [],
   initialEdges = [],
   source,
+  isVisible = true,
+  syntaxId,
   onCodeChange,
   onGenerateCode,
   onSave,
 }: FlowchartEditorProps) {
+  const t = useDictionary().editor;
+  const paletteText = (item: { id: string; title: string; description: string }) =>
+    t.flowchart.palette[item.id as keyof typeof t.flowchart.palette] ?? item;
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showPalette, setShowPalette] = useState(true);
@@ -137,7 +133,16 @@ function FlowchartEditorInner({
   const lastPublishedCodeRef = useRef<string>('');
   const nodesRef = useRef<Node[]>(initialNodes);
   const edgesRef = useRef<Edge[]>(initialEdges);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+
+  useEffect(() => {
+    if (!isVisible) return;
+    // Source updates arrive while hidden only once the panel is shown, so fit after they render.
+    const frame = requestAnimationFrame(() => {
+      void fitView();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fitView, isVisible]);
 
   const selectedNode = useMemo(() => nodes.find((node) => node.selected) ?? null, [nodes]);
   const selectedNodeData = selectedNode ? (selectedNode.data as FlowchartNodeData) : null;
@@ -168,7 +173,13 @@ function FlowchartEditorInner({
       return;
     }
 
-    const imported = buildFlowchartFromPseudocode(source);
+    let imported: ReturnType<typeof buildFlowchartFromPseudocode>;
+    try {
+      imported = buildFlowchartFromPseudocode(source, syntaxId);
+    } catch (error) {
+      console.warn("Flowchart import failed.", error);
+      return;
+    }
     const importedCode = generatePseudocodeFromFlowchart(imported.nodes, imported.edges)
       .replace(/\r\n/g, '\n')
       .trim();
@@ -177,7 +188,7 @@ function FlowchartEditorInner({
     lastPublishedCodeRef.current = importedCode;
     setNodes(imported.nodes);
     setEdges(imported.edges);
-  }, [setEdges, setNodes, source]);
+  }, [setEdges, setNodes, source, syntaxId]);
 
   useEffect(() => {
     const code = generatePseudocodeFromFlowchart(nodes, edges);
@@ -394,15 +405,14 @@ function FlowchartEditorInner({
       >
         <div className="flex items-center justify-between border-b border-[var(--separator)] p-4">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text)]">Blocks</h3>
-            <p className="mt-0.5 text-xs text-[var(--text2)]">Drag onto the flow</p>
+            <h3 className="text-sm font-semibold text-[var(--text)]">{t.flowchart.blocks}</h3>
+            <p className="mt-0.5 text-xs text-[var(--text2)]">{t.flowchart.dragOntoFlow}</p>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {FLOWCHART_PALETTE_ITEMS.map((item) => {
             const config = NODE_TYPE_CONFIG[item.type];
-            const Icon = iconMap[config.icon as keyof typeof iconMap];
 
             return (
               <div
@@ -422,8 +432,8 @@ function FlowchartEditorInner({
                   <ShapePreview type={item.type} color={config.color} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[var(--text)]">{item.title}</p>
-                  <p className="text-xs text-[var(--text2)]">{item.description}</p>
+                  <p className="truncate text-sm font-medium text-[var(--text)]">{paletteText(item).title}</p>
+                  <p className="text-xs text-[var(--text2)]">{paletteText(item).description}</p>
                 </div>
               </div>
             );
@@ -439,7 +449,7 @@ function FlowchartEditorInner({
             "
           >
             <Download className="h-4 w-4" />
-            Generate Code
+            {t.flowchart.generateCode}
           </button>
 
           <button
@@ -451,7 +461,7 @@ function FlowchartEditorInner({
             "
           >
             <Trash2 className="h-4 w-4" />
-            Clear Canvas
+            {t.flowchart.clearCanvas}
           </button>
         </div>
       </div>
@@ -464,7 +474,7 @@ function FlowchartEditorInner({
           transition-all duration-300 hover:text-[var(--text)]
           ${showPalette ? 'translate-x-64' : 'translate-x-0'}
         `}
-        title={showPalette ? 'Hide palette' : 'Show palette'}
+        title={showPalette ? t.flowchart.hidePalette : t.flowchart.showPalette}
       >
         <Layout className="h-3 w-3" />
       </button>
@@ -502,11 +512,11 @@ function FlowchartEditorInner({
 
       <aside className="flex w-80 shrink-0 flex-col border-l border-[var(--separator)] bg-[var(--sidebar)]">
         <div className="border-b border-[var(--separator)] p-4">
-          <h3 className="text-sm font-semibold text-[var(--text)]">Inspector</h3>
+          <h3 className="text-sm font-semibold text-[var(--text)]">{t.flowchart.inspector}</h3>
           <p className="mt-0.5 text-xs text-[var(--text2)]">
             {selectedNodeData
-              ? 'Edit the selected block and its visible content.'
-              : 'Select a block to configure input, output, or the lines inside a process.'}
+              ? t.flowchart.inspectorSelected
+              : t.flowchart.inspectorEmpty}
           </p>
         </div>
 
@@ -515,26 +525,26 @@ function FlowchartEditorInner({
             <div className="space-y-4">
               <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface)] p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text3)]">
-                  Selected
+                  {t.flowchart.selected}
                 </p>
                 <h4 className="mt-2 text-base font-semibold text-[var(--text)]">
-                  {NODE_TYPE_CONFIG[selectedNodeData.type].label}
+                  {t.flowchart.nodeTypes[selectedNodeData.type].label}
                 </h4>
                 <p className="mt-2 text-xs leading-5 text-[var(--text2)]">
-                  {NODE_TYPE_CONFIG[selectedNodeData.type].description}
+                  {t.flowchart.nodeTypes[selectedNodeData.type].description}
                 </p>
               </div>
 
               {selectedNodeData.type === 'terminator' ? (
                 <label className="block space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                    Label
+                    {t.flowchart.label}
                   </span>
                   <input
                     value={selectedNodeData.label}
                     onChange={(event) => updateSelectedNodeData({ label: event.target.value })}
                     className="w-full rounded-lg border border-[var(--separator)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
-                    placeholder="Start"
+                    placeholder={t.flowchart.palette.start.title}
                   />
                 </label>
               ) : null}
@@ -543,7 +553,7 @@ function FlowchartEditorInner({
                 <>
                   <div className="space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                      Mode
+                      {t.flowchart.mode}
                     </span>
                     <div className="grid grid-cols-2 gap-2">
                       {(['input', 'output'] as const).map((mode) => {
@@ -593,20 +603,20 @@ function FlowchartEditorInner({
                 <>
                   <label className="block space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                      Block title
+                      {t.flowchart.blockTitle}
                     </span>
                     <input
                       value={selectedNodeData.label}
                       onChange={(event) => updateSelectedNodeData({ label: event.target.value })}
                       className="w-full rounded-lg border border-[var(--separator)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
-                      placeholder="Process"
+                      placeholder={t.flowchart.process}
                     />
                   </label>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                        Block lines
+                        {t.flowchart.blockLines}
                       </span>
                       <button
                         type="button"
@@ -614,7 +624,7 @@ function FlowchartEditorInner({
                         className="inline-flex items-center gap-1 rounded-lg border border-[var(--separator)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--text2)] transition hover:text-[var(--text)]"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        Add line
+                        {t.flowchart.addLine}
                       </button>
                     </div>
 
@@ -655,7 +665,7 @@ function FlowchartEditorInner({
                 <>
                   <label className="block space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                      Condition
+                      {t.flowchart.condition}
                     </span>
                     <textarea
                       value={typeof selectedNodeData.content === 'string' ? selectedNodeData.content : ''}
@@ -669,7 +679,7 @@ function FlowchartEditorInner({
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block space-y-2">
                       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                        Side branch
+                        {t.flowchart.sideBranch}
                       </span>
                       <input
                         value={selectedNodeData.trueLabel ?? 'Yes'}
@@ -680,7 +690,7 @@ function FlowchartEditorInner({
 
                     <label className="block space-y-2">
                       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                        Down branch
+                        {t.flowchart.downBranch}
                       </span>
                       <input
                         value={selectedNodeData.falseLabel ?? 'No'}
@@ -695,7 +705,7 @@ function FlowchartEditorInner({
               {selectedNodeData.type === 'subroutine' ? (
                 <label className="block space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                    Call target
+                    {t.flowchart.callTarget}
                   </span>
                   <input
                     value={typeof selectedNodeData.content === 'string' ? selectedNodeData.content : ''}
@@ -712,18 +722,18 @@ function FlowchartEditorInner({
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--separator)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text2)] transition hover:bg-red-500/10 hover:text-red-400"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete selected block
+                {t.flowchart.deleteSelected}
               </button>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface)] p-4">
-                <p className="text-sm font-semibold text-[var(--text)]">Build it like blocks.</p>
+                <p className="text-sm font-semibold text-[var(--text)]">{t.flowchart.buildLikeBlocks}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
-                  Drop an Input or Output block, select it, then set the text it should read or show.
+                  {t.flowchart.helpIo}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
-                  For Process blocks, add one or more lines inside the block. That gives you a basic visual flow without adding separate built-in functions yet.
+                  {t.flowchart.helpProcess}
                 </p>
               </div>
             </div>
