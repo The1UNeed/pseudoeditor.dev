@@ -87,12 +87,12 @@ function getFileIcon(name: string, isActive: boolean) {
   const ext = name.split(".").pop()?.toLowerCase();
   const color = isActive ? "text-[var(--accent)]" : "text-[var(--text3)]";
   if (ext === "pseudo" || ext === "ps") {
-    return <FileCode size={16} className={isActive ? "text-[var(--accent)]" : "text-[var(--accent)]"} />;
+    return <FileCode size={16} className="shrink-0 text-[var(--accent)]" />;
   }
   if (ext === "md" || ext === "txt") {
-    return <FileText size={16} className={color} />;
+    return <FileText size={16} className={`shrink-0 ${color}`} />;
   }
-  return <File size={16} className={color} />;
+  return <File size={16} className={`shrink-0 ${color}`} />;
 }
 
 function isNodeDescendantOfFolder(workspace: WorkspaceState, nodeId: string, folderId: string): boolean {
@@ -954,7 +954,7 @@ export function WorkspaceSidebar({
                   {node.type === "folder" ? (
                     <button
                       type="button"
-                      className="flex h-5 w-3.5 items-center justify-center text-[var(--text3)]"
+                      className="flex h-5 w-3.5 shrink-0 items-center justify-center text-[var(--text3)]"
                       onPointerDown={(event) => {
                         if (event.pointerType === "mouse") {
                           event.stopPropagation();
@@ -973,14 +973,14 @@ export function WorkspaceSidebar({
                       {isFolderOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </button>
                   ) : (
-                    <span className="inline-flex h-5 w-3.5" />
+                    <span className="inline-flex h-5 w-3.5 shrink-0" />
                   )}
 
                   {node.type === "folder" ? (
                     isFolderOpen ? (
-                      <FolderOpen size={16} className="text-[var(--orange)]" />
+                      <FolderOpen size={16} className="shrink-0 text-[var(--orange)]" />
                     ) : (
-                      <Folder size={16} className="text-[var(--orange)]" />
+                      <Folder size={16} className="shrink-0 text-[var(--orange)]" />
                     )
                   ) : (
                     getFileIcon(node.name, isActive || isSelected)
@@ -990,6 +990,7 @@ export function WorkspaceSidebar({
                     type="button"
                     data-workspace-item="true"
                     className="min-w-0 flex-1 text-left"
+                    title={node.name}
                     onClick={(event) => handleNodeClick(event, node)}
                     onDoubleClick={(event) => {
                       event.stopPropagation();
@@ -997,7 +998,7 @@ export function WorkspaceSidebar({
                     }}
                   >
                     <span
-                      className={`truncate text-[13px] ${
+                      className={`block truncate text-[13px] ${
                         isActive || isSelected
                           ? "text-[var(--text)]"
                           : node.type === "folder" && !isFolderOpen
