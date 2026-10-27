@@ -6,7 +6,7 @@ import { PublicHeader } from "@/app/components/PublicHeader";
 import { formatDate, localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale } from "@/i18n/server";
-import { getPost, posts, productName } from "@/lib/seo-content";
+import { authorName, getPost, posts } from "@/lib/seo-content";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -54,7 +54,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       keywords: post.tags.join(", "),
       url: localeUrl(locale, `/blog/${post.slug}`),
       audience: { "@type": "EducationalAudience", educationalRole: "student" },
-      author: { "@type": "Organization", name: productName },
+      author: { "@type": "Person", name: authorName },
     },
     {
       "@context": "https://schema.org",

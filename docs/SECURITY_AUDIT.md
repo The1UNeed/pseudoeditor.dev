@@ -46,7 +46,7 @@ fixed in the same change set except where noted under residual risks.
 - `CLERK_WEBHOOK_SECRET` must be set on the Convex deployment or the webhook returns 503 and account deletion
   will not clean up data.
 - The GitHub repository is private, so GitHub private vulnerability reporting cannot be enabled yet. Make the
-  repository public (it is GPL-3.0) and enable it under Settings → Code security.
+  repository public (it is Apache-2.0) and enable it under Settings → Code security.
 
 ## Independent review (Claude Opus 5, read-only)
 

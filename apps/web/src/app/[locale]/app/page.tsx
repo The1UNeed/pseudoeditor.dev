@@ -276,7 +276,7 @@ export default function HomePage() {
     { href: localePath(locale, "/terms"), label: t.legal.userAgreement },
     { href: localePath(locale, "/privacy"), label: t.legal.privacy },
     { href: localePath(locale, "/security"), label: t.legal.security },
-    { href: "https://github.com/Lumora-Studio/PseudocodeCompiler", label: t.legal.github },
+    { href: "https://github.com/The1UNeed/pseudoeditor.dev", label: t.legal.github },
   ];
   const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
   const authLoading = !authLoaded;

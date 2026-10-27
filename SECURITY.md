@@ -6,7 +6,7 @@ surface is the workspace sync API (Next.js route → Convex) guarded by Clerk se
 ## Reporting a vulnerability
 
 Please report security issues privately through
-[GitHub private vulnerability reporting](https://github.com/Lumora-Studio/PseudocodeCompiler/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/The1UNeed/pseudoeditor.dev/security/advisories/new).
 Do not open a public issue.
 
 Include reproduction steps, the impact you believe it has, and a proof of concept if you have one.

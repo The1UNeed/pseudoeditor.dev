@@ -375,7 +375,7 @@ export const faqZh: FaqItem[] = [
   {
     question: "PseudoEditor 真的免费开源吗？",
     answer:
-      "是的。PseudoEditor 可以免费使用，源代码基于 GNU GPL v3 发布在 GitHub 上。你可以阅读它、自己运行它，也可以参与贡献。",
+      "是的。PseudoEditor 可以免费使用，源代码基于 Apache License 2.0 发布在 GitHub 上。你可以阅读它、自己运行它，也可以参与贡献。",
   },
   {
     question: "可以练习随机的考试风格题目吗？",

@@ -5,7 +5,7 @@ import { localeTags, locales, sharedSocialMetadata } from "@/i18n/config";
 import { LocaleProvider } from "@/i18n/context";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
-import { authorName, organizationName, productName, siteUrl } from "@/lib/seo-content";
+import { authorName, productName, siteUrl } from "@/lib/seo-content";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -25,8 +25,8 @@ export async function generateMetadata({ params }: LocaleParams): Promise<Metada
     description: t.homeDescription,
     applicationName: productName,
     authors: [{ name: authorName }],
-    creator: organizationName,
-    publisher: organizationName,
+    creator: authorName,
+    publisher: authorName,
     keywords: t.keywords,
     category: "education",
     // Only fields every page shares. Pages set their own title, canonical, and social title/URL

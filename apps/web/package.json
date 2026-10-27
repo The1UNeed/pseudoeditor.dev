@@ -3,8 +3,8 @@
   "version": "0.1.9",
   "private": true,
   "description": "Next.js browser app and website for PseudoEditor.",
-  "author": "Alex",
-  "license": "GPL-3.0-only",
+  "author": "Alex Xin LIU",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "cross-env NEXT_PUBLIC_RESET_WORKSPACE_ON_DEV=1 next dev",
     "dev:web": "pnpm run dev",

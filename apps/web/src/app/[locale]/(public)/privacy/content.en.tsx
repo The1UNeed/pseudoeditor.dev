@@ -12,7 +12,7 @@ export const privacyEn: LegalDocument = {
       title: "1. Who is responsible",
       content: (
         <>
-          <p>PseudoEditor is run by Alex Xin Liu, an individual developer based in New Zealand, who is the data controller (in China, the personal information handler) for the data described here. There is no company, no advertising, and no data broker behind the service.</p>
+          <p>PseudoEditor is run by Alex Xin LIU, an individual developer based in New Zealand, who is the data controller (in China, the personal information handler) for the data described here. There is no company, no advertising, and no data broker behind the service.</p>
           <p>For any privacy request, write to <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>. Please do not put personal details in public GitHub issues.</p>
         </>
       ),

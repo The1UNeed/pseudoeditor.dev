@@ -3,8 +3,8 @@
   "version": "0.1.9",
   "private": true,
   "description": "PseudoEditor: free and open-source pseudo code editor and compiler.",
-  "author": "Alex",
-  "license": "GPL-3.0-only",
+  "author": "Alex Xin LIU",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@10.29.3",
   "engines": {
     "node": ">=20.9"

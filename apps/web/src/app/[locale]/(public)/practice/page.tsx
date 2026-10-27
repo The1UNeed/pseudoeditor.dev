@@ -6,7 +6,7 @@ import { localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
 import { getPracticeQuestions } from "@/lib/practice-questions";
-import { productName } from "@/lib/seo-content";
+import { authorName } from "@/lib/seo-content";
 import { RandomPracticeControls } from "./RandomPracticeButton";
 
 export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
@@ -38,7 +38,7 @@ export default async function PracticeIndexPage({ params }: LocaleParams) {
       educationalLevel: "secondary",
       isAccessibleForFree: true,
       audience: { "@type": "EducationalAudience", educationalRole: "student" },
-      provider: { "@type": "Organization", name: productName },
+      provider: { "@type": "Person", name: authorName },
     },
     {
       "@context": "https://schema.org",

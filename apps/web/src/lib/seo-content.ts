@@ -5,11 +5,10 @@ export const siteUrl = "https://www.pseudoeditor.dev";
 
 export const productName = "PseudoEditor";
 
-export const organizationName = "PseudoEditor";
 
-export const authorName = "Alex Xin Liu";
+export const authorName = "Alex Xin LIU";
 
-export const githubUrl = "https://github.com/Lumora-Studio/PseudocodeCompiler";
+export const githubUrl = "https://github.com/The1UNeed/pseudoeditor.dev";
 
 /** Monitored mailbox for privacy, security, and legal requests. */
 export const contactEmail = "privacy@pseudoeditor.dev";
@@ -446,7 +445,7 @@ export const faqItems: FaqItem[] = [
   {
     question: "Is PseudoEditor really free and open source?",
     answer:
-      "Yes. PseudoEditor is free to use and the source code is published under the GNU GPL v3 on GitHub. You can read it, run it yourself, and contribute.",
+      "Yes. PseudoEditor is free to use and the source code is published under the Apache License 2.0 on GitHub. You can read it, run it yourself, and contribute.",
   },
   {
     question: "Can I practise random exam-style questions?",

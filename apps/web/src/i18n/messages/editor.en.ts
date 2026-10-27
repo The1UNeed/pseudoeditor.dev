@@ -77,7 +77,7 @@ export const editorEn = {
   empty: { welcome: "Welcome to PseudoEditor", description: "This workspace starts empty on purpose. Add a pseudocode file from the explorer, then write, compile, and run from there." },
   manual: { title: "Pseudocode manual" },
   breadcrumbs: { documentPath: "Document path" },
-  legal: { userAgreement: "User agreement", privacy: "Privacy", security: "Security", github: "GitHub", notice: (year: number) => `© ${year} PseudoEditor. Free and open source under the GNU GPL v3.` },
+  legal: { userAgreement: "User agreement", privacy: "Privacy", security: "Security", github: "GitHub", notice: (year: number) => `© ${year} Alex Xin LIU. Licensed under the Apache License 2.0.` },
   touchTabs: { editor: "EDITOR", files: "FILES", output: "OUTPUT", settings: "SETTINGS" },
   sync: {
     cloudLoadFailed: "Couldn't reach your cloud workspace. Your cloud copy hasn't been changed. Reload to try again.",

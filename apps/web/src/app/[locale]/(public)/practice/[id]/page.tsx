@@ -12,7 +12,7 @@ import {
   practiceQuestions,
   relatedPracticeQuestions,
 } from "@/lib/practice-questions";
-import { productName } from "@/lib/seo-content";
+import { authorName } from "@/lib/seo-content";
 import CopyableCodeBlock from "../../manual/CopyableCodeBlock";
 import { RandomPracticeControls } from "../RandomPracticeButton";
 
@@ -70,7 +70,7 @@ export default async function PracticeQuestionPage({ params }: PageProps) {
       teaches: "pseudocode",
       isAccessibleForFree: true,
       audience: { "@type": "EducationalAudience", educationalRole: "student" },
-      author: { "@type": "Organization", name: productName },
+      author: { "@type": "Person", name: authorName },
     },
     {
       "@context": "https://schema.org",

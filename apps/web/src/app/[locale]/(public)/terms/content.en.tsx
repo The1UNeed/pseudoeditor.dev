@@ -13,7 +13,7 @@ export const termsEn: LegalDocument = {
       content: (
         <>
           <p>PseudoEditor is a free and open-source pseudo code editor and compiler. It lets you write pseudocode, compile it, run it in your browser, view it as a flowchart, and optionally save multi-file workspaces to your account.</p>
-          <p>The service is operated by Alex Xin Liu, an individual developer based in New Zealand, not a company. It is provided as a free public tool and is not a commercial product.</p>
+          <p>The service is operated by Alex Xin LIU, an individual developer based in New Zealand, not a company. It is provided as a free public tool and is not a commercial product.</p>
         </>
       ),
     },
@@ -75,7 +75,7 @@ export const termsEn: LegalDocument = {
       title: "6. Open-source license",
       content: (
         <>
-          <p>The PseudoEditor source code is published under the GNU General Public License, version 3, at <a href="https://github.com/Lumora-Studio/PseudocodeCompiler" target="_blank" rel="noopener noreferrer">https://github.com/Lumora-Studio/PseudocodeCompiler</a>. The license governs your use of the code. These terms govern your use of the hosted service at pseudoeditor.dev.</p>
+          <p>The PseudoEditor source code is published under the Apache License, Version 2.0, at <a href="https://github.com/The1UNeed/pseudoeditor.dev" target="_blank" rel="noopener noreferrer">https://github.com/The1UNeed/pseudoeditor.dev</a>. The license governs your use of the code. These terms govern your use of the hosted service at pseudoeditor.dev.</p>
           <p>The PseudoEditor name and logo identify this project. You may run your own copy of the software, but please do not present a fork as the official service.</p>
         </>
       ),
@@ -134,7 +134,7 @@ export const termsEn: LegalDocument = {
       title: "12. Contact",
       content: (
         <>
-          <p>Questions about these terms can be sent to <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a> or raised as an issue on <a href="https://github.com/Lumora-Studio/PseudocodeCompiler/issues" target="_blank" rel="noopener noreferrer">GitHub</a>. For account or privacy matters, see the <Link href="/privacy">privacy policy</Link>.</p>
+          <p>Questions about these terms can be sent to <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a> or raised as an issue on <a href="https://github.com/The1UNeed/pseudoeditor.dev/issues" target="_blank" rel="noopener noreferrer">GitHub</a>. For account or privacy matters, see the <Link href="/privacy">privacy policy</Link>.</p>
         </>
       ),
     },

@@ -14,7 +14,7 @@ export const editorZh: typeof editorEn = {
   save: { saveWorkspace: "保存工作区", saving: "保存中", saved: "已保存", failed: "保存失败", failedTitle: "保存失败。请查看消息栏了解详情。", cloudTitle: "将工作区保存到云端", localTitle: "将工作区保存在此设备上", signInTitle: "登录后保存到浏览器", leaveWarning: "请在离开或刷新此页面前保存或导出工作。" },
   empty: { welcome: "欢迎使用 PseudoEditor", description: "工作区目前为空。请在文件浏览器中新建伪代码文件，然后开始编写、编译和运行。" },
   manual: { title: "伪代码手册" }, breadcrumbs: { documentPath: "文档路径" },
-  legal: { userAgreement: "用户协议", privacy: "隐私", security: "安全", github: "GitHub", notice: (year) => `© ${year} PseudoEditor。依据 GNU GPL v3 发布的自由开源软件。` },
+  legal: { userAgreement: "用户协议", privacy: "隐私", security: "安全", github: "GitHub", notice: (year) => `© ${year} Alex Xin LIU。基于 Apache License 2.0 许可发布。` },
   touchTabs: { editor: "编辑器", files: "文件", output: "输出", settings: "设置" },
   sync: {
     cloudLoadFailed: "无法连接云端工作区。云端副本未被修改。请刷新页面重试。",

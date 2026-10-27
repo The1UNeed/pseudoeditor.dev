@@ -13,7 +13,7 @@ Build your pseudo code project freely and creatively.</p>
   <a href="https://www.pseudoeditor.dev/docs">Docs</a> ·
   <a href="https://www.pseudoeditor.dev/manual">Manual</a> ·
   <a href="SECURITY.md">Security</a> ·
-  <a href="LICENSE">GPL-3.0</a>
+  <a href="LICENSE">Apache-2.0</a>
 </p>
 
 PseudoEditor lets you write structured pseudocode, compile it with line-level diagnostics,
@@ -99,9 +99,9 @@ Check with `pnpm audit` before adding or removing an override.
 
 ## Contributing
 
-Issues and pull requests are welcome at https://github.com/Lumora-Studio/PseudocodeCompiler.
+Issues and pull requests are welcome at https://github.com/The1UNeed/pseudoeditor.dev.
 Please report security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-Copyright (C) 2026 Alex Xin Liu. Licensed under the GNU General Public License v3. See [LICENSE](LICENSE).
+Copyright 2026 Alex Xin LIU. Licensed under the Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

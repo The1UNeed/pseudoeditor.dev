@@ -13,7 +13,7 @@ export const termsZh: LegalDocument = {
       content: (
         <>
           <p>PseudoEditor 是一款免费开源的伪代码编辑器与编译器。它允许你编写伪代码、编译、在浏览器中运行、以流程图形式查看，并可选择将多文件工作区保存到你的账号。</p>
-          <p>本服务由居住在新西兰的个人开发者 Alex Xin Liu 运营，而非公司。它作为免费的公共工具提供，并非商业产品。</p>
+          <p>本服务由居住在新西兰的个人开发者 Alex Xin LIU 运营，而非公司。它作为免费的公共工具提供，并非商业产品。</p>
         </>
       ),
     },
@@ -75,7 +75,7 @@ export const termsZh: LegalDocument = {
       title: "6. 开源许可证",
       content: (
         <>
-          <p>PseudoEditor 的源代码依据 GNU 通用公共许可证第 3 版发布于 <a href="https://github.com/Lumora-Studio/PseudocodeCompiler" target="_blank" rel="noopener noreferrer">https://github.com/Lumora-Studio/PseudocodeCompiler</a>。该许可证约束你对代码的使用；本条款约束你对托管于 pseudoeditor.dev 的服务的使用。</p>
+          <p>PseudoEditor 的源代码依据 Apache 许可证 2.0 版发布于 <a href="https://github.com/The1UNeed/pseudoeditor.dev" target="_blank" rel="noopener noreferrer">https://github.com/The1UNeed/pseudoeditor.dev</a>。该许可证约束你对代码的使用；本条款约束你对托管于 pseudoeditor.dev 的服务的使用。</p>
           <p>PseudoEditor 的名称和标志用于标识本项目。你可以运行自己的软件副本，但请勿将分支版本冒充为官方服务。</p>
         </>
       ),
@@ -134,7 +134,7 @@ export const termsZh: LegalDocument = {
       title: "12. 联系方式",
       content: (
         <>
-          <p>关于本条款的问题可发送至 <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>，或在 <a href="https://github.com/Lumora-Studio/PseudocodeCompiler/issues" target="_blank" rel="noopener noreferrer">GitHub</a> 上提交 issue。有关账号或隐私事宜，请参阅<Link href="/zh/privacy">隐私政策</Link>。</p>
+          <p>关于本条款的问题可发送至 <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>，或在 <a href="https://github.com/The1UNeed/pseudoeditor.dev/issues" target="_blank" rel="noopener noreferrer">GitHub</a> 上提交 issue。有关账号或隐私事宜，请参阅<Link href="/zh/privacy">隐私政策</Link>。</p>
         </>
       ),
     },

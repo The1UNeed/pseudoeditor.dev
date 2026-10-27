@@ -12,7 +12,7 @@ export const privacyZh: LegalDocument = {
       title: "1. 责任主体",
       content: (
         <>
-          <p>PseudoEditor 由居住在新西兰的个人开发者 Alex Xin Liu 运营，其为本政策所述数据的个人信息处理者（在欧盟和英国称为数据控制者）。本服务背后没有公司、没有广告，也没有数据经纪商。</p>
+          <p>PseudoEditor 由居住在新西兰的个人开发者 Alex Xin LIU 运营，其为本政策所述数据的个人信息处理者（在欧盟和英国称为数据控制者）。本服务背后没有公司、没有广告，也没有数据经纪商。</p>
           <p>如需提出任何隐私请求，请发送邮件至 <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>。请勿在公开的 GitHub issue 中填写个人信息。</p>
         </>
       ),
