@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { localeTags, locales, sharedSocialMetadata } from "@/i18n/config";
 import { LocaleProvider } from "@/i18n/context";
 import { getDictionary } from "@/i18n/messages";
@@ -52,8 +50,6 @@ export default async function RootLayout({
   params,
 }: Readonly<{ children: React.ReactNode }> & LocaleParams) {
   const locale = await resolveLocale(params);
-  // The privacy policy promises analytics on the production website only, not previews or local builds.
-  const isProductionDeployment = process.env.VERCEL_ENV === "production";
   const themeBootScript = `(() => {
     try {
       const stored = window.localStorage.getItem("igcse-theme-mode");
@@ -76,8 +72,6 @@ export default async function RootLayout({
       </head>
       <body className="antialiased">
         <LocaleProvider locale={locale}>{children}</LocaleProvider>
-        {isProductionDeployment ? <Analytics /> : null}
-        {isProductionDeployment ? <SpeedInsights /> : null}
       </body>
     </html>
   );

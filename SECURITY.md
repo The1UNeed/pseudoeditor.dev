@@ -1,7 +1,8 @@
 # Security policy
 
 PseudoEditor runs its compiler and runtime entirely in the browser. The only server-side
-surface is the workspace sync API (Next.js route → Convex) guarded by Clerk sessions.
+surface is the workspace sync API (Next.js route → Convex) guarded by Clerk sessions. Anonymous,
+cookieless analytics and error reports go to PostHog's EU Cloud.
 
 ## Reporting a vulnerability
 
@@ -15,7 +16,7 @@ You will receive an acknowledgement within 7 days and a status update within 30 
 ## Scope
 
 In scope: this repository, https://www.pseudoeditor.dev, and the workspace sync API.
-Out of scope: third-party providers (Clerk, Convex, Vercel), denial-of-service, social engineering,
+Out of scope: third-party providers (Clerk, Convex, PostHog, Vercel), denial-of-service, social engineering,
 and self-hosted forks.
 
 ## Safe harbor

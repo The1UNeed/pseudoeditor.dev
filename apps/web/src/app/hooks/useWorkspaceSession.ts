@@ -35,6 +35,7 @@ import {
   workspaceHasFolder,
 } from "@pseudoeditor/workspace";
 import type { Diagnostic } from "@/compiler/types";
+import { track } from "@/lib/analytics";
 import { loadWorkspace, saveWorkspace } from "@/lib/storage";
 import type { WorkspacePersistenceMode } from "@/lib/platform";
 import { pseudocodeRuntimeRunner } from "@/runtime/executeRuntime";
@@ -524,6 +525,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     updateWorkspaceCompileSummary(document.id, compileResult.diagnostics);
 
     if (!compileResult.success || !compileResult.astJson) {
+      track("program_run", { outcome: "compile_error", diagnostics: compileResult.diagnostics.length, inputs: 0 });
       updateTerminalOutput(target.panelId, `Compile failed for ${document.name}.\n\n${formatDiagnostics(compileResult.diagnostics)}`);
       return;
     }
@@ -572,6 +574,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
         syncStdoutToTranscript(runResult.stdout);
 
         if (stdinLines.length >= MAX_INTERACTIVE_INPUTS) {
+          track("program_run", { outcome: "input_limit", diagnostics: 0, inputs: stdinLines.length });
           updateTerminalOutput(
             target.panelId,
             [...transcript, `Stopped after ${MAX_INTERACTIVE_INPUTS} INPUT requests to avoid an infinite input loop.`].join(
@@ -583,6 +586,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
 
         const nextInput = await waitForTerminalInput(target.panelId, TERMINAL_PROMPT);
         if (nextInput === null) {
+          track("program_run", { outcome: "cancelled", diagnostics: 0, inputs: stdinLines.length });
           updateTerminalOutput(target.panelId, [...transcript, "Run cancelled."].join("\n"));
           return;
         }
@@ -600,6 +604,12 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
 
       syncStdoutToTranscript(runResult.stdout);
       latestVirtualFiles = runResult.virtualFiles;
+      const failed = runResult.stderr.trim().length > 0 || runResult.diagnostics.length > 0;
+      track("program_run", {
+        outcome: failed ? "runtime_error" : "success",
+        diagnostics: runResult.diagnostics.length,
+        inputs: stdinLines.length,
+      });
 
       if (runResult.stderr.trim().length > 0) {
         transcript.push(...runResult.stderr.trim().split("\n"));
