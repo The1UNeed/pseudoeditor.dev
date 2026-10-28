@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { WorkspaceNode, WorkspaceState } from "@pseudoeditor/workspace";
 import { useLocale } from "@/i18n/context";
+import { track } from "@/lib/analytics";
 import {
   getPracticeQuestion,
   getPracticeQuestions,
@@ -64,6 +65,7 @@ export function usePracticeQuestion(
       return;
     }
     appliedId.current = id;
+    track("practice_question_opened", { question: question.id, source: "link" });
     const existing = findPracticeDocument(workspace, question.id);
     if (existing) {
       selectDocument(existing.id);
@@ -92,6 +94,7 @@ export function usePracticeQuestion(
     if (!question) {
       return;
     }
+    track("practice_question_opened", { question: question.id, source: "random" });
     const existing = findPracticeDocument(workspace, question.id);
     if (existing) {
       selectDocument(existing.id);

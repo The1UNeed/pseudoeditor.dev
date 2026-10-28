@@ -5,7 +5,7 @@ export const privacyZh: LegalDocument = {
   eyebrow: "隐私政策",
   title: "我们只收集产品运行所必需的最少数据。",
   summary:
-    "本政策说明 PseudoEditor 处理哪些数据、处理的原因、数据存储在何处以及如何删除。简而言之：除非你登录，否则你的代码只会留在你的浏览器中。登录即开启云端同步，你的工作区会自动保存到我们的数据库。",
+    "本政策说明 PseudoEditor 处理哪些数据、处理的原因、数据存储在何处以及如何删除。简而言之：除非你登录，否则你的代码只会留在你的浏览器中。登录即开启云端同步，你的工作区会自动保存到我们的数据库。为了发现错误并了解哪些功能被使用，我们在欧盟托管了无 Cookie 的匿名统计分析，它永远不会看到你的代码。",
   sections: [
     {
       id: "controller",
@@ -29,7 +29,7 @@ export const privacyZh: LegalDocument = {
           <tbody>
           <tr><td>你的伪代码与工作区布局</td><td>编辑期间始终存在</td><td>仅在你的浏览器中。登录后也会存储到 Convex。</td><td>直至你在编辑器中删除它，或你的账号被删除。</td></tr>
           <tr><td>电子邮箱、姓名、头像、登录方式</td><td>仅在你创建账号时</td><td>Clerk。邮箱和姓名还会复制到 Convex，与你的工作区一同存放。</td><td>直至你的账号被删除。</td></tr>
-          <tr><td>汇总的页面访问量与加载耗时</td><td>仅在公开网站的生产环境</td><td>Vercel Analytics 与 Speed Insights。不使用 Cookie，不进行跨站跟踪。</td><td>仅保留汇总数据。Vercel 在 24 小时后丢弃每日访客哈希值。</td></tr>
+          <tr><td>匿名使用事件、页面访问、加载耗时与错误报告</td><td>在生产环境的网站和编辑器上；如果你的浏览器发送“请勿跟踪”或“全球隐私控制”信号则不收集</td><td>位于德国的 PostHog 欧盟云。不会在你的设备上存储任何内容，事件也永远不会与你的账号关联。</td><td>最长一年，之后删除。用于生成访客哈希的每日盐值在一天后删除。</td></tr>
           <tr><td>请求日志（IP 地址、用户代理、路径、时间戳）</td><td>每次请求</td><td>Vercel</td><td>按 Vercel 的短期日志保留期限，用于运维与防滥用。</td></tr>
           </tbody>
           </table>
@@ -43,6 +43,7 @@ export const privacyZh: LegalDocument = {
         <>
           <p>编译器和运行时通过 WebAssembly 完全在你的浏览器中运行。你的代码从不会被发送到服务器进行编译或执行，我们也无法看到它。</p>
           <p>在公开网站上，未登录的会话仅将工作区保存在内存中，关闭标签页后即消失。在 localhost 或桌面版中，工作区会保存到浏览器的 IndexedDB，以便刷新后仍然保留。主题、面板尺寸和自动保存偏好保存在本地存储中。你可以通过浏览器设置清除以上全部内容。</p>
+          <p>第 6 节所述的匿名统计分析在未登录时同样运行。它只记录程序运行过一次及其是否成功，从不记录代码本身。</p>
         </>
       ),
     },
@@ -66,7 +67,7 @@ export const privacyZh: LegalDocument = {
           <ul>
           <li><strong>提供编辑器、你的账号以及云端同步。</strong>在欧盟和英国的法律依据：履行合同（GDPR 第 6(1)(b) 条）。在中国：为提供你所请求的服务所必需（《中华人民共和国个人信息保护法》第 13 条第（2）项），以及你在注册时作出的同意。</li>
           <li><strong>保障服务安全并防止滥用</strong>，为此使用请求日志。法律依据：我们运营安全服务的正当利益（第 6(1)(f) 条）。</li>
-          <li><strong>了解汇总使用情况</strong>，在公开网站上使用无 Cookie 的统计分析。法律依据：正当利益。不会建立任何个人画像。</li>
+          <li><strong>了解服务的使用情况并修复出错之处</strong>，为此使用无 Cookie 的匿名统计分析、加载耗时和错误报告。在欧盟和英国的法律依据：我们维持并改进这一免费工具的正当利益（第 6(1)(f) 条）。事件不会与你本人或你的账号关联，也不会建立任何个人画像。在中国：你的 IP 地址和浏览器信息仅用于生成不可逆的每日哈希值，随后即被丢弃，因此我们保留的是经匿名化处理的信息（《个人信息保护法》第 4 条）。关闭方法见第 6 节。</li>
           <li><strong>遵守法律</strong>，例如回应合法的法律请求（第 6(1)(c) 条）。</li>
           </ul>
           <p>我们不会对你作出自动化决策，不会对你进行用户画像，也不会将你的数据用于广告。</p>
@@ -78,8 +79,11 @@ export const privacyZh: LegalDocument = {
       title: "6. Cookie、本地存储与统计分析",
       content: (
         <>
-          <p>公开网站本身不设置任何 Cookie。登录后会设置 Clerk 的会话 Cookie（例如 <code>__session</code> 和 <code>__client_uat</code>），这些 Cookie 为账号功能所严格必需，因此根据欧盟《电子隐私指令》和英国 PECR 无需征得同意。</p>
-          <p>Vercel Analytics 与 Speed Insights 仅在生产环境的网站上运行。它们不使用 Cookie，也不进行设备指纹识别：访客通过请求的加盐哈希值识别，最多保留 24 小时，之后哈希值即被丢弃（参见 <a href="https://vercel.com/docs/analytics/privacy-policy" target="_blank" rel="noopener noreferrer">Vercel 的分析隐私说明</a>）。本地版和桌面版不会加载它们。我们不运行任何广告或第三方营销脚本，因此也不存在需要你选择退出的内容。</p>
+          <p>网站本身不设置任何 Cookie，其统计分析既不设置 Cookie，也不会向你的浏览器存储写入任何内容。登录后会设置 Clerk 的会话 Cookie（例如 <code>__session</code> 和 <code>__client_uat</code>），这些 Cookie 为账号功能所严格必需，因此根据欧盟《电子隐私指令》和英国 PECR 无需征得同意。</p>
+          <p>统计分析、加载耗时和错误报告由 <a href="https://posthog.com" target="_blank" rel="noopener noreferrer">PostHog</a> 以其无 Cookie 模式提供，且仅在生产环境的网站上运行。PostHog 不使用 Cookie，而是在其服务器上对我们的项目 ID、每天更换的随机盐值、你的 IP 地址、浏览器用户代理和网站主机名计算单向哈希值，以此统计访客数量。每天的事件处理完毕后盐值即被删除，因此该哈希值无法追溯到你本人，也无法与你在其他日期的访问关联。IP 地址在事件存储前即被移除，也不会据此推断位置（参见 <a href="https://posthog.com/tutorials/cookieless-tracking" target="_blank" rel="noopener noreferrer">PostHog 的无 Cookie 跟踪说明</a>）。</p>
+          <p>我们记录：页面访问及离开页面的时间；去除查询字符串和片段后的页面地址；来源网站；浏览器、操作系统、设备类型、屏幕与窗口尺寸、语言和时区；Core Web Vitals 加载耗时；JavaScript 错误的消息和堆栈信息；以及四个编辑器事件：程序运行（含结果、诊断数量和输入次数）、打开流程图、更改语法设置、打开练习题。我们从不记录你的代码、程序输出、文件名或你输入的任何内容。会话录制、点击跟踪、热力图和问卷均已关闭。即使你已登录，事件也永远不会与你的账号关联。</p>
+          <p>当我们的服务器出错时，它会向 PostHog 发送错误消息和堆栈信息、页面路径和请求方法，从不发送 Cookie、请求头或你的身份。</p>
+          <p>如需关闭统计分析，请在浏览器中开启“请勿跟踪”（Do Not Track）或“全球隐私控制”（Global Privacy Control）：此时 PostHog 完全不会加载。内容拦截器同样有效，编辑器的运行不依赖统计分析。预览版、本地版和桌面版不会加载统计分析。我们不运行任何广告或第三方营销脚本。</p>
           <p>本地存储与 IndexedDB 仅按第 3 节所述方式使用，数据永远不会离开你的设备。</p>
         </>
       ),
@@ -89,19 +93,20 @@ export const privacyZh: LegalDocument = {
       title: "7. 数据存储位置与跨境传输",
       content: (
         <>
-          <p>我们的服务商将数据存储在位于美国的服务器上。如果你在美国以外使用本服务，你的账号数据和已同步的工作区将被传输至美国。</p>
+          <p>Vercel、Clerk 和 Convex 将数据存储在位于美国的服务器上。如果你在美国以外使用本服务，你的账号数据和已同步的工作区将被传输至美国。PostHog 将统计分析数据存储在欧盟。</p>
           <table>
           <thead>
           <tr><th>接收方</th><th>目的</th><th>所在国家</th><th>隐私政策</th></tr>
           </thead>
           <tbody>
-          <tr><td>Vercel Inc.</td><td>网站托管、API 路由、请求日志以及隐私友好的统计分析</td><td>美国</td><td><a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
+          <tr><td>Vercel Inc.</td><td>网站托管、API 路由和请求日志</td><td>美国</td><td><a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
           <tr><td>Clerk, Inc.</td><td>身份认证与账号管理</td><td>美国</td><td><a href="https://clerk.com/legal/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
           <tr><td>Convex, Inc.</td><td>存储已同步工作区的数据库</td><td>美国</td><td><a href="https://www.convex.dev/legal/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
+          <tr><td>PostHog, Inc.</td><td>匿名统计分析、加载耗时与错误跟踪</td><td>欧盟（德国）</td><td><a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
           </tbody>
           </table>
-          <p><strong>欧盟、欧洲经济区及英国。</strong>跨境传输依据服务商的数据处理协议进行，该协议采用欧盟标准合同条款和英国国际数据传输附录；若服务商已通过认证，则依据欧盟—美国数据隐私框架。</p>
-          <p><strong>中国大陆。</strong>根据《中华人民共和国个人信息保护法》，我们在此告知你：上表所列位于美国的接收方将接收你的电子邮箱、姓名、头像以及已同步的工作区，仅用于为你提供账号和云端同步服务，传输方式为经 HTTPS 加密的传输。在你创建账号之前，登录页面会告知你账号数据由我们的服务商存储在美国；创建账号即表示你同意上述向境外提供个人信息的行为。你可以随时通过删除账号撤回该同意，并可通过我们（<a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>）向上述接收方行使你的权利。如果你不希望数据离开中国，请在不登录的情况下使用编辑器：此时不会发生任何传输。</p>
+          <p><strong>欧盟、欧洲经济区及英国。</strong>统计分析数据保留在欧盟境内。向美国的跨境传输依据服务商的数据处理协议进行，该协议采用欧盟标准合同条款和英国国际数据传输附录；若服务商已通过认证，则依据欧盟—美国数据隐私框架。</p>
+          <p><strong>中国大陆。</strong>根据《中华人民共和国个人信息保护法》，我们在此告知你：上表所列位于美国的接收方将接收你的电子邮箱、姓名、头像以及已同步的工作区，仅用于为你提供账号和云端同步服务，传输方式为经 HTTPS 加密的传输。在你创建账号之前，登录页面会告知你账号数据由我们的服务商存储在美国；创建账号即表示你同意上述向境外提供个人信息的行为。你可以随时通过删除账号撤回该同意，并可通过我们（<a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>）向上述接收方行使你的权利。无论你是否登录，你的浏览器还会向位于德国的 PostHog 发送你的 IP 地址和浏览器信息，以计算第 6 节所述的匿名每日哈希值，之后这些信息即被丢弃；随之发送的匿名使用事件和错误报告从不包含你的代码或账号信息。如需停止，请开启“请勿跟踪”或“全球隐私控制”。如果你不希望账号数据或代码离开中国，请在不登录且开启上述设置之一的情况下使用编辑器。</p>
         </>
       ),
     },
@@ -111,7 +116,7 @@ export const privacyZh: LegalDocument = {
       content: (
         <>
           <p>已同步的工作区和你的用户记录会一直保存，直至你的账号被删除。Clerk 账号被删除时，Clerk 会向我们的数据库发送带签名的通知，数据库随即删除对应的工作区和用户记录。编辑器没有单独删除或导出已同步数据的功能。服务商的备份可能在此后继续保留一段有限的时间。</p>
-          <p>请求日志由 Vercel 保留一段短暂的运维期限，统计分析数据仅以汇总形式保留，因此二者此后都无法追溯到你本人。</p>
+          <p>请求日志由 Vercel 保留一段短暂的运维期限。统计分析事件和错误报告在 PostHog 中最长保留一年，之后删除。由于当天的盐值删除后访客哈希值无法还原，我们无法查找、导出或删除来自你的统计分析事件；如需停止产生新的事件，请使用第 6 节所述的设置。</p>
           <p>如需删除你的账号和数据，或获取数据副本，请发送邮件至 <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>。我们会在 30 天内答复，该期限符合 GDPR、英国 GDPR、《个人信息保护法》以及美国各州隐私法规定的时限。</p>
         </>
       ),
@@ -147,7 +152,7 @@ export const privacyZh: LegalDocument = {
       title: "11. 儿童与学生",
       content: (
         <>
-          <p>编辑器无需账号即可使用，适合任何年龄的学生。对于未登录的访问者，除上文所述的请求日志和汇总统计外，不会收集任何数据。</p>
+          <p>编辑器无需账号即可使用，适合任何年龄的学生。对于未登录的访问者，除上文所述的请求日志和匿名统计分析外，不会收集任何数据，且二者均不包含其代码。</p>
           <p>账号仅面向在其所在地已达到可同意数据处理年龄的用户：美国（COPPA）和英国为 13 岁，中国大陆为 14 岁，欧盟各成员国为 13 至 16 岁不等。如果你未达到该年龄，请在不登录的情况下使用编辑器，或请父母或监护人为你创建并管理账号。我们不会明知而保留属于更低龄儿童的账号；如果你认为存在此类账号，请发送邮件告知我们，我们将予以删除。</p>
           <p>学校和教师在课堂上使用编辑器无需签署数据协议，因为除非学生主动选择登录，否则不会有任何学生数据传送给我们。</p>
         </>

@@ -61,6 +61,7 @@ import {
   isCloudAuthConfigured,
   useAuth,
 } from "@/lib/auth-components";
+import { track } from "@/lib/analytics";
 import { getTouchLayout } from "@/lib/appleTouch";
 import type { Diagnostic } from "@/compiler/types";
 import { useDictionary, useLocale } from "@/i18n/context";
@@ -819,8 +820,11 @@ export default function HomePage() {
       setShowFlowchartPrompt(true);
       return;
     }
+    if (!showFlowchart) {
+      track("flowchart_opened", {});
+    }
     setShowFlowchart((prev) => !prev);
-  }, [currentDocument, flowchartModeEnabled]);
+  }, [currentDocument, flowchartModeEnabled, showFlowchart]);
 
   const syncFlowchartCodeToWorkspace = useCallback(
     (
@@ -903,6 +907,7 @@ export default function HomePage() {
   const currentSyntax = resolveSyntax(syntaxId);
 
   const handleSyntaxChange = (nextSyntaxId: WorkspaceSyntaxId) => {
+    track("syntax_changed", { syntax: nextSyntaxId });
     setSyntaxId(nextSyntaxId);
   };
 

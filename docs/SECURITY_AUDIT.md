@@ -92,3 +92,20 @@ The workspace sync path is soundly designed: the user identity is never taken fr
 - `'unsafe-inline'` means the CSP is not a second line of defense against a future XSS. Nonce-based CSP via middleware is the follow-up.
 - Every denial-of-service found is scoped to the victim's own tab. If workspace sharing is ever added, compiler robustness becomes remotely triggerable.
 - Not covered: Clerk, Convex, and Vercel dashboard configuration, and rate limiting on `/api/workspace` beyond Convex's own limits.
+
+## Addendum 2026-10-28: PostHog analytics
+
+Vercel Analytics and Speed Insights were replaced by PostHog EU Cloud for analytics, web vitals, and error tracking.
+
+- `script-src` no longer lists any analytics origin. The exception-autocapture and web-vitals extensions are bundled from
+  `posthog-js` and `disable_external_dependency_loading` is set, so PostHog cannot inject remote scripts. `connect-src`
+  gains only `https://eu.i.posthog.com`, and only on production builds where analytics are enabled.
+- Cookieless mode (`cookieless_mode: "always"`) with `person_profiles: "never"`: nothing is written to cookies or web
+  storage, and events are never identified. Session replay, autocapture, heatmaps, surveys, and remote config are off.
+- `before_send` strips query strings and fragments from URL properties, so Clerk handshake tokens cannot reach analytics.
+- Server errors are reported from `instrumentation.ts` `onRequestError` with path, method, and route only. Request headers,
+  which carry session cookies and bearer tokens, are never sent.
+- Do Not Track and Global Privacy Control skip client initialisation entirely, because PostHog ignores `respect_dnt` in
+  cookieless mode, and `onRequestError` skips server reports for requests carrying `DNT: 1` or `Sec-GPC: 1`.
+- Residual risk: exception messages and stack traces are sent as thrown. They are not expected to contain user code,
+  because compile and runtime diagnostics are returned as values rather than thrown.

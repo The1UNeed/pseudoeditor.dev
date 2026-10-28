@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { POSTHOG_HOST } from "./src/lib/posthogHost";
 
 const monorepoRoot = path.resolve(__dirname, "../..");
 const isDev = process.env.NODE_ENV !== "production";
@@ -11,7 +12,13 @@ const clerkOrigins = [
   "https://challenges.cloudflare.com",
 ];
 const convexOrigins = ["https://*.convex.cloud", "wss://*.convex.cloud", "https://*.convex.site"];
-const vercelOrigins = ["https://va.vercel-scripts.com", "https://vitals.vercel-insights.com"];
+// The privacy policy promises analytics on the production website only, not previews, local
+// builds, or the desktop app. The flag is inlined at build time for client and server code.
+const analyticsEnabled =
+  process.env.VERCEL_ENV === "production" &&
+  process.env.BUILD_TARGET !== "electron" &&
+  Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
+const analyticsOrigins = analyticsEnabled ? [POSTHOG_HOST] : [];
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -19,12 +26,12 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""} ${[...clerkOrigins, ...vercelOrigins].join(" ")}`,
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""} ${clerkOrigins.join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://img.clerk.com",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
-  `connect-src 'self' ${[...clerkOrigins, ...convexOrigins, ...vercelOrigins].join(" ")}${isDev ? " ws: http://localhost:*" : ""}`,
+  `connect-src 'self' ${[...clerkOrigins, ...convexOrigins, ...analyticsOrigins].join(" ")}${isDev ? " ws: http://localhost:*" : ""}`,
   `frame-src ${clerkOrigins.join(" ")}`,
   ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
@@ -40,6 +47,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_POSTHOG_ENABLED: analyticsEnabled ? "1" : "",
+  },
   images: {
     unoptimized: true,
   },
