@@ -5,7 +5,7 @@ export const privacyEn: LegalDocument = {
   eyebrow: "privacy",
   title: "We collect as little as the product allows.",
   summary:
-    "This policy explains what data PseudoEditor handles, why, where it lives, and how to remove it. The short version: your code stays in your browser unless you sign in. Signing in turns on cloud sync, which saves your workspace to our database automatically. To find bugs and see which features get used, we run cookieless, anonymous analytics hosted in the EU that never see your code.",
+    "This policy explains what data PseudoEditor handles, why, where it lives, and how to remove it. The short version: your code stays in your browser unless you sign in. Signing in turns on cloud sync, which saves your workspace to our database automatically. To find bugs and see which features get used, we run cookieless, anonymous analytics that never see your code.",
   sections: [
     {
       id: "controller",
@@ -29,7 +29,7 @@ export const privacyEn: LegalDocument = {
           <tbody>
           <tr><td>Your pseudocode and workspace layout</td><td>Always, while you edit</td><td>Your browser only. Also Convex, once you sign in.</td><td>You delete it in the editor or your account is deleted.</td></tr>
           <tr><td>Email address, name, profile image, sign-in method</td><td>Only if you create an account</td><td>Clerk. Email and name are also copied to Convex next to your workspace.</td><td>Your account is deleted.</td></tr>
-          <tr><td>Anonymous usage events, page views, load timings, and error reports</td><td>On the production website and editor, unless your browser sends Do Not Track or Global Privacy Control</td><td>PostHog EU Cloud in Germany. Nothing is stored on your device, and events are never linked to your account.</td><td>Up to one year, then deleted. The daily salt behind the visitor hash is deleted after one day.</td></tr>
+          <tr><td>Anonymous usage events, page views, load timings, and error reports</td><td>On the production website and editor, unless your browser sends Do Not Track or Global Privacy Control</td><td>PostHog US Cloud in the United States. Nothing is stored on your device, and events are never linked to your account.</td><td>Up to one year, then deleted. The daily salt behind the visitor hash is deleted after one day.</td></tr>
           <tr><td>Request logs (IP address, user agent, path, timestamp)</td><td>Every request</td><td>Vercel</td><td>Vercel&apos;s short log retention for operations and abuse prevention.</td></tr>
           </tbody>
           </table>
@@ -93,7 +93,7 @@ export const privacyEn: LegalDocument = {
       title: "7. Where data is stored and international transfers",
       content: (
         <>
-          <p>Vercel, Clerk, and Convex store data on servers in the United States. If you use the service from outside the United States, your account data and synced workspaces are transferred there. PostHog stores analytics in the European Union.</p>
+          <p>Vercel, Clerk, Convex, and PostHog store data on servers in the United States. If you use the service from outside the United States, your account data and synced workspaces are transferred there, and so are the anonymous analytics and error reports described in section 6.</p>
           <table>
           <thead>
           <tr><th>Recipient</th><th>Purpose</th><th>Country</th><th>Privacy policy</th></tr>
@@ -102,11 +102,11 @@ export const privacyEn: LegalDocument = {
           <tr><td>Vercel Inc.</td><td>Hosting, API routes, and request logs</td><td>United States</td><td><a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Link</a></td></tr>
           <tr><td>Clerk, Inc.</td><td>Authentication and account management</td><td>United States</td><td><a href="https://clerk.com/legal/privacy" target="_blank" rel="noopener noreferrer">Link</a></td></tr>
           <tr><td>Convex, Inc.</td><td>Database for synced workspaces</td><td>United States</td><td><a href="https://www.convex.dev/legal/privacy" target="_blank" rel="noopener noreferrer">Link</a></td></tr>
-          <tr><td>PostHog, Inc.</td><td>Anonymous analytics, load timings, and error tracking</td><td>European Union (Germany)</td><td><a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">Link</a></td></tr>
+          <tr><td>PostHog, Inc.</td><td>Anonymous analytics, load timings, and error tracking</td><td>United States</td><td><a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">Link</a></td></tr>
           </tbody>
           </table>
-          <p><strong>EU, EEA, and UK.</strong> Analytics stay in the EU. Transfers to the United States rely on the provider&apos;s data processing agreement, which uses the EU Standard Contractual Clauses and the UK International Data Transfer Addendum, or the EU-US Data Privacy Framework where the provider is certified.</p>
-          <p><strong>Mainland China.</strong> Under the Personal Information Protection Law, we tell you here that the recipients above, located in the United States, will receive your email address, name, profile image, and synced workspace for the sole purpose of providing your account and cloud sync, by encrypted transfer over HTTPS. Before you create an account, the sign-in page tells you that account data is stored by our providers in the United States, and creating an account means you agree to this transfer. You can withdraw that agreement at any time by deleting your account, and you can exercise your rights against these recipients through us at <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>. Whether or not you sign in, your browser also sends PostHog in Germany your IP address and browser details so that it can compute the anonymous daily hash described in section 6, after which they are discarded. The anonymous usage events and error reports sent with them never contain your code or account details. To stop this, turn on Do Not Track or Global Privacy Control. If you do not want your account data or code to leave China, use the editor without an account and with one of those settings on.</p>
+          <p><strong>EU, EEA, and UK.</strong> Transfers to the United States, including those of analytics and error reports, rely on the provider&apos;s data processing agreement, which uses the EU Standard Contractual Clauses and the UK International Data Transfer Addendum, or the EU-US Data Privacy Framework where the provider is certified.</p>
+          <p><strong>Mainland China.</strong> Under the Personal Information Protection Law, we tell you here that Vercel, Clerk, and Convex, located in the United States, will receive your email address, name, profile image, and synced workspace for the sole purpose of providing your account and cloud sync, by encrypted transfer over HTTPS. Before you create an account, the sign-in page tells you that account data is stored by our providers in the United States, and creating an account means you agree to this transfer. You can withdraw that agreement at any time by deleting your account, and you can exercise your rights against these recipients through us at <a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>. Whether or not you sign in, your browser also sends PostHog in the United States your IP address and browser details so that it can compute the anonymous daily hash described in section 6, after which they are discarded. The anonymous usage events and error reports sent with them never contain your code or account details. To stop this, turn on Do Not Track or Global Privacy Control. If you do not want your account data or code to leave China, use the editor without an account and with one of those settings on.</p>
         </>
       ),
     },

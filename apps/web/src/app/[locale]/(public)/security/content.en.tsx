@@ -18,9 +18,9 @@ export const securityEn: LegalDocument = {
           <li>Static pages and the editor bundle, served by Vercel.</li>
           <li>A workspace sync API that forwards requests to Convex after verifying your session.</li>
           <li>Convex database functions that store and return one workspace per user.</li>
-          <li>Anonymous analytics and error reports, sent from your browser and from our server to PostHog&apos;s EU Cloud.</li>
+          <li>Anonymous analytics and error reports, sent from your browser and from our server to PostHog&apos;s US Cloud.</li>
           </ul>
-          <p>Hosting, sync, and the database run on servers in the United States. Analytics run in the European Union.</p>
+          <p>Hosting, sync, the database, and analytics all run on servers in the United States.</p>
         </>
       ),
     },
@@ -41,7 +41,7 @@ export const securityEn: LegalDocument = {
         <>
           <ul>
           <li>All traffic uses HTTPS. HSTS, a Content Security Policy, and standard hardening headers are set on every response. The policy limits scripts, connections, and frames to our own origin and the providers we use, but it still allows inline scripts.</li>
-          <li>The analytics library is bundled with the site and is configured never to load code from PostHog. The only PostHog address the policy allows is its EU ingestion endpoint, for sending events.</li>
+          <li>The analytics library is bundled with the site and is configured never to load code from PostHog. The only PostHog address the policy allows is its US ingestion endpoint, for sending events.</li>
           <li>Analytics are cookieless and never linked to accounts. Query strings and fragments, which can carry sign-in tokens, are stripped from every URL before an event leaves your browser, and server error reports never include cookies or request headers.</li>
           <li>Workspace payloads are validated twice, in the API route and in Convex, with hard limits on size, depth, node count, and shape.</li>
           <li>The editor loads Monaco and its workers from our own origin, not a third-party CDN.</li>

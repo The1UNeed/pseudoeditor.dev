@@ -30,7 +30,7 @@ describe("captureServerError", () => {
     const error = new Error("boom");
     await captureServerError(error, { path: "/api/workspace", method: "PUT" });
 
-    expect(PostHog).toHaveBeenCalledWith("phc_test", expect.objectContaining({ host: "https://eu.i.posthog.com", disableGeoip: true }));
+    expect(PostHog).toHaveBeenCalledWith("phc_test", expect.objectContaining({ host: "https://us.i.posthog.com", disableGeoip: true }));
     expect(captureExceptionImmediate).toHaveBeenCalledWith(error, "pseudoeditor-server", {
       path: "/api/workspace",
       method: "PUT",

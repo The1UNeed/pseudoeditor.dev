@@ -5,7 +5,7 @@ export const privacyZh: LegalDocument = {
   eyebrow: "隐私政策",
   title: "我们只收集产品运行所必需的最少数据。",
   summary:
-    "本政策说明 PseudoEditor 处理哪些数据、处理的原因、数据存储在何处以及如何删除。简而言之：除非你登录，否则你的代码只会留在你的浏览器中。登录即开启云端同步，你的工作区会自动保存到我们的数据库。为了发现错误并了解哪些功能被使用，我们在欧盟托管了无 Cookie 的匿名统计分析，它永远不会看到你的代码。",
+    "本政策说明 PseudoEditor 处理哪些数据、处理的原因、数据存储在何处以及如何删除。简而言之：除非你登录，否则你的代码只会留在你的浏览器中。登录即开启云端同步，你的工作区会自动保存到我们的数据库。为了发现错误并了解哪些功能被使用，我们使用无 Cookie 的匿名统计分析，它永远不会看到你的代码。",
   sections: [
     {
       id: "controller",
@@ -29,7 +29,7 @@ export const privacyZh: LegalDocument = {
           <tbody>
           <tr><td>你的伪代码与工作区布局</td><td>编辑期间始终存在</td><td>仅在你的浏览器中。登录后也会存储到 Convex。</td><td>直至你在编辑器中删除它，或你的账号被删除。</td></tr>
           <tr><td>电子邮箱、姓名、头像、登录方式</td><td>仅在你创建账号时</td><td>Clerk。邮箱和姓名还会复制到 Convex，与你的工作区一同存放。</td><td>直至你的账号被删除。</td></tr>
-          <tr><td>匿名使用事件、页面访问、加载耗时与错误报告</td><td>在生产环境的网站和编辑器上；如果你的浏览器发送“请勿跟踪”或“全球隐私控制”信号则不收集</td><td>位于德国的 PostHog 欧盟云。不会在你的设备上存储任何内容，事件也永远不会与你的账号关联。</td><td>最长一年，之后删除。用于生成访客哈希的每日盐值在一天后删除。</td></tr>
+          <tr><td>匿名使用事件、页面访问、加载耗时与错误报告</td><td>在生产环境的网站和编辑器上；如果你的浏览器发送“请勿跟踪”或“全球隐私控制”信号则不收集</td><td>位于美国的 PostHog 美国云。不会在你的设备上存储任何内容，事件也永远不会与你的账号关联。</td><td>最长一年，之后删除。用于生成访客哈希的每日盐值在一天后删除。</td></tr>
           <tr><td>请求日志（IP 地址、用户代理、路径、时间戳）</td><td>每次请求</td><td>Vercel</td><td>按 Vercel 的短期日志保留期限，用于运维与防滥用。</td></tr>
           </tbody>
           </table>
@@ -93,7 +93,7 @@ export const privacyZh: LegalDocument = {
       title: "7. 数据存储位置与跨境传输",
       content: (
         <>
-          <p>Vercel、Clerk 和 Convex 将数据存储在位于美国的服务器上。如果你在美国以外使用本服务，你的账号数据和已同步的工作区将被传输至美国。PostHog 将统计分析数据存储在欧盟。</p>
+          <p>Vercel、Clerk、Convex 和 PostHog 将数据存储在位于美国的服务器上。如果你在美国以外使用本服务，你的账号数据和已同步的工作区将被传输至美国，第 6 节所述的匿名统计分析和错误报告也是如此。</p>
           <table>
           <thead>
           <tr><th>接收方</th><th>目的</th><th>所在国家</th><th>隐私政策</th></tr>
@@ -102,11 +102,11 @@ export const privacyZh: LegalDocument = {
           <tr><td>Vercel Inc.</td><td>网站托管、API 路由和请求日志</td><td>美国</td><td><a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
           <tr><td>Clerk, Inc.</td><td>身份认证与账号管理</td><td>美国</td><td><a href="https://clerk.com/legal/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
           <tr><td>Convex, Inc.</td><td>存储已同步工作区的数据库</td><td>美国</td><td><a href="https://www.convex.dev/legal/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
-          <tr><td>PostHog, Inc.</td><td>匿名统计分析、加载耗时与错误跟踪</td><td>欧盟（德国）</td><td><a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
+          <tr><td>PostHog, Inc.</td><td>匿名统计分析、加载耗时与错误跟踪</td><td>美国</td><td><a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">链接</a></td></tr>
           </tbody>
           </table>
-          <p><strong>欧盟、欧洲经济区及英国。</strong>统计分析数据保留在欧盟境内。向美国的跨境传输依据服务商的数据处理协议进行，该协议采用欧盟标准合同条款和英国国际数据传输附录；若服务商已通过认证，则依据欧盟—美国数据隐私框架。</p>
-          <p><strong>中国大陆。</strong>根据《中华人民共和国个人信息保护法》，我们在此告知你：上表所列位于美国的接收方将接收你的电子邮箱、姓名、头像以及已同步的工作区，仅用于为你提供账号和云端同步服务，传输方式为经 HTTPS 加密的传输。在你创建账号之前，登录页面会告知你账号数据由我们的服务商存储在美国；创建账号即表示你同意上述向境外提供个人信息的行为。你可以随时通过删除账号撤回该同意，并可通过我们（<a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>）向上述接收方行使你的权利。无论你是否登录，你的浏览器还会向位于德国的 PostHog 发送你的 IP 地址和浏览器信息，以计算第 6 节所述的匿名每日哈希值，之后这些信息即被丢弃；随之发送的匿名使用事件和错误报告从不包含你的代码或账号信息。如需停止，请开启“请勿跟踪”或“全球隐私控制”。如果你不希望账号数据或代码离开中国，请在不登录且开启上述设置之一的情况下使用编辑器。</p>
+          <p><strong>欧盟、欧洲经济区及英国。</strong>向美国的跨境传输（包括统计分析和错误报告）依据服务商的数据处理协议进行，该协议采用欧盟标准合同条款和英国国际数据传输附录；若服务商已通过认证，则依据欧盟—美国数据隐私框架。</p>
+          <p><strong>中国大陆。</strong>根据《中华人民共和国个人信息保护法》，我们在此告知你：位于美国的 Vercel、Clerk 和 Convex 将接收你的电子邮箱、姓名、头像以及已同步的工作区，仅用于为你提供账号和云端同步服务，传输方式为经 HTTPS 加密的传输。在你创建账号之前，登录页面会告知你账号数据由我们的服务商存储在美国；创建账号即表示你同意上述向境外提供个人信息的行为。你可以随时通过删除账号撤回该同意，并可通过我们（<a href="mailto:privacy@pseudoeditor.dev">privacy@pseudoeditor.dev</a>）向上述接收方行使你的权利。无论你是否登录，你的浏览器还会向位于美国的 PostHog 发送你的 IP 地址和浏览器信息，以计算第 6 节所述的匿名每日哈希值，之后这些信息即被丢弃；随之发送的匿名使用事件和错误报告从不包含你的代码或账号信息。如需停止，请开启“请勿跟踪”或“全球隐私控制”。如果你不希望账号数据或代码离开中国，请在不登录且开启上述设置之一的情况下使用编辑器。</p>
         </>
       ),
     },

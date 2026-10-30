@@ -109,3 +109,10 @@ Vercel Analytics and Speed Insights were replaced by PostHog EU Cloud for analyt
   cookieless mode, and `onRequestError` skips server reports for requests carrying `DNT: 1` or `Sec-GPC: 1`.
 - Residual risk: exception messages and stack traces are sent as thrown. They are not expected to contain user code,
   because compile and runtime diagnostics are returned as values rather than thrown.
+
+## Addendum 2026-10-30: PostHog region
+
+The PostHog project lives on US Cloud, so ingestion moved from `https://eu.i.posthog.com` to `https://us.i.posthog.com`.
+`connect-src` follows `POSTHOG_HOST` and still allows exactly one PostHog origin. Nothing else about the configuration
+changed. The privacy policy, security page, and terms (English and Chinese) now say analytics are stored in the United
+States.

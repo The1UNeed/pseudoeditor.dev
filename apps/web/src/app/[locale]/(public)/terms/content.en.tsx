@@ -39,7 +39,7 @@ export const termsEn: LegalDocument = {
         <>
           <p>The pseudocode, files, and workspace layouts you create belong to you. We claim no ownership over them.</p>
           <p>When you use cloud sync, you grant us permission to store and transmit your content only as needed to provide the sync feature back to you. We do not read, sell, or use your workspaces for any other purpose, including training software.</p>
-          <p>To keep the service working, we collect anonymous usage events, load timings, and error reports as described in the <Link href="/privacy">privacy policy</Link>. They never include your code, and you can switch them off with your browser&apos;s Do Not Track or Global Privacy Control setting.</p>
+          <p>To keep the service working, we collect anonymous usage events, load timings, and error reports, processed by PostHog in the United States, as described in the <Link href="/privacy">privacy policy</Link>. They never include your code, and you can switch them off with your browser&apos;s Do Not Track or Global Privacy Control setting.</p>
           <p>You agree not to store content that is illegal where you or we are located, that infringes someone else&apos;s rights, or that contains malware.</p>
         </>
       ),
