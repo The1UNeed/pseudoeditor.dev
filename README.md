@@ -87,7 +87,7 @@ lists every variable and where it is set. Scope the production `CONVEX_DEPLOY_KE
 environment only: if a Preview build sees a `prod:` key, the script skips `convex deploy` and only
 builds the web app.
 
-Analytics and error tracking use PostHog EU Cloud and are enabled only when `NEXT_PUBLIC_POSTHOG_KEY` is set on
+Analytics and error tracking use PostHog US Cloud and are enabled only when `NEXT_PUBLIC_POSTHOG_KEY` is set on
 the Production environment. In the PostHog project, turn on **Settings > Project > Web analytics > Enable
 cookieless tracking**, or PostHog drops every event the site sends. Keep session replay off, and set event
 retention to one year or less to match the privacy policy.

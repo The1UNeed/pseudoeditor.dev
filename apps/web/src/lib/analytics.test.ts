@@ -13,7 +13,7 @@ describe("analytics", () => {
 
   it("keeps the privacy guarantees the policy makes", () => {
     expect(posthogConfig).toMatchObject({
-      api_host: "https://eu.i.posthog.com",
+      api_host: "https://us.i.posthog.com",
       cookieless_mode: "always",
       person_profiles: "never",
       autocapture: false,

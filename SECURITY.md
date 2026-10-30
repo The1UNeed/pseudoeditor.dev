@@ -2,7 +2,7 @@
 
 PseudoEditor runs its compiler and runtime entirely in the browser. The only server-side
 surface is the workspace sync API (Next.js route → Convex) guarded by Clerk sessions. Anonymous,
-cookieless analytics and error reports go to PostHog's EU Cloud.
+cookieless analytics and error reports go to PostHog's US Cloud.
 
 ## Reporting a vulnerability
 

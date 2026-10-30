@@ -6,7 +6,7 @@ import { resolveLocale, type LocaleParams } from "@/i18n/server";
 import { termsEn } from "./content.en";
 import { termsZh } from "./content.zh";
 
-const effectiveDate = "2026-10-28";
+const effectiveDate = "2026-10-30";
 
 export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
   const locale = await resolveLocale(params);
