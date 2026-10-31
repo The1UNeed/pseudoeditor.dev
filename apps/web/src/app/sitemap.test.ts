@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { practiceQuestions } from "@/lib/practice-questions";
-import { docs, posts } from "@/lib/seo-content";
+import { docs } from "@/lib/docs";
+import { posts } from "@/lib/seo-content";
 import sitemap from "./sitemap";
 
 describe("sitemap", () => {
