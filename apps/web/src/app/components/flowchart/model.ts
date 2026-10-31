@@ -895,6 +895,10 @@ function convertCase(state: ImportState, statement: CaseStatementNode, depth: nu
     if (valueSpan.startLine !== labelLine || valueSpan.endLine !== labelLine || valueStart < 0 || valueEnd > labelEnd) {
       return null;
     }
+    // A label such as `A OR B` would need brackets to read as one condition, which would change it.
+    if (hasTopLevelOperator(label.slice(valueStart, valueEnd))) {
+      return null;
+    }
     arms.push({
       value: label.slice(valueStart, valueEnd),
       form: {
@@ -1574,7 +1578,7 @@ function layoutCase(
   const last = armIndex === item.arms.length - 1;
   const nodeData = withBlankLines(
     createFlowchartNodeData("decision", {
-      content: `${item.subject} ${dialect.equals} ${arm.value}`,
+      content: caseCondition(item.subject, arm.value, dialect),
       trueLabel: "Yes",
       falseLabel: "No",
       controlKind: "case",
@@ -2409,6 +2413,14 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * The condition a CASE option tests. A subject such as `A OR B` is bracketed so the condition, and
+ * the IF it becomes if the chain can't stay a CASE, still compares the whole subject.
+ */
+function caseCondition(subject: string, value: string, dialect: FlowchartDialect): string {
+  return `${hasTopLevelOperator(subject) ? `(${subject})` : subject} ${dialect.equals} ${value}`;
+}
+
 /** Whether text outside strings and brackets has a comparison or logical operator. */
 function hasTopLevelOperator(text: string): boolean {
   let depth = 0;
@@ -2442,7 +2454,8 @@ function hasTopLevelOperator(text: string): boolean {
  * `Subject = value`, such as `Subject = 1 OR Other`, which a CASE label can't express.
  */
 function readCaseValue(condition: string, subject: string): string | null {
-  const match = new RegExp(`^${escapeRegExp(subject.trim())}\\s*==?\\s*(.+)$`).exec(condition.trim());
+  const tested = escapeRegExp(subject.trim());
+  const match = new RegExp(`^(?:${tested}|\\(\\s*${tested}\\s*\\))\\s*==?\\s*(.+)$`).exec(condition.trim());
   return match && !hasTopLevelOperator(match[1]) ? match[1] : null;
 }
 

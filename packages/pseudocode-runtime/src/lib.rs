@@ -40,7 +40,7 @@ pub struct TraceStep {
     line: usize,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     test: bool,
-    /// Lines of output written before this step.
+    /// Lines of output written before this step, as stdout splits into lines.
     output: usize,
 }
 
@@ -109,6 +109,8 @@ struct Runtime {
     rng_state: u64,
     trace: Option<Vec<TraceStep>>,
     trace_truncated: bool,
+    /// Lines written so far, counting the line breaks inside each OUTPUT, as the joined stdout has them.
+    output_lines: usize,
 }
 
 impl Runtime {
@@ -133,6 +135,7 @@ impl Runtime {
             rng_state: 0x9e37_79b9_7f4a_7c15,
             trace: input.trace.then(Vec::new),
             trace_truncated: false,
+            output_lines: 0,
         };
         runtime.collect_routines();
         Ok(runtime)
@@ -289,6 +292,7 @@ impl Runtime {
                 for expr in array_field(statement, "values") {
                     line.push_str(&self.eval(expr)?.display());
                 }
+                self.output_lines += line.matches('\n').count() + 1;
                 self.stdout.push(line);
                 Ok(Flow::Continue)
             }
@@ -892,7 +896,7 @@ impl Runtime {
     }
 
     fn record(&mut self, line: usize, test: bool) {
-        let output = self.stdout.len();
+        let output = self.output_lines;
         if let Some(trace) = self.trace.as_mut() {
             if trace.len() < MAX_TRACE_STEPS {
                 trace.push(TraceStep { line, test, output });
@@ -1486,6 +1490,23 @@ mod tests {
                 vec![(1, false, 0), (failing_line, true, 1)]
             );
         }
+    }
+
+    #[test]
+    fn counts_output_in_lines_of_stdout() {
+        let ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"output","values":[string("a\nb")],"span":at(1)},
+            {"kind":"output","values":[string("c")],"span":at(2)},
+            {"kind":"output","values":[string("d")],"span":at(3)}
+        ]})
+        .to_string();
+
+        let result = traced(ast);
+        assert_eq!(result["stdout"], "a\nb\nc\nd");
+        assert_eq!(
+            trace_of(&result),
+            vec![(1, false, 0), (2, false, 2), (3, false, 3)]
+        );
     }
 
     #[test]

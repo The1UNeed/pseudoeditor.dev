@@ -807,6 +807,30 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
     expect(compiles(code)).toEqual([]);
   });
 
+  it("brackets a compound CASE subject so its IF / ELSEIF form compares the whole subject", () => {
+    const source = ["DECLARE A : BOOLEAN", "DECLARE B : BOOLEAN", "CASE OF A OR B", '    FALSE : OUTPUT "no"', '    TRUE : OUTPUT "yes"', "ENDCASE"].join("\n");
+    const { snapshot, code } = roundTrip(source);
+    expect(code).toBe(source);
+    const no = snapshot.nodes.find((node) => dataOf(node).content === '"no"')!;
+    expect(snapshot.nodes.filter((node) => dataOf(node).controlKind === "case").map((node) => dataOf(node).content)).toEqual([
+      "(A OR B) = FALSE",
+      "(A OR B) = TRUE",
+    ]);
+
+    // A second statement in an option turns the chain into IF / ELSEIF.
+    const after = snapshot.edges.find((edge) => edge.source === no.id)!;
+    const extra: Node = { id: "extra", type: "process", position: { x: no.position.x, y: no.position.y + 10 }, data: createFlowchartNodeData("process", { statements: ["A <- TRUE"] }) };
+    const edges = [
+      ...snapshot.edges.filter((edge) => edge !== after),
+      { id: "to-extra", source: no.id, target: "extra" },
+      { id: "from-extra", source: "extra", target: after.target },
+    ];
+    const edited = generatePseudocodeFromFlowchart([...snapshot.nodes, extra], edges);
+    expect(edited).toContain("IF (A OR B) = FALSE THEN");
+    expect(edited).toContain("ELSEIF (A OR B) = TRUE THEN");
+    expect(compiles(edited)).toEqual([]);
+  });
+
   it("keeps a routine at the top level when the block it was written before moves into a branch", () => {
     const source = ["PROCEDURE P()", '    OUTPUT "p"', "ENDPROCEDURE", 'OUTPUT "first"', "IF TRUE THEN", '    OUTPUT "inside"', "ENDIF", "CALL P()"].join("\n");
     const { snapshot } = roundTrip(source);

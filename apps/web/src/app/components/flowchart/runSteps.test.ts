@@ -107,6 +107,14 @@ describe("replaying a run on the flowchart", () => {
     expect(last.output).toBe(long.result.trace!.at(-1)!.output);
   });
 
+  it("shows the right output line when an earlier output held a line break", () => {
+    const { steps, result } = traceRun('OUTPUT "a", CHR(10), "b"\nOUTPUT "c"\nOUTPUT "d"', "cambridge-alevel");
+    const output = result.stdout.split("\n");
+    expect(output).toEqual(["a", "b", "c", "d"]);
+    // Start, then each OUTPUT; the second OUTPUT has written up to "c".
+    expect(steps?.map((step) => output[step.output - 1] ?? null)).toEqual([null, "b", "c", "d", "d"]);
+  });
+
   it("refuses to replay once the flowchart no longer matches the code that ran", () => {
     const source = "OUTPUT 1\nOUTPUT 2";
     const { graph, result } = traceRun(source);
