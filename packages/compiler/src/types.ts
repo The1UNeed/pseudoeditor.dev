@@ -28,6 +28,18 @@ export interface RunRequest {
   astJson: string;
   stdinLines: string[];
   virtualFiles: Record<string, string[]>;
+  /** Record each step of the run, so the flowchart can replay it. */
+  trace?: boolean;
+}
+
+/** One step of a traced run: a statement starting on `line`, or the condition there being tested. */
+export interface RunTraceStep {
+  line: number;
+  test?: boolean;
+  /** Lines of output written before this step, as stdout splits into lines. */
+  output: number;
+  /** For an IF or a CASE option: whether its condition held. */
+  taken?: boolean;
 }
 
 export interface RunResult {
@@ -36,6 +48,9 @@ export interface RunResult {
   stderr: string;
   diagnostics: Diagnostic[];
   virtualFiles: Record<string, string[]>;
+  trace?: RunTraceStep[];
+  /** True when the run took more steps than the trace keeps. */
+  traceTruncated?: boolean;
 }
 
 export interface SourceSpan {

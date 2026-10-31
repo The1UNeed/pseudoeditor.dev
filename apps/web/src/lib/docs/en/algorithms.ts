@@ -130,7 +130,7 @@ REPEAT
     Count <- Count + 1
 UNTIL Count = 5
 OUTPUT Total`,
-        callout: { tone: "tip", text: "PseudoEditor has a flowchart mode. Build the flowchart with blocks, then generate the matching pseudocode." },
+        callout: { tone: "tip", text: "PseudoEditor's flowchart mode draws any program as a flowchart and turns your edits back into pseudocode. Press Run and it lights up each block as the program reaches it; see the flowchart mode lesson." },
       },
     ],
     keyTerms: [

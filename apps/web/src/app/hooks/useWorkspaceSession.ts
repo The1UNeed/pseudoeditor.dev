@@ -34,7 +34,7 @@ import {
   updateVirtualFiles,
   workspaceHasFolder,
 } from "@pseudoeditor/workspace";
-import type { Diagnostic } from "@/compiler/types";
+import type { Diagnostic, RunTraceStep } from "@/compiler/types";
 import { track } from "@/lib/analytics";
 import { loadWorkspace, saveWorkspace } from "@/lib/storage";
 import type { WorkspacePersistenceMode } from "@/lib/platform";
@@ -49,6 +49,21 @@ const INPUT_REQUEST_ERROR_TEXT = "INPUT requested but no stdin lines remain";
 const MAX_INTERACTIVE_INPUTS = 200;
 const TERMINAL_PROMPT = ">";
 const DEFAULT_AUTO_SAVE_DELAY_MS = 5 * 60 * 1000;
+
+/** The steps of the last finished run, which the flowchart replays block by block. */
+export interface RunTrace {
+  id: number;
+  documentId: string;
+  /** The code that ran; the trace's line numbers refer to it. */
+  source: string;
+  steps: RunTraceStep[];
+  truncated: boolean;
+  output: string[];
+  /** False when the run stopped on an error. */
+  completed: boolean;
+  /** The line the error points at, when the run stopped on one. */
+  errorLine?: number;
+}
 
 export interface AppNotice {
   tone: "error" | "info";
@@ -112,6 +127,8 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     text: "",
   });
   const [isRunning, setIsRunning] = useState(false);
+  const [lastRunTrace, setLastRunTrace] = useState<RunTrace | null>(null);
+  const runTraceIdRef = useRef(0);
   const [runningTerminalPanelId, setRunningTerminalPanelId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasPendingSave, setHasPendingSave] = useState(false);
@@ -531,6 +548,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     }
 
     const astJson = compileResult.astJson;
+    setLastRunTrace(null);
     setIsRunning(true);
     setRunningTerminalPanelId(target.panelId);
     updateTerminalOutput(target.panelId, "");
@@ -568,6 +586,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
         astJson,
         stdinLines: [...stdinLines],
         virtualFiles: latestVirtualFiles,
+        trace: true,
       });
 
       while (isInputRequestRuntimeError(runResult.stderr)) {
@@ -599,11 +618,26 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
           astJson,
           stdinLines: [...stdinLines],
           virtualFiles: latestVirtualFiles,
+          trace: true,
         });
       }
 
       syncStdoutToTranscript(runResult.stdout);
       latestVirtualFiles = runResult.virtualFiles;
+      if (runResult.trace) {
+        const stdout = runResult.stdout.replace(/\r\n/g, "\n");
+        runTraceIdRef.current += 1;
+        setLastRunTrace({
+          id: runTraceIdRef.current,
+          documentId: document.id,
+          source: document.source,
+          steps: runResult.trace,
+          truncated: Boolean(runResult.traceTruncated),
+          output: stdout.length > 0 ? stdout.split("\n") : [],
+          completed: runResult.success && runResult.stderr.trim().length === 0,
+          errorLine: runResult.success ? undefined : runResult.diagnostics[0]?.line,
+        });
+      }
       const failed = runResult.stderr.trim().length > 0 || runResult.diagnostics.length > 0;
       track("program_run", {
         outcome: failed ? "runtime_error" : "success",
@@ -896,6 +930,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     terminalOutputs,
     pendingInput,
     isRunning,
+    lastRunTrace,
     runningTerminalPanelId,
     saveError,
     hasPendingSave,

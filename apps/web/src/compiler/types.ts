@@ -8,6 +8,7 @@ export type {
   CompileResult,
   RunRequest,
   RunResult,
+  RunTraceStep,
   SourceSpan,
   BasicTypeName,
   TypeNode,

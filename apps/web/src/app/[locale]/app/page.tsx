@@ -102,7 +102,6 @@ const MAX_TERMINAL_HEIGHT = 460;
 const SIDEBAR_WIDTH_STORAGE_KEY = "pseudocode-compiler-sidebar-width";
 const TERMINAL_HEIGHT_STORAGE_KEY = "pseudocode-compiler-terminal-height";
 const AUTO_SAVE_INTERVAL_STORAGE_KEY = "pseudocode-compiler-autosave-minutes";
-const FLOWCHART_MODE_STORAGE_KEY = "pseudocode-compiler-flowchart-mode-enabled";
 const DEFAULT_AUTO_SAVE_INTERVAL_MINUTES = 5;
 const MIN_AUTO_SAVE_INTERVAL_MINUTES = 1;
 const MAX_AUTO_SAVE_INTERVAL_MINUTES = 60;
@@ -135,12 +134,18 @@ const MonacoPseudocodeEditor = dynamic(
   },
 );
 
+const loadFlowchartEditor = () => import("@/app/components/flowchart/FlowchartEditor");
+
 const FlowchartEditor = memo(
-  dynamic(() => import("@/app/components/flowchart/FlowchartEditor"), {
+  dynamic(loadFlowchartEditor, {
     ssr: false,
     loading: () => <FlowchartLoadingFallback />,
   }),
 );
+
+function preloadFlowchartEditor() {
+  void loadFlowchartEditor();
+}
 
 /* ── dialog state types ── */
 
@@ -204,22 +209,6 @@ function saveAutoSaveIntervalMinutes(value: number): void {
   }
 
   window.localStorage.setItem(AUTO_SAVE_INTERVAL_STORAGE_KEY, String(value));
-}
-
-function loadFlowchartModeEnabled(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.localStorage.getItem(FLOWCHART_MODE_STORAGE_KEY) === "true";
-}
-
-function saveFlowchartModeEnabled(enabled: boolean): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(FLOWCHART_MODE_STORAGE_KEY, String(enabled));
 }
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -301,6 +290,7 @@ export default function HomePage() {
     terminalOutputs,
     pendingInput,
     isRunning,
+    lastRunTrace,
     runningTerminalPanelId,
     saveError,
     hasPendingSave,
@@ -364,15 +354,14 @@ export default function HomePage() {
   const [showManualPanel, setShowManualPanel] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [showFlowchart, setShowFlowchart] = useState(false);
+  // The flowchart editor loads React Flow, so it mounts the first time it opens and then stays mounted.
+  const [flowchartMounted, setFlowchartMounted] = useState(false);
   const [showCreateFileDialog, setShowCreateFileDialog] = useState(false);
   const [createFileName, setCreateFileName] = useState("main");
   const [createFileParentId, setCreateFileParentId] = useState<string | undefined>(undefined);
   const [showFlowchartPrompt, setShowFlowchartPrompt] = useState(false);
   const [flowchartFileName, setFlowchartFileName] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
-  const [flowchartModeEnabled, setFlowchartModeEnabled] = useState(() =>
-    loadFlowchartModeEnabled(),
-  );
   const [manualSaveStatus, setManualSaveStatus] = useState<ManualSaveStatus>("idle");
   const manualSaveStatusTimerRef = useRef<number | null>(null);
 
@@ -474,7 +463,7 @@ export default function HomePage() {
     : "";
   const resolvedTheme = resolveTheme(themeMode, systemTheme);
   const shouldWarnBeforeUnload = hasPendingSave || saveError !== null;
-  const flowchartVisible = flowchartModeEnabled && showFlowchart;
+  const flowchartVisible = showFlowchart;
   const currentSource = currentDocument?.source ?? "";
   // The flowchart stays mounted while hidden; only feed it source updates while it is visible.
   const [flowchartSource, setFlowchartSource] = useState(currentSource);
@@ -803,28 +792,17 @@ export default function HomePage() {
     saveAutoSaveIntervalMinutes(nextValue);
   }, []);
 
-  const handleFlowchartModeEnabledChange = useCallback((enabled: boolean) => {
-    setFlowchartModeEnabled(enabled);
-    saveFlowchartModeEnabled(enabled);
-    if (!enabled) {
-      setShowFlowchart(false);
-    }
-  }, []);
-
   const handleToggleFlowchart = useCallback(() => {
-    if (!flowchartModeEnabled) {
-      setShowSettingsPanel(true);
-      return;
-    }
     if (!currentDocument) {
       setShowFlowchartPrompt(true);
       return;
     }
     if (!showFlowchart) {
       track("flowchart_opened", {});
+      setFlowchartMounted(true);
     }
     setShowFlowchart((prev) => !prev);
-  }, [currentDocument, flowchartModeEnabled, showFlowchart]);
+  }, [currentDocument, showFlowchart]);
 
   const syncFlowchartCodeToWorkspace = useCallback(
     (
@@ -1016,48 +994,6 @@ export default function HomePage() {
     </div>
   );
 
-  // The flowchart can't render on touch layouts, so its switch is hidden there.
-  const renderBetaSettings = (compact = false) => touchLayout ? null : (
-    <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
-          {t.settings.featurePreviews}
-        </p>
-        <h3 className="mt-2 text-[22px] font-semibold text-[var(--text)]">{t.settings.betaFeatures}</h3>
-      </div>
-
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-[var(--text)]">{t.settings.flowchartMode}</span>
-            <span className="rounded-full border border-[var(--accent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">
-              {t.common.beta}
-            </span>
-          </div>
-          <p className="mt-0.5 text-sm leading-5 text-[var(--text2)]">
-            {t.settings.flowchartDescription}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={flowchartModeEnabled}
-          aria-label={t.settings.enableFlowchartBeta}
-          onClick={() => handleFlowchartModeEnabledChange(!flowchartModeEnabled)}
-          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
-            flowchartModeEnabled ? "bg-[var(--accent)]" : "bg-[var(--separator)]"
-          }`}
-        >
-          <span
-            className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-              flowchartModeEnabled ? "translate-x-6" : "translate-x-1"
-            }`}
-          />
-        </button>
-      </div>
-    </div>
-  );
-
   const renderAccountControl = (compact = false) => {
     if (!cloudSavingRequired) {
       return null;
@@ -1135,7 +1071,6 @@ export default function HomePage() {
               >
                 <div className="space-y-6 p-2">
                   {renderSaveSettings()}
-                  {renderBetaSettings()}
                 </div>
               </UserButton.UserProfilePage>
               <UserButton.MenuItems>
@@ -1250,6 +1185,7 @@ export default function HomePage() {
             if (!name) return;
             createDocumentInWorkspace(undefined, { name });
             closeFlowchartPrompt();
+            setFlowchartMounted(true);
             setShowFlowchart(true);
           }}
         >
@@ -1520,7 +1456,6 @@ export default function HomePage() {
           {renderSyntaxSettings()}
           {renderThemeSettings()}
           {renderSaveSettings()}
-          {renderBetaSettings()}
         </div>
         <div className="mt-6 border-t border-[var(--separator)] pt-4 text-center">
           <p className="text-xs text-[var(--text3)]">
@@ -2064,7 +1999,6 @@ export default function HomePage() {
                       {renderSyntaxSettings(true)}
                       {renderThemeSettings(true)}
                       {renderSaveSettings(true)}
-                      {renderBetaSettings(true)}
                       <button
                         type="button"
                         className="mt-6 inline-flex h-10 items-center justify-center self-start rounded-2xl bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--on-accent)] transition hover:brightness-110"
@@ -2168,21 +2102,21 @@ export default function HomePage() {
           >
             <BookOpen size={18} />
           </button>
-          {flowchartModeEnabled ? (
-            <button
-              type="button"
-              className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
-                flowchartVisible
-                  ? "bg-[var(--accent)] text-[var(--on-accent)]"
-                  : "text-[var(--text3)] hover:text-[var(--text2)]"
-              }`}
-              aria-label={flowchartVisible ? t.toolbar.switchToCode : t.toolbar.switchToFlowchart}
-              title={flowchartVisible ? t.toolbar.switchToCode : t.toolbar.switchToFlowchart}
-              onClick={handleToggleFlowchart}
-            >
-              <GitBranch size={18} />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+              flowchartVisible
+                ? "bg-[var(--accent)] text-[var(--on-accent)]"
+                : "text-[var(--text3)] hover:text-[var(--text2)]"
+            }`}
+            aria-label={flowchartVisible ? t.toolbar.switchToCode : t.toolbar.switchToFlowchart}
+            title={flowchartVisible ? t.toolbar.switchToCode : t.toolbar.switchToFlowchart}
+            onPointerEnter={preloadFlowchartEditor}
+            onFocus={preloadFlowchartEditor}
+            onClick={handleToggleFlowchart}
+          >
+            <GitBranch size={18} />
+          </button>
           <button
             type="button"
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:text-[var(--text2)]"
@@ -2270,7 +2204,7 @@ export default function HomePage() {
         {/* ──── Editor Area ──── */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg)]">
           <div className="relative min-h-0 flex-1 overflow-hidden">
-            {flowchartModeEnabled ? (
+            {flowchartMounted ? (
               <div
                 inert={!flowchartVisible}
                 className={`absolute inset-0 z-20 min-h-0 min-w-0 transition-transform duration-500 ease-in-out ${
@@ -2281,6 +2215,7 @@ export default function HomePage() {
                   source={flowchartSource}
                   isVisible={flowchartVisible}
                   syntaxId={syntaxId}
+                  runTrace={lastRunTrace?.documentId === currentDocument?.id ? lastRunTrace : null}
                   onCodeChange={handleFlowchartCodeChange}
                   onGenerateCode={handleGenerateCode}
                 />

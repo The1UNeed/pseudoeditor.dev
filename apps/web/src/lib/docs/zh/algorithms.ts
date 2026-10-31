@@ -124,7 +124,7 @@ REPEAT
     Count <- Count + 1
 UNTIL Count = 5
 OUTPUT Total`,
-        callout: { tone: "tip", text: "PseudoEditor 有流程图模式。用积木搭出流程图，再生成对应的伪代码。" },
+        callout: { tone: "tip", text: "PseudoEditor 的流程图模式能把任何程序画成流程图，并把你的修改转换回伪代码。点击“运行”后，程序执行到哪个组件，哪个组件就会亮起；详见“流程图模式”一课。" },
       },
     ],
     keyTerms: [

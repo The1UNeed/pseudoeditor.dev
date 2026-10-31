@@ -1,7 +1,7 @@
 // Editor UI strings. English is the source of truth; keep values byte-identical
 // to the strings the tests in src/app/[locale]/app/page.test.tsx assert on.
 export const editorEn = {
-  common: { cancel: "Cancel", close: "Close", delete: "Delete", dismiss: "Dismiss", beta: "Beta" },
+  common: { cancel: "Cancel", close: "Close", delete: "Delete", dismiss: "Dismiss" },
   toolbar: {
     editor: "Editor", run: "Run", running: "Running", manual: "Manual", openManual: "Open Manual",
     practice: "Practice", openPractice: "Practice a random question",
@@ -20,8 +20,6 @@ export const editorEn = {
     activeAppearance: "Active appearance:", saving: "SAVING", autosave: "Autosave", autosaveInterval: "Autosave interval",
     autosaveIntervalMinutes: "Autosave interval minutes", minute: (count: number) => `${count} minute${count !== 1 ? "s" : ""}`,
     autosaveEvery: (count: number) => `Automatically save your workspace every ${count} minute${count !== 1 ? "s" : ""}.`,
-    featurePreviews: "FEATURE PREVIEWS", betaFeatures: "Beta features", flowchartMode: "Flowchart mode",
-    flowchartDescription: "Enable the visual flowchart editor from the toolbar.", enableFlowchartBeta: "Enable Flowchart mode beta",
     general: "General", heading: "SETTINGS", touchDescription: "Open the manual, review the language guide, and keep the workspace controls one tap away.",
   },
   files: {
@@ -44,13 +42,22 @@ export const editorEn = {
   autocomplete: { integerQuotient: "Integer quotient", integerRemainder: "Integer remainder", stringLength: "String length", lowerCase: "Lower-case conversion", upperCase: "Upper-case conversion", substring: "Part of a string", round: "Round a real value", random: "Random number from 0 to 1 inclusive", printAlias: "PRINT (alias)", outputAlias: "Alias for OUTPUT", quickStarter: "Quick starter" },
   flowchart: {
     name: "Flowchart", yes: "Yes", no: "No", createFirst: "Create a file first", createFirstDescription: "Flowcharts are linked to pseudocode files. Create and name a new file to start building your flowchart.",
-    blocks: "Blocks", dragOntoFlow: "Drag onto the flow", generateCode: "Generate Code", clearCanvas: "Clear Canvas", hidePalette: "Hide palette", showPalette: "Show palette",
+    blocks: "Blocks", dragOntoFlow: "Drag onto the flow", generateCode: "Generate Code", clearCanvas: "Clear Canvas", confirmClearCanvas: "Click again to clear", hidePalette: "Hide palette", showPalette: "Show palette",
     inspector: "Inspector", inspectorSelected: "Edit the selected block and its visible content.", inspectorEmpty: "Select a block to configure input, output, or the lines inside a process.", selected: "Selected", label: "Label", mode: "Mode", input: "Input", output: "Output", variable: "Variable", valueExpression: "Value or expression", blockTitle: "Block title", blockLines: "Block lines", addLine: "Add line",
     line: (number: number) => `Line ${number}`, removeLine: (number: number) => `Remove process line ${number}`, condition: "Condition",
     sideBranch: "Side branch", downBranch: "Down branch", callTarget: "Call target", deleteSelected: "Delete selected block",
     buildLikeBlocks: "Build it like blocks.", helpIo: "Drop an Input or Output block, select it, then set the text it should read or show.",
-    helpProcess: "For Process blocks, add one or more lines inside the block. That gives you a basic visual flow without adding separate built-in functions yet.",
+    helpProcess: "For Process blocks, add one or more lines of pseudocode inside the block. Every change shows up in the code straight away.",
+    helpRun: "Press Run and the chart lights up each block as the program reaches it. Step back and forth, or play it through.",
     process: "Process", processEmpty: "Select this block and add lines inside it.",
+    until: "Until", routineHeader: "Header line",
+    run: {
+      label: "Program run", stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
+      first: "First step", previous: "Previous step", play: "Play", pause: "Pause", next: "Next step", last: "Last step",
+      speed: (speed: number) => `${speed}× speed`, close: "Close the run", output: "Output",
+      stopped: "The program stopped with an error here.", truncated: (count: number) => `Showing the first ${count.toLocaleString("en")} steps.`,
+      outOfDate: "The flowchart has changed since this run. Run it again to follow it here.",
+    },
     palette: {
       start: { title: "Start", description: "Program entry point" }, input: { title: "Input", description: "Read a value into a variable" },
       process: { title: "Process", description: "Add editable lines inside the block" }, decision: { title: "Decision", description: "Branch the flow with a condition" },

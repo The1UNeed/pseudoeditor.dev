@@ -359,6 +359,46 @@ code {
   box-shadow: none !important;
 }
 
+/* Replaying a run: the current block glows, blocks still ahead fade back */
+.flowchart-canvas .react-flow__node {
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+.flowchart-canvas .react-flow__node.flowchart-run-pending {
+  opacity: 0.38;
+}
+
+.flowchart-canvas .react-flow__node.flowchart-run-current {
+  z-index: 10 !important;
+  /* A thin outline in the text colour keeps the glow visible on blocks of any colour */
+  filter: drop-shadow(0 0 1px var(--text)) drop-shadow(0 0 1px var(--text)) drop-shadow(0 0 12px var(--green));
+}
+
+.flowchart-canvas .react-flow__node.flowchart-run-error {
+  z-index: 10 !important;
+  filter: drop-shadow(0 0 1px var(--red)) drop-shadow(0 0 1px var(--red)) drop-shadow(0 0 12px var(--red));
+}
+
+.flowchart-canvas .react-flow__edge {
+  transition: opacity 200ms ease;
+}
+
+.flowchart-canvas .react-flow__edge.flowchart-run-edge-pending {
+  opacity: 0.3;
+}
+
+.flowchart-canvas .react-flow__edge.flowchart-run-edge-current .react-flow__edge-path {
+  stroke: var(--green) !important;
+  stroke-width: 4px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowchart-canvas .react-flow__node,
+  .flowchart-canvas .react-flow__edge {
+    transition: none;
+  }
+}
+
 /* Remove default selected state styling */
 .react-flow__node.selected {
   box-shadow: none !important;

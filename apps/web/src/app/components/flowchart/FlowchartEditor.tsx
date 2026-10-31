@@ -14,17 +14,24 @@ import {
   Node,
   ReactFlowProvider,
   useReactFlow,
-  MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './FlowchartNodes';
+import { FlowchartRunControls } from './FlowchartRunControls';
+import { buildFlowchartRunSteps } from './runSteps';
+import type { RunTrace } from '@/app/hooks/useWorkspaceSession';
 import {
   buildFlowchartFromPseudocode,
   FLOWCHART_PALETTE_ITEMS,
+  createFlowchartEdge,
   createFlowchartNodeData,
   generatePseudocodeFromFlowchart,
   getDecisionEdgeLabel,
+  getNodePrimaryText,
+  getProcessStatements,
+  inferIndentUnit,
   parsePalettePayload,
+  bridgeEdgesAroundDeletedNodes,
   serializePaletteItem,
 } from './model';
 import { FlowchartNodeData, FlowchartNodeType, NODE_DIMENSIONS, NODE_TYPE_CONFIG } from './types';
@@ -106,6 +113,8 @@ interface FlowchartEditorProps {
   /** False while the editor stays mounted off-screen; the view is refitted when it slides back in. */
   isVisible?: boolean;
   syntaxId?: string;
+  /** The last finished run of this file, replayed block by block on the chart. */
+  runTrace?: RunTrace | null;
   onCodeChange?: (code: string) => void;
   onGenerateCode?: (code: string) => void;
   onSave?: (nodes: Node[], edges: Edge[]) => void;
@@ -117,6 +126,7 @@ function FlowchartEditorInner({
   source,
   isVisible = true,
   syntaxId,
+  runTrace = null,
   onCodeChange,
   onGenerateCode,
   onSave,
@@ -127,13 +137,128 @@ function FlowchartEditorInner({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showPalette, setShowPalette] = useState(true);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const hasInitializedCodeSyncRef = useRef(false);
   const isHydratingFromSourceRef = useRef(false);
   const lastPublishedCodeRef = useRef<string>('');
   const nodesRef = useRef<Node[]>(initialNodes);
   const edgesRef = useRef<Edge[]>(initialEdges);
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, deleteElements, getNode, getViewport, setCenter } = useReactFlow();
+  // Blocks added on the canvas are written in the file's syntax and indentation.
+  const indentUnit = useMemo(() => inferIndentUnit(source ?? ''), [source]);
+  const codeStyle = useMemo(() => ({ syntaxId, indentUnit }), [indentUnit, syntaxId]);
+  // Read through a ref so a syntax change alone never publishes: the flowchart stays mounted while
+  // hidden, and the page writes published code into whichever file is open.
+  const codeStyleRef = useRef(codeStyle);
+  useEffect(() => {
+    codeStyleRef.current = codeStyle;
+  }, [codeStyle]);
+
+  // ── Replaying the last run ──
+  const [runIndex, setRunIndex] = useState(0);
+  const [runPlaying, setRunPlaying] = useState(false);
+  const [runSpeed, setRunSpeed] = useState(1);
+  const [closedRunId, setClosedRunId] = useState<number | null>(null);
+  const activeRun = runTrace && runTrace.id !== closedRunId ? runTrace : null;
+  // Recomputed as the chart changes, so an edit that changes the code retires the replay.
+  const runSteps = useMemo(
+    () => (activeRun ? buildFlowchartRunSteps(nodes, edges, codeStyle, activeRun) : null),
+    [activeRun, codeStyle, edges, nodes],
+  );
+  const runStepCount = runSteps?.length ?? 0;
+  const currentRunIndex = Math.min(runIndex, Math.max(0, runStepCount - 1));
+
+  // A new run replays from its first step.
+  const [startedRunId, setStartedRunId] = useState<number | null>(null);
+  if (runTrace && runTrace.id !== startedRunId) {
+    setStartedRunId(runTrace.id);
+    setRunIndex(0);
+    setRunPlaying(true);
+  }
+  const isRunPlaying = runPlaying && currentRunIndex < runStepCount - 1;
+
+  useEffect(() => {
+    if (!isRunPlaying || !isVisible) return;
+    const timer = window.setTimeout(() => {
+      const nextIndex = currentRunIndex + 1;
+      setRunIndex(nextIndex);
+      if (nextIndex >= runStepCount - 1) setRunPlaying(false);
+    }, 700 / runSpeed);
+    return () => window.clearTimeout(timer);
+  }, [currentRunIndex, isRunPlaying, isVisible, runSpeed, runStepCount]);
+
+  const runView = useMemo(() => {
+    if (!activeRun || !runSteps || runSteps.length === 0) return null;
+    const passed = runSteps.slice(0, currentRunIndex + 1);
+    return {
+      step: runSteps[currentRunIndex],
+      next: runSteps[currentRunIndex + 1],
+      seenNodeIds: new Set(passed.map((step) => step.nodeId)),
+      seenEdgeIds: new Set(passed.flatMap((step) => step.edgeIds)),
+      stopped: !activeRun.completed && !activeRun.truncated && currentRunIndex === runSteps.length - 1,
+    };
+  }, [activeRun, currentRunIndex, runSteps]);
+
+  const displayNodes = useMemo(() => {
+    if (!runView) return nodes;
+    return nodes.map((node) => ({
+      ...node,
+      className:
+        node.id === runView.step.nodeId
+          ? runView.stopped
+            ? 'flowchart-run-error'
+            : 'flowchart-run-current'
+          : runView.seenNodeIds.has(node.id)
+            ? 'flowchart-run-seen'
+            : 'flowchart-run-pending',
+    }));
+  }, [nodes, runView]);
+
+  const displayEdges = useMemo(() => {
+    if (!runView) return edges;
+    const currentEdgeIds = new Set(runView.step.edgeIds);
+    return edges.map((edge) => ({
+      ...edge,
+      className: currentEdgeIds.has(edge.id)
+        ? 'flowchart-run-edge-current'
+        : runView.seenEdgeIds.has(edge.id)
+          ? 'flowchart-run-edge-seen'
+          : 'flowchart-run-edge-pending',
+    }));
+  }, [edges, runView]);
+
+  const runDescription = useMemo(() => {
+    if (!runView) return '';
+    const data = nodes.find((node) => node.id === runView.step.nodeId)?.data as FlowchartNodeData | undefined;
+    if (!data) return '';
+    if (data.type === 'decision') {
+      const taken = edges.find((edge) => edge.source === runView.step.nodeId && runView.next?.edgeIds[0] === edge.id);
+      const answer = taken?.sourceHandle === 'true' ? data.trueLabel || 'Yes' : taken?.sourceHandle === 'false' ? data.falseLabel || 'No' : null;
+      return `${getNodePrimaryText(data)}${answer ? ` → ${answer}` : ''}`;
+    }
+    if (data.type === 'process') return getProcessStatements(data).join('  ·  ');
+    if (data.type === 'inputOutput') return `${data.ioType === 'input' ? t.flowchart.input : t.flowchart.output} ${getNodePrimaryText(data)}`;
+    return getNodePrimaryText(data);
+  }, [edges, nodes, runView, t.flowchart.input, t.flowchart.output]);
+
+  // Keep the lit block on screen as the replay moves through a chart bigger than the view.
+  const currentRunNodeId = runView?.step.nodeId;
+  useEffect(() => {
+    if (!currentRunNodeId || !isVisible) return;
+    const node = getNode(currentRunNodeId);
+    const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+    if (!node || !bounds) return;
+    const { x, y, zoom } = getViewport();
+    const width = node.measured?.width ?? 200;
+    const height = node.measured?.height ?? 100;
+    const left = node.position.x * zoom + x;
+    const top = node.position.y * zoom + y;
+    const margin = 40;
+    if (left < margin || top < margin + 72 || left + width * zoom > bounds.width - margin || top + height * zoom > bounds.height - margin) {
+      void setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom, duration: 300 });
+    }
+  }, [currentRunNodeId, getNode, getViewport, isVisible, setCenter]);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -164,7 +289,8 @@ function FlowchartEditorInner({
     }
 
     const nextSource = source.replace(/\r\n/g, '\n').trim();
-    const currentCode = generatePseudocodeFromFlowchart(nodesRef.current, edgesRef.current)
+    const style = { syntaxId, indentUnit: inferIndentUnit(source) };
+    const currentCode = generatePseudocodeFromFlowchart(nodesRef.current, edgesRef.current, style)
       .replace(/\r\n/g, '\n')
       .trim();
 
@@ -180,7 +306,7 @@ function FlowchartEditorInner({
       console.warn("Flowchart import failed.", error);
       return;
     }
-    const importedCode = generatePseudocodeFromFlowchart(imported.nodes, imported.edges)
+    const importedCode = generatePseudocodeFromFlowchart(imported.nodes, imported.edges, style)
       .replace(/\r\n/g, '\n')
       .trim();
 
@@ -191,7 +317,7 @@ function FlowchartEditorInner({
   }, [setEdges, setNodes, source, syntaxId]);
 
   useEffect(() => {
-    const code = generatePseudocodeFromFlowchart(nodes, edges);
+    const code = generatePseudocodeFromFlowchart(nodes, edges, codeStyleRef.current);
     if (!hasInitializedCodeSyncRef.current) {
       hasInitializedCodeSyncRef.current = true;
       lastPublishedCodeRef.current = code;
@@ -241,10 +367,14 @@ function FlowchartEditorInner({
         return;
       }
 
-      const nextData = {
+      const nextData: FlowchartNodeData = {
         ...selectedNodeData,
         ...updates,
-      } satisfies FlowchartNodeData;
+      };
+      if (updates.ioType && updates.ioType !== selectedNodeData.ioType) {
+        // The kept source text belongs to the old mode, so the new mode uses the syntax's own keyword.
+        delete nextData.sourceForm;
+      }
 
       setNodes((currentNodes) =>
         currentNodes.map((node) =>
@@ -274,22 +404,47 @@ function FlowchartEditorInner({
       const sourceData = sourceNode ? (sourceNode.data as FlowchartNodeData) : null;
       const branchLabel = sourceData ? getDecisionEdgeLabel(connection, sourceData) : undefined;
 
+      // Each exit leads to one next step, so a new connection replaces the one already on that handle.
       setEdges((currentEdges) =>
         addEdge(
-          {
-            ...connection,
-            type: 'smoothstep',
-            animated: true,
-            label: branchLabel,
-            style: { stroke: 'var(--accent)', strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--accent)' },
-            labelStyle: { fill: 'var(--text2)', fontSize: 11 },
-          },
-          currentEdges,
+          createFlowchartEdge(
+            `edge-${connection.source}-${connection.sourceHandle ?? 'next'}-${connection.target}-${Date.now()}`,
+            connection.source,
+            connection.target,
+            { sourceHandle: connection.sourceHandle, targetHandle: connection.targetHandle, label: branchLabel },
+          ),
+          currentEdges.filter(
+            (edge) =>
+              edge.source !== connection.source ||
+              (edge.sourceHandle ?? null) !== (connection.sourceHandle ?? null),
+          ),
         ),
       );
     },
     [nodes, setEdges],
+  );
+
+  const onNodesDelete = useCallback(
+    (deletedNodes: Node[]) => {
+      // React Flow drops the deleted blocks' edges before this runs, so the bridges come from the
+      // edges of the last render.
+      const bridges = bridgeEdgesAroundDeletedNodes(deletedNodes, edgesRef.current);
+      if (bridges.length === 0) {
+        return;
+      }
+      setEdges((currentEdges) => [
+        ...currentEdges,
+        ...bridges.filter(
+          (bridge) =>
+            !currentEdges.some(
+              (edge) =>
+                edge.source === bridge.source &&
+                (edge.sourceHandle ?? null) === (bridge.sourceHandle ?? null),
+            ),
+        ),
+      ]);
+    },
+    [setEdges],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -333,7 +488,7 @@ function FlowchartEditorInner({
   };
 
   const generatePseudocode = useCallback(() => {
-    const code = generatePseudocodeFromFlowchart(nodes, edges);
+    const code = generatePseudocodeFromFlowchart(nodes, edges, codeStyle);
     lastPublishedCodeRef.current = code;
 
     if (onGenerateCode) {
@@ -341,17 +496,32 @@ function FlowchartEditorInner({
     }
 
     return code;
-  }, [edges, nodes, onGenerateCode]);
+  }, [codeStyle, edges, nodes, onGenerateCode]);
 
   const deleteSelected = useCallback(() => {
-    setNodes((currentNodes) => currentNodes.filter((node) => !node.selected));
-    setEdges((currentEdges) => currentEdges.filter((edge) => !edge.selected));
-  }, [setEdges, setNodes]);
+    // deleteElements runs onNodesDelete, so the blocks around a deleted one stay connected.
+    void deleteElements({
+      nodes: nodes.filter((node) => node.selected),
+      edges: edges.filter((edge) => edge.selected),
+    });
+  }, [deleteElements, edges, nodes]);
 
+  useEffect(() => {
+    if (!confirmingClear) return;
+    const timer = window.setTimeout(() => setConfirmingClear(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [confirmingClear]);
+
+  // The canvas is the file's code, so clearing it takes a second click.
   const clearCanvas = useCallback(() => {
+    if (!confirmingClear) {
+      setConfirmingClear(true);
+      return;
+    }
+    setConfirmingClear(false);
     setNodes([]);
     setEdges([]);
-  }, [setEdges, setNodes]);
+  }, [confirmingClear, setEdges, setNodes]);
 
   const processStatements = useMemo(() => {
     if (!selectedNodeData || selectedNodeData.type !== 'process') {
@@ -461,7 +631,7 @@ function FlowchartEditorInner({
             "
           >
             <Trash2 className="h-4 w-4" />
-            {t.flowchart.clearCanvas}
+            {confirmingClear ? t.flowchart.confirmClearCanvas : t.flowchart.clearCanvas}
           </button>
         </div>
       </div>
@@ -480,16 +650,44 @@ function FlowchartEditorInner({
       </button>
 
       <div className="relative flex-1" ref={reactFlowWrapper}>
+        {activeRun ? (
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+            <FlowchartRunControls
+              stepCount={runSteps ? runStepCount : null}
+              index={currentRunIndex}
+              playing={isRunPlaying}
+              speed={runSpeed}
+              description={runDescription}
+              lastOutput={runView && runView.step.output > 0 ? (activeRun.output[runView.step.output - 1] ?? '') : null}
+              stopped={Boolean(runView?.stopped)}
+              truncatedAt={activeRun.truncated ? activeRun.steps.length : null}
+              onIndexChange={(index) => {
+                setRunPlaying(false);
+                setRunIndex(Math.max(0, Math.min(index, runStepCount - 1)));
+              }}
+              onPlayingChange={setRunPlaying}
+              onSpeedChange={setRunSpeed}
+              onClose={() => {
+                setRunPlaying(false);
+                setClosedRunId(activeRun.id);
+              }}
+            />
+          </div>
+        ) : null}
+
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={displayNodes}
+          edges={displayEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodesDelete={onNodesDelete}
           onDragOver={onDragOver}
           onDrop={onDrop}
           nodeTypes={nodeTypes}
           fitView
+          // Long programs need to zoom well out for Fit View to show the whole flow.
+          minZoom={0.1}
           attributionPosition="bottom-right"
           deleteKeyCode={['Backspace', 'Delete']}
           className="flowchart-canvas bg-[var(--bg)]"
@@ -538,7 +736,7 @@ function FlowchartEditorInner({
               {selectedNodeData.type === 'terminator' ? (
                 <label className="block space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                    {t.flowchart.label}
+                    {selectedNodeData.routine ? t.flowchart.routineHeader : t.flowchart.label}
                   </span>
                   <input
                     value={selectedNodeData.label}
@@ -577,7 +775,7 @@ function FlowchartEditorInner({
                               }
                             `}
                           >
-                            {mode === 'input' ? 'Input' : 'Output'}
+                            {mode === 'input' ? t.flowchart.input : t.flowchart.output}
                           </button>
                         );
                       })}
@@ -586,7 +784,7 @@ function FlowchartEditorInner({
 
                   <label className="block space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                      {selectedNodeData.ioType === 'input' ? 'Variable' : 'Value or expression'}
+                      {selectedNodeData.ioType === 'input' ? t.flowchart.variable : t.flowchart.valueExpression}
                     </span>
                     <textarea
                       value={typeof selectedNodeData.content === 'string' ? selectedNodeData.content : ''}
@@ -636,13 +834,13 @@ function FlowchartEditorInner({
                         >
                           <div className="mb-2 flex items-center justify-between">
                             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text3)]">
-                              Line {index + 1}
+                              {t.flowchart.line(index + 1)}
                             </span>
                             <button
                               type="button"
                               onClick={() => removeProcessStatement(index)}
                               className="rounded-lg p-1 text-[var(--text3)] transition hover:bg-red-500/10 hover:text-red-400"
-                              aria-label={`Remove process line ${index + 1}`}
+                              aria-label={t.flowchart.removeLine(index + 1)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -665,7 +863,7 @@ function FlowchartEditorInner({
                 <>
                   <label className="block space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                      {t.flowchart.condition}
+                      {selectedNodeData.controlKind === 'repeat' ? t.flowchart.until : t.flowchart.condition}
                     </span>
                     <textarea
                       value={typeof selectedNodeData.content === 'string' ? selectedNodeData.content : ''}
@@ -734,6 +932,9 @@ function FlowchartEditorInner({
                 </p>
                 <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
                   {t.flowchart.helpProcess}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
+                  {t.flowchart.helpRun}
                 </p>
               </div>
             </div>

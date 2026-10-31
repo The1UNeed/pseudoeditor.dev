@@ -129,7 +129,7 @@ export const en = {
       },
       {
         title: "Flowchart view",
-        body: "Switch between source and a generated flowchart to reason about decisions, loops, and processes visually.",
+        body: "Switch between source and a flowchart of the same program. Edit either one and the other follows.",
       },
       {
         title: "Debug with intent",
