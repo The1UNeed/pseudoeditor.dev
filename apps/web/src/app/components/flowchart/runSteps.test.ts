@@ -141,6 +141,47 @@ describe("replaying a run on the flowchart", () => {
     expect(path?.at(-1)).toBe("A = 1 DIV Zero");
   });
 
+  it("steps back to the block that called a function, which then writes its output", () => {
+    const { path, steps } = traceRun("FUNCTION F() RETURNS INTEGER\n    RETURN 7\nENDFUNCTION\nOUTPUT F()\nOUTPUT 8");
+    expect(path).toEqual([
+      "Start",
+      "F()",
+      "FUNCTION F() RETURNS INTEGER",
+      "RETURN 7",
+      "Return",
+      "F()",
+      "8",
+      "End",
+    ]);
+    expect(steps?.map((step) => step.output)).toEqual([0, 0, 0, 0, 0, 1, 2, 2]);
+  });
+
+  it("steps back to a CALL whose argument called a function, then runs the procedure", () => {
+    const { path } = traceRun(
+      'FUNCTION F() RETURNS INTEGER\n    RETURN 7\nENDFUNCTION\nPROCEDURE P(N : INTEGER)\n    OUTPUT N\nENDPROCEDURE\nCALL P(F())\nOUTPUT 8',
+    );
+    expect(path).toEqual([
+      "Start",
+      "P(F())",
+      "FUNCTION F() RETURNS INTEGER",
+      "RETURN 7",
+      "Return",
+      "P(F())",
+      "PROCEDURE P(N : INTEGER)",
+      "N",
+      "Return",
+      "8",
+      "End",
+    ]);
+  });
+
+  it("doesn't jump to a failure the cut-off trace never reached", () => {
+    const { result, path } = traceRun("DECLARE I : INTEGER\nFOR I <- 1 TO 3000\n    OUTPUT I\nNEXT I\nOUTPUT 1 DIV 0");
+    expect(result.success).toBe(false);
+    expect(result.traceTruncated).toBe(true);
+    expect(path?.at(-1)).not.toBe("1 DIV 0");
+  });
+
   it("refuses to replay once the flowchart no longer matches the code that ran", () => {
     const source = "OUTPUT 1\nOUTPUT 2";
     const { graph, result } = traceRun(source);

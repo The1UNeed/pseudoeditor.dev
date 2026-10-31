@@ -139,6 +139,10 @@ export function buildFlowchartRunSteps(
     visit(start.id, 0);
   }
   let lastWasStatement = false;
+  // The routines still running, with the block that called each. A function returns into the
+  // middle of its caller's statement, which then finishes, so the replay steps back to the caller
+  // after its Return. A procedure's CALL has nothing left to run once the procedure returns.
+  const callers: Array<{ caller: FlowchartRunStep; routine: "procedure" | "function" }> = [];
   run.steps.forEach((event, index) => {
     const line = lines[event.line - 1 - offset];
     const nodeId = event.test ? (line?.testId ?? line?.nodeId) : (line?.nodeId ?? line?.testId);
@@ -154,6 +158,20 @@ export function buildFlowchartRunSteps(
       return;
     }
     lastWasStatement = !event.test;
+    const data = nodeMap.get(nodeId)?.data as FlowchartNodeData | undefined;
+    if (data?.routine && previous) {
+      callers.push({ caller: previous, routine: data.routine });
+    }
+    if (data?.routineEnd) {
+      // Return itself writes nothing; whatever comes next is the caller's.
+      visit(nodeId, event.output);
+      const call = callers.pop();
+      if (call?.routine === "function") {
+        visit(call.caller.nodeId, output, call.caller.taken);
+        lastWasStatement = true;
+      }
+      return;
+    }
     visit(nodeId, output, event.test ? event.taken : undefined);
   });
   // A run that failed ends on the block its error points at, such as an OUTPUT whose expression
@@ -166,7 +184,8 @@ export function buildFlowchartRunSteps(
   const failedId = failedInTest
     ? (failedLine?.testId ?? failedLine?.nodeId)
     : (failedLine?.nodeId ?? failedLine?.testId);
-  if (failedId && steps.at(-1)?.nodeId !== failedId) {
+  // A cut-off trace doesn't reach the failure, so it can't show the way there.
+  if (failedId && !run.truncated && steps.at(-1)?.nodeId !== failedId) {
     visit(failedId, run.steps.at(-1)?.output ?? 0);
   }
   if (run.completed && !run.truncated && end && steps.at(-1)?.nodeId !== end.id) {

@@ -196,7 +196,7 @@ function FlowchartEditorInner({
       next: runSteps[currentRunIndex + 1],
       seenNodeIds: new Set(passed.map((step) => step.nodeId)),
       seenEdgeIds: new Set(passed.flatMap((step) => step.edgeIds)),
-      stopped: !activeRun.completed && currentRunIndex === runSteps.length - 1,
+      stopped: !activeRun.completed && !activeRun.truncated && currentRunIndex === runSteps.length - 1,
     };
   }, [activeRun, currentRunIndex, runSteps]);
 
