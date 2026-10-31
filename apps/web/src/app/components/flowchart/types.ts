@@ -10,7 +10,24 @@ export type FlowchartNodeType =
   | 'inputOutput'     // Input/Output - parallelogram
   | 'subroutine';     // Subroutine - rectangle with side bars
 
-export type FlowchartSourceFormKind = 'if' | 'elseif' | 'while' | 'for' | 'input' | 'output' | 'call';
+export type FlowchartSourceFormKind =
+  | 'if'
+  | 'elseif'
+  | 'while'
+  | 'until'
+  | 'for'
+  | 'repeat'
+  | 'case'
+  | 'routine'
+  | 'input'
+  | 'output'
+  | 'call';
+
+/**
+ * The block a decision stands for. `until` is a loop tested before its body that runs while the
+ * condition is false (IB `loop until`); `repeat` is tested after its body (REPEAT … UNTIL).
+ */
+export type FlowchartControlKind = 'if' | 'while' | 'until' | 'for' | 'repeat' | 'case';
 
 /**
  * How a block was written in the source. Regenerating code from the flowchart reuses it so the
@@ -32,6 +49,15 @@ export interface FlowchartSourceForm {
   blankLinesBeforeElse?: number;
   /** Blank lines at the end of the last branch or loop body, before the closing line. */
   blankLinesBeforeEnd?: number;
+  /** The line that opens a block ahead of its condition: REPEAT, or a CASE header. */
+  startLine?: string;
+  /** Blank lines between a CASE header and its first option. */
+  blankLinesAfterStart?: number;
+  /** A CASE option whose statement follows its label on the same line. */
+  inline?: boolean;
+  /** The OTHERWISE label of a CASE as written, such as `OTHERWISE : ` or `default:`. */
+  otherwiseLabel?: string;
+  otherwiseInline?: boolean;
 }
 
 export interface FlowchartNodeData extends Record<string, unknown> {
@@ -41,11 +67,15 @@ export interface FlowchartNodeData extends Record<string, unknown> {
   // For decision nodes
   trueLabel?: string;
   falseLabel?: string;
-  controlKind?: 'if' | 'while' | 'for';
+  controlKind?: FlowchartControlKind;
   forIterator?: string;
   hasElseBranch?: boolean;
   /** An IF written as ELSEIF / ELSE IF directly after its parent's branch. */
   elseIf?: boolean;
+  /** What a CASE tests, so each option's condition `Subject = value` can be read back. */
+  caseSubject?: string;
+  /** The first option of a CASE, which holds its header and closing line. */
+  caseStart?: boolean;
   // For input/output
   ioType?: 'input' | 'output';
   // For process
@@ -59,6 +89,14 @@ export interface FlowchartNodeData extends Record<string, unknown> {
   blankLinesBefore?: number;
   /** A Start or End added for display that has no `// Start` or `// End` line in the source. */
   implicit?: boolean;
+  /** The Start of a procedure or function, drawn as its own flowchart; its label is the header line. */
+  routine?: 'procedure' | 'function';
+  /** The Return that ends a procedure or function. */
+  routineEnd?: boolean;
+  /** The main-flow block the routine is written before, so it keeps its place in the file. */
+  routineAnchor?: string;
+  /** The routine's position among routines written before the same block. */
+  routineOrder?: number;
 }
 
 export interface FlowchartEdgeData {

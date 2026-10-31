@@ -127,11 +127,42 @@ export const ProcessNode = memo((props: NodeProps) => {
 });
 ProcessNode.displayName = 'ProcessNode';
 
+type CornerSide = 'right' | 'bottom' | 'left';
+
+const CORNER_POSITION: Record<CornerSide, Position> = {
+  right: Position.Right,
+  bottom: Position.Bottom,
+  left: Position.Left,
+};
+
+const CORNER_HANDLE_STYLE: Record<CornerSide, React.CSSProperties> = {
+  right: { right: 5, top: '50%', transform: 'translateY(-50%)' },
+  bottom: { bottom: 5, left: '50%', transform: 'translateX(-50%)' },
+  left: { left: 5, top: '50%', transform: 'translateY(-50%)' },
+};
+
+const CORNER_LABEL_STYLE: Record<CornerSide, React.CSSProperties> = {
+  right: { right: -28, top: '50%', transform: 'translateY(-50%)' },
+  bottom: { bottom: -20, left: '50%', transform: 'translateX(-50%)' },
+  left: { left: -24, top: '50%', transform: 'translateY(-50%)' },
+};
+
+/**
+ * Where a decision's exits leave the diamond. The branch that carries on through the program points
+ * down: for a REPEAT the No exit loops back up the left, and for `loop until` the body runs on No.
+ */
+function getDecisionCorners(data: FlowchartNodeData): { true: CornerSide; false: CornerSide } {
+  if (data.controlKind === 'repeat') return { true: 'bottom', false: 'left' };
+  if (data.controlKind === 'until') return { true: 'bottom', false: 'right' };
+  return { true: 'right', false: 'bottom' };
+}
+
 // Decision Node - Diamond
 export const DecisionNode = memo((props: NodeProps) => {
   const { data, selected } = props;
   const nodeData = data as FlowchartNodeData;
   const content = getNodePrimaryText(nodeData) || 'Condition';
+  const corners = getDecisionCorners(nodeData);
   
   return (
     <BaseNode 
@@ -177,29 +208,29 @@ export const DecisionNode = memo((props: NodeProps) => {
         />
         <Handle
           type="source"
-          position={Position.Right}
+          position={CORNER_POSITION[corners.true]}
           id="true"
           className={HANDLE_CLASS_NAME}
-          style={{ right: 5, top: '50%', transform: 'translateY(-50%)' }}
+          style={CORNER_HANDLE_STYLE[corners.true]}
         />
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={CORNER_POSITION[corners.false]}
           id="false"
           className={HANDLE_CLASS_NAME}
-          style={{ bottom: 5, left: '50%', transform: 'translateX(-50%)' }}
+          style={CORNER_HANDLE_STYLE[corners.false]}
         />
 
         {/* Yes/No labels */}
-        <div 
+        <div
           className="pointer-events-none absolute text-[10px] font-semibold text-[var(--orange)]"
-          style={{ right: -28, top: '50%', transform: 'translateY(-50%)' }}
+          style={CORNER_LABEL_STYLE[corners.true]}
         >
           {nodeData.trueLabel || 'Yes'}
         </div>
-        <div 
+        <div
           className="pointer-events-none absolute text-[10px] font-semibold text-[var(--orange)]"
-          style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)' }}
+          style={CORNER_LABEL_STYLE[corners.false]}
         >
           {nodeData.falseLabel || 'No'}
         </div>

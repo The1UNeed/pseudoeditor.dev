@@ -48,7 +48,16 @@ export const editorEn = {
     sideBranch: "Side branch", downBranch: "Down branch", callTarget: "Call target", deleteSelected: "Delete selected block",
     buildLikeBlocks: "Build it like blocks.", helpIo: "Drop an Input or Output block, select it, then set the text it should read or show.",
     helpProcess: "For Process blocks, add one or more lines of pseudocode inside the block. Every change shows up in the code straight away.",
+    helpRun: "Press Run and the chart lights up each block as the program reaches it. Step back and forth, or play it through.",
     process: "Process", processEmpty: "Select this block and add lines inside it.",
+    until: "Until", routineHeader: "Header line",
+    run: {
+      label: "Program run", stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
+      first: "First step", previous: "Previous step", play: "Play", pause: "Pause", next: "Next step", last: "Last step",
+      speed: (speed: number) => `${speed}× speed`, close: "Close the run", output: "Output",
+      stopped: "The program stopped with an error here.", truncated: (count: number) => `Showing the first ${count.toLocaleString("en")} steps.`,
+      outOfDate: "The flowchart has changed since this run. Run it again to follow it here.",
+    },
     palette: {
       start: { title: "Start", description: "Program entry point" }, input: { title: "Input", description: "Read a value into a variable" },
       process: { title: "Process", description: "Add editable lines inside the block" }, decision: { title: "Decision", description: "Branch the flow with a condition" },

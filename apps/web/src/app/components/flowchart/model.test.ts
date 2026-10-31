@@ -4,6 +4,7 @@ import {
   buildFlowchartFromPseudocode,
   createFlowchartNodeData,
   generatePseudocodeFromFlowchart,
+  generatePseudocodeWithLineMap,
   getDecisionEdgeLabel,
   inferIndentUnit,
   bridgeEdgesAroundDeletedNodes,
@@ -590,5 +591,224 @@ describe("flowchart model helpers", () => {
 
     expect(code).toBe(["DECLARE A : INTEGER", "A <- 3", "IF A > 0 THEN", "    OUTPUT A", "ELSE", "ENDIF"].join("\n"));
     expect(compilePseudocode({ source: code, filename: "main.pseudo", strict: true }).success).toBe(true);
+  });
+});
+
+describe("REPEAT, CASE, and routines on the flowchart", () => {
+  const compiles = (source: string, syntaxId = "cambridge-igcse") =>
+    compilePseudocode({ source, filename: "main.pseudo", strict: true, syntaxId }).diagnostics.filter(
+      (diagnostic) => diagnostic.severity === "error",
+    );
+  const roundTrip = (source: string, syntaxId = "cambridge-igcse") => {
+    const snapshot = buildFlowchartFromPseudocode(source, syntaxId);
+    return {
+      snapshot,
+      code: generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges, { syntaxId, indentUnit: inferIndentUnit(source) }),
+    };
+  };
+  const dataOf = (node: Node) => node.data as FlowchartNodeData;
+  const verbatimBlocks = (nodes: Node[]) =>
+    nodes.filter((node) => /^\s*(REPEAT|CASE|PROCEDURE|FUNCTION|do|switch|procedure|SUBROUTINE)\b/im.test((dataOf(node).statements ?? []).join("\n")));
+
+  const cambridge = [
+    "DECLARE Count : INTEGER",
+    "DECLARE Choice : INTEGER",
+    "",
+    "PROCEDURE Greet(Name : STRING)",
+    '    OUTPUT "Hello ", Name',
+    "ENDPROCEDURE",
+    "",
+    "FUNCTION Square(N : INTEGER) RETURNS INTEGER",
+    "    RETURN N * N",
+    "ENDFUNCTION",
+    "",
+    "Count <- 0",
+    "REPEAT",
+    "    Count <- Count + 1 // step",
+    "    OUTPUT Square(Count)",
+    "UNTIL Count >= 3 // done",
+    "Choice <- 2",
+    "CASE OF Choice",
+    '    1 : OUTPUT "One"',
+    "    2 :",
+    '        CALL Greet("Two")',
+    "",
+    '    OTHERWISE : OUTPUT "Other"',
+    "ENDCASE",
+    'OUTPUT "Done"',
+  ].join("\n");
+
+  it.each([
+    ["cambridge-igcse", cambridge],
+    [
+      "ocr-gcse",
+      [
+        "x = 0",
+        "do",
+        "    x = x + 1",
+        "until x >= 3",
+        "switch x:",
+        "    case 1:",
+        '        print("one")',
+        "    case 3:",
+        '        print("three")',
+        "    default:",
+        '        print("other")',
+        "endswitch",
+        "function double(n)",
+        "    return n * 2",
+        "endfunction",
+        "print(double(x))",
+      ].join("\n"),
+    ],
+    ["aqa-gcse", ["SUBROUTINE Show(N)", "    OUTPUT N", "ENDSUBROUTINE", "I ← 0", "REPEAT", "    I ← I + 1", "    Show(I)", "UNTIL I = 3"].join("\n")],
+    ["ib-dp", ["X = 0", "loop until X > 3", "    X = X + 1", "end loop", "output X"].join("\n")],
+  ])("draws every block of a %s program as shapes and writes it back unchanged", (syntaxId, source) => {
+    expect(compiles(source, syntaxId)).toEqual([]);
+    const { snapshot, code } = roundTrip(source, syntaxId);
+
+    expect(code).toBe(source);
+    expect(verbatimBlocks(snapshot.nodes)).toEqual([]);
+  });
+
+  it("draws REPEAT as a test after the body that loops back on No", () => {
+    const { snapshot } = roundTrip(cambridge);
+    const test = snapshot.nodes.find((node) => dataOf(node).controlKind === "repeat");
+    const body = snapshot.nodes.find((node) => (dataOf(node).statements ?? []).includes("Count <- Count + 1 // step"));
+
+    expect(dataOf(test!).content).toBe("Count >= 3");
+    expect(snapshot.edges).toContainEqual(expect.objectContaining({ source: test!.id, target: body!.id, sourceHandle: "false" }));
+    expect(test!.position.y).toBeGreaterThan(body!.position.y);
+  });
+
+  it("draws CASE as a chain of decisions and each routine as its own chart", () => {
+    const { snapshot } = roundTrip(cambridge);
+    const options = snapshot.nodes.filter((node) => dataOf(node).controlKind === "case");
+    const routineStarts = snapshot.nodes.filter((node) => dataOf(node).routine);
+    const reachable = (fromId: string) => {
+      const seen = new Set([fromId]);
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const edge of snapshot.edges) {
+          if (seen.has(edge.source) && !seen.has(edge.target)) {
+            seen.add(edge.target);
+            grew = true;
+          }
+        }
+      }
+      return seen;
+    };
+
+    expect(options.map((node) => dataOf(node).content)).toEqual(["Choice = 1", "Choice = 2"]);
+    expect(routineStarts.map((node) => dataOf(node).label)).toEqual([
+      "PROCEDURE Greet(Name : STRING)",
+      "FUNCTION Square(N : INTEGER) RETURNS INTEGER",
+    ]);
+    const main = reachable(snapshot.nodes.find((node) => dataOf(node).label === "Start")!.id);
+    for (const start of routineStarts) {
+      expect(main.has(start.id)).toBe(false);
+      expect([...reachable(start.id)].some((id) => dataOf(snapshot.nodes.find((node) => node.id === id)!).routineEnd)).toBe(true);
+    }
+  });
+
+  it.each([
+    ["WHILE inside REPEAT", "REPEAT\n    WHILE B < 3 DO\n        B <- B + 1\n    ENDWHILE\nUNTIL A > 2"],
+    ["REPEAT inside WHILE", "WHILE A < 3 DO\n    REPEAT\n        B <- B + 1\n    UNTIL B > 2\n    A <- A + 1\nENDWHILE"],
+    ["REPEAT inside REPEAT", "REPEAT\n    REPEAT\n        B <- B + 1\n    UNTIL B > 2\nUNTIL A > 2"],
+    ["IF first in REPEAT", "REPEAT\n    IF A > 1 THEN\n        B <- 1\n    ENDIF\nUNTIL A > 2"],
+    ["empty REPEAT", "REPEAT\nUNTIL A > 2"],
+    ["CASE inside REPEAT", "REPEAT\n    CASE OF A\n        1 : B <- 1\n        2 : B <- 2\n    ENDCASE\n    A <- A + 1\nUNTIL A > 2"],
+    ["blocks inside CASE", 'CASE OF A\n    1 :\n        REPEAT\n            B <- B + 1\n        UNTIL B > 2\n    2 :\n        IF B > 1 THEN\n            OUTPUT "x"\n        ENDIF\nENDCASE'],
+    ["REPEAT inside FOR", "FOR A <- 1 TO 3\n    REPEAT\n        B <- B + 1\n    UNTIL B > A\nNEXT A"],
+    ["REPEAT inside IF", 'IF A > 1 THEN\n    REPEAT\n        A <- A - 1\n    UNTIL A = 1\nELSE\n    OUTPUT "small"\nENDIF'],
+    ["spaced CASE", 'CASE OF A\n\n    1 : OUTPUT "a" // one\n\n    2 : OUTPUT "b"\n    OTHERWISE :\n        OUTPUT "c"\n\nENDCASE'],
+  ])("round-trips %s", (_name, body) => {
+    const source = `DECLARE A : INTEGER\nDECLARE B : INTEGER\n${body}`;
+    expect(compiles(source)).toEqual([]);
+    const { snapshot, code } = roundTrip(source);
+
+    expect(code).toBe(source);
+    expect(verbatimBlocks(snapshot.nodes)).toEqual([]);
+  });
+
+  it("keeps the code valid after editing CASE options in the inspector", () => {
+    const { snapshot } = roundTrip(cambridge);
+    const firstOption = snapshot.nodes.find((node) => dataOf(node).content === "Choice = 1")!;
+    const withData = (id: string, data: Partial<FlowchartNodeData>) =>
+      snapshot.nodes.map((node) => (node.id === id ? { ...node, data: { ...dataOf(node), ...data } } : node));
+
+    const renumbered = generatePseudocodeFromFlowchart(withData(firstOption.id, { content: "Choice = 5" }), snapshot.edges);
+    expect(renumbered).toContain('CASE OF Choice\n    5 : OUTPUT "One"\n    2 :');
+    expect(compiles(renumbered)).toEqual([]);
+
+    // A condition that tests something else no longer fits a CASE, so the chain becomes IF / ELSEIF.
+    const retested = generatePseudocodeFromFlowchart(withData(firstOption.id, { content: "Count > 1" }), snapshot.edges);
+    expect(retested).not.toContain("CASE OF");
+    expect(retested).toContain('IF Count > 1 THEN\n    OUTPUT "One"\nELSEIF Choice = 2 THEN');
+    expect(compiles(retested)).toEqual([]);
+  });
+
+  it("writes a CASE option holding two statements as IF / ELSEIF", () => {
+    const { snapshot } = roundTrip(cambridge);
+    const one = snapshot.nodes.find((node) => dataOf(node).content === '"One"')!;
+    const after = snapshot.edges.find((edge) => edge.source === one.id)!;
+    const extra: Node = { id: "extra", type: "process", position: { x: one.position.x, y: one.position.y + 10 }, data: createFlowchartNodeData("process", { statements: ["Count <- 9"] }) };
+    const edges = [
+      ...snapshot.edges.filter((edge) => edge !== after),
+      { id: "to-extra", source: one.id, target: "extra" },
+      { id: "from-extra", source: "extra", target: after.target },
+    ];
+
+    const code = generatePseudocodeFromFlowchart([...snapshot.nodes, extra], edges);
+    expect(code).toContain('IF Choice = 1 THEN\n    OUTPUT "One"\n    Count <- 9\nELSEIF Choice = 2 THEN');
+    expect(compiles(code)).toEqual([]);
+  });
+
+  it("keeps REPEAT edits, routine renames, and a routine whose next block was deleted valid", () => {
+    const { snapshot } = roundTrip(cambridge);
+    const nodes = snapshot.nodes.map((node) => {
+      const data = dataOf(node);
+      if (data.controlKind === "repeat") return { ...node, data: { ...data, content: "Count >= 5" } };
+      if (data.routine === "procedure") return { ...node, data: { ...data, label: "PROCEDURE Welcome(Name : STRING)" } };
+      return node;
+    });
+    const renamedCall = nodes.map((node) =>
+      dataOf(node).content === 'Greet("Two")' ? { ...node, data: { ...dataOf(node), content: 'Welcome("Two")' } } : node,
+    );
+
+    const edited = generatePseudocodeFromFlowchart(renamedCall, snapshot.edges);
+    expect(edited).toContain("UNTIL Count >= 5 // done");
+    expect(edited).toContain("PROCEDURE Welcome(Name : STRING)\n    OUTPUT \"Hello \", Name\nENDPROCEDURE");
+    expect(compiles(edited)).toEqual([]);
+
+    // The routines were written before `Count <- 0`; deleting that block moves them to the top.
+    const anchor = renamedCall.find((node) => (dataOf(node).statements ?? []).includes("Count <- 0"))!;
+    const remaining = renamedCall.filter((node) => node !== anchor);
+    const edges = [
+      ...snapshot.edges.filter((edge) => edge.source !== anchor.id && edge.target !== anchor.id),
+      ...bridgeEdgesAroundDeletedNodes([anchor], snapshot.edges),
+    ];
+    const moved = generatePseudocodeFromFlowchart(remaining, edges);
+    expect(moved.startsWith("PROCEDURE Welcome(Name : STRING)")).toBe(true);
+    expect(moved).not.toContain("Count <- 0");
+    expect(compiles(moved)).toEqual([]);
+  });
+
+  it("maps each generated line to the block that runs it", () => {
+    const { snapshot } = roundTrip(cambridge);
+    const { lines } = generatePseudocodeWithLineMap(snapshot.nodes, snapshot.edges);
+    const owner = (text: string) => {
+      const line = lines.find((candidate) => candidate.text.trim() === text);
+      const id = line?.testId ?? line?.nodeId;
+      return id ? dataOf(snapshot.nodes.find((node) => node.id === id)!) : null;
+    };
+
+    expect(lines.map((line) => line.text).join("\n")).toBe(cambridge);
+    expect(owner("UNTIL Count >= 3 // done")?.controlKind).toBe("repeat");
+    expect(owner('1 : OUTPUT "One"')?.content).toBe("Choice = 1");
+    expect(lines.find((line) => line.text.trim() === '1 : OUTPUT "One"')?.nodeId).toBeDefined();
+    expect(owner("PROCEDURE Greet(Name : STRING)")?.routine).toBe("procedure");
+    expect(owner("ENDPROCEDURE")?.routineEnd).toBe(true);
+    expect(owner("REPEAT")).toBeNull();
   });
 });

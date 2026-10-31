@@ -190,7 +190,7 @@ OUTPUT Scores[1]`,
     slug: "flowcharts",
     title: "Flowcharts from pseudocode",
     description:
-      "Open flowchart mode, see how pseudocode maps to flowchart shapes, and edit a program from either view.",
+      "Open flowchart mode, see how pseudocode maps to flowchart shapes, follow a run block by block, and edit a program from either view.",
     updated: "2026-10-31",
     sections: [
       {
@@ -212,18 +212,33 @@ OUTPUT Scores[1]`,
         body: [
           "Start and End are rounded terminators. INPUT and OUTPUT are parallelograms, and CALL is a subroutine box.",
           "IF, WHILE, and FOR become decision diamonds. The Yes branch leaves from the right and the No branch from the bottom; a loop's body has an arrow back to its decision. An ELSEIF chain is drawn as a decision in the No branch.",
-          "Everything else, such as DECLARE, assignments, REPEAT, CASE, procedure and function definitions, and comments, is kept in Process blocks exactly as you wrote it.",
+          "REPEAT … UNTIL (do … until in OCR) draws its body first and its test after it: No loops back up to the start of the body and Yes carries on down. IB's loop until is tested before its body, which runs on No.",
+          "CASE (switch in OCR) becomes a chain of decisions, one per option, such as Choice = 1, with each option's statement to its right and OTHERWISE at the end of the chain.",
+          "Each PROCEDURE, FUNCTION, or SUBROUTINE is drawn as a flowchart of its own beside the main one, from its header line down to Return. A CALL in the main flow is a subroutine box.",
+          "Assignments, DECLARE, RETURN, file handling, and comments sit in Process blocks exactly as you wrote them.",
         ],
-        example: `// The loop and the IF become decisions; the assignments sit in Process blocks
+        example: `// REPEAT and CASE become decisions; Greet gets a flowchart of its own
 DECLARE Count : INTEGER
+PROCEDURE Greet(Name : STRING)
+    OUTPUT "Hello ", Name
+ENDPROCEDURE
 Count <- 0
-WHILE Count < 3 DO
+REPEAT
     Count <- Count + 1
-    IF Count = 2 THEN
-        OUTPUT "Two"
-    ENDIF
-ENDWHILE
-OUTPUT "Done"`,
+UNTIL Count >= 3
+CASE OF Count
+    1 : OUTPUT "One"
+    3 : CALL Greet("Three")
+    OTHERWISE : OUTPUT "Other"
+ENDCASE`,
+      },
+      {
+        heading: "Follow a run",
+        body: [
+          "Press Run while the flowchart is open. The program runs as usual, asking for INPUT in the terminal, and then the flowchart replays it: each block lights up as the program reaches it, the arrow it followed is highlighted, and blocks it hasn't reached yet are faded.",
+          "The bar above the chart plays the run or steps through it one block at a time, forwards or back. It shows which way each decision went, such as Count >= 3 → No, and the last line of output so far. Calling a procedure or function jumps to its own flowchart and comes back after Return.",
+          "If the program stops with an error, the replay ends on the block that failed, outlined in red. Very long runs show their first 5,000 steps. Changing the flowchart ends the replay, since the old run no longer matches it; press Run again to follow the new version.",
+        ],
       },
       {
         heading: "Edit in either view",
@@ -231,6 +246,8 @@ OUTPUT "Done"`,
           "Drag blocks from the palette onto the canvas, connect each block's bottom handle to the next block's top, and select a block to edit its text in the inspector. To make a loop, connect the end of a decision's branch back to the decision.",
           "Every change to the flowchart updates the file straight away. Your keywords, comments, blank lines, and indentation stay as they are, and blocks you add use the keywords of the exam syntax chosen in Settings.",
           "Deleting a block other than a decision joins the blocks before and after it. Generate Code switches back to the code view, and Clear Canvas asks for a second click because it empties the file.",
+          "A CASE option holds one statement. If you add a second block to an option, or change its condition to test something else, the chain is written as IF and ELSEIF instead so the code still compiles. Renaming a procedure's header line renames the procedure; remember to update the CALL blocks too.",
+          "Fit View in the canvas controls zooms out until the whole flow, including every procedure and function, is on screen.",
         ],
       },
       {

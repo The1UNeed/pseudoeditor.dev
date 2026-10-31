@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import FlowchartEditor from "@/app/components/flowchart/FlowchartEditor";
 import { FLOWCHART_PALETTE_ITEMS, serializePaletteItem } from "@/app/components/flowchart/model";
@@ -43,5 +43,46 @@ describe("FlowchartEditor", () => {
     );
 
     expect(onCodeChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays a run block by block and steps through it", () => {
+    vi.useFakeTimers();
+    const source = "DECLARE A : INTEGER\nA <- 1\nIF A > 0 THEN\n    OUTPUT \"yes\"\nENDIF";
+    const runTrace = {
+      id: 1,
+      documentId: "doc",
+      source,
+      steps: [
+        { line: 1, output: 0 },
+        { line: 2, output: 0 },
+        { line: 3, test: true, output: 0 },
+        { line: 4, output: 0 },
+      ],
+      truncated: false,
+      output: ["yes"],
+      completed: true,
+    };
+    const { container } = render(<FlowchartEditor source={source} syntaxId="cambridge-igcse" runTrace={runTrace} />);
+
+    // Start, the process block, the decision, the output, then End.
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
+    for (let step = 0; step < 2; step += 1) {
+      act(() => {
+        vi.advanceTimersByTime(700);
+      });
+    }
+    expect(screen.getByText("Step 3 of 5")).toBeTruthy();
+    expect(screen.getByTestId("flowchart-run-description").textContent).toBe("A > 0 → Yes");
+    expect(container.querySelector(".react-flow__node.flowchart-run-current")?.textContent).toContain("A > 0");
+
+    fireEvent.click(screen.getByLabelText("Last step"));
+    expect(screen.getByText("Step 5 of 5")).toBeTruthy();
+    expect(screen.getByTestId("flowchart-run-output").textContent).toBe("yes");
+    fireEvent.click(screen.getByLabelText("Previous step"));
+    expect(screen.getByText("Step 4 of 5")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Close the run"));
+    expect(screen.queryByText(/^Step \d/)).toBeNull();
+    vi.useRealTimers();
   });
 });

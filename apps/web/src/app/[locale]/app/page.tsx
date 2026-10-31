@@ -290,6 +290,7 @@ export default function HomePage() {
     terminalOutputs,
     pendingInput,
     isRunning,
+    lastRunTrace,
     runningTerminalPanelId,
     saveError,
     hasPendingSave,
@@ -2214,6 +2215,7 @@ export default function HomePage() {
                   source={flowchartSource}
                   isVisible={flowchartVisible}
                   syntaxId={syntaxId}
+                  runTrace={lastRunTrace?.documentId === currentDocument?.id ? lastRunTrace : null}
                   onCodeChange={handleFlowchartCodeChange}
                   onGenerateCode={handleGenerateCode}
                 />
