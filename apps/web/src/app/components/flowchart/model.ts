@@ -201,7 +201,7 @@ const WHILE_HEADER_RE = /^(while\s+|loop\s+while\s+)(.+?)(\s+do)?$/i;
 const ENDWHILE_RE = /^(?:endwhile|end\s+while|end\s+loop)$/i;
 const FOR_HEADER_RE = /^(for\s+|loop\s+)(?!(?:while|until)\b)(.+)$/i;
 const ENDFOR_RE = /^(?:next(?:\s+[A-Za-z_][A-Za-z0-9_]*)?|endfor|end\s+for|end\s+loop)$/i;
-const NEXT_WITH_ITERATOR_RE = /^(next\s+)([A-Za-z_][A-Za-z0-9_]*)$/i;
+const NEXT_WITH_ITERATOR_RE = /^(next\s+)([A-Za-z_][A-Za-z0-9_]*)\b/i;
 const FOR_ITERATOR_RE = /^([A-Za-z_][A-Za-z0-9_]*)\s*(?:←|<-|=|\s(?:from|to)\b)/i;
 const INPUT_KEYWORD_RE = /^(input\s+)([^\s(].*)$/i;
 const INPUT_ASSIGN_RE = /^(.+?)(\s*(?:←|<-|=)\s*(?:userinput|input\s*\(.*\)))$/i;
@@ -521,6 +521,11 @@ class BlockBuilder {
     this.chunk = null;
   }
 
+  /** Blank lines after the last item, which belong before the block's closing line. */
+  get trailingBlankLines(): number {
+    return this.blankLines;
+  }
+
   private push(item: FlowItem): void {
     item.blankBefore = this.blankLines;
     this.blankLines = 0;
@@ -541,7 +546,7 @@ function collectBlock(
   toLine: number,
   depth: number,
   topLevel = false,
-): FlowItem[] | null {
+): BlockBuilder | null {
   const builder = new BlockBuilder(topLevel);
   let cursor = fromLine;
 
@@ -577,7 +582,7 @@ function collectBlock(
     cursor = statement.span.endLine + 1;
   }
 
-  return addLooseLines(cursor, toLine) ? builder.items : null;
+  return addLooseLines(cursor, toLine) ? builder : null;
 }
 
 function convertStatement(state: ImportState, statement: StatementNode, depth: number): FlowItem | null {
@@ -600,8 +605,8 @@ function convertStatement(state: ImportState, statement: StatementNode, depth: n
       if (!match || !(statement.kind === "while" ? ENDWHILE_RE : ENDFOR_RE).test(end.code)) {
         return null;
       }
-      const bodyItems = collectBlock(state, statement.body, startLine + 1, endLine - 1, depth + 1);
-      if (!bodyItems) {
+      const body = collectBlock(state, statement.body, startLine + 1, endLine - 1, depth + 1);
+      if (!body) {
         return null;
       }
       return {
@@ -614,8 +619,9 @@ function convertStatement(state: ImportState, statement: StatementNode, depth: n
           suffix: match[3] ?? "",
           comment: header.comment,
           endLine: dedentLine(state, state.lines[endLine - 1] ?? "", depth),
+          blankLinesBeforeEnd: body.trailingBlankLines,
         },
-        bodyItems,
+        bodyItems: body.items,
         blankBefore: 0,
       };
     }
@@ -689,6 +695,7 @@ function convertIf(
   let elseItems: FlowItem[] = [];
   let hasElseBranch = false;
   let elseLine: string | undefined;
+  let elseTrailingBlankLines: number | null = null;
 
   if (
     statement.elseBody.length === 1 &&
@@ -704,6 +711,7 @@ function convertIf(
     thenEnd = firstElse.span.startLine - 1;
     elseItems = [nested];
     hasElseBranch = true;
+    elseTrailingBlankLines = 0;
   } else {
     const searchEnd = (firstElse?.span.startLine ?? endLine) - 1;
     let elseLineNumber: number | null = null;
@@ -719,19 +727,20 @@ function convertIf(
         return null;
       }
     } else {
-      const items = collectBlock(state, statement.elseBody, elseLineNumber + 1, endLine - 1, depth + 1);
-      if (!items) {
+      const elseBlock = collectBlock(state, statement.elseBody, elseLineNumber + 1, endLine - 1, depth + 1);
+      if (!elseBlock) {
         return null;
       }
-      elseItems = items;
+      elseItems = elseBlock.items;
+      elseTrailingBlankLines = elseBlock.trailingBlankLines;
       hasElseBranch = true;
       elseLine = dedentLine(state, state.lines[elseLineNumber - 1] ?? "", depth);
       thenEnd = elseLineNumber - 1;
     }
   }
 
-  const thenItems = collectBlock(state, statement.thenBody, startLine + 1, thenEnd, depth + 1);
-  if (!thenItems) {
+  const thenBlock = collectBlock(state, statement.thenBody, startLine + 1, thenEnd, depth + 1);
+  if (!thenBlock) {
     return null;
   }
 
@@ -745,8 +754,10 @@ function convertIf(
       comment: header.comment,
       elseLine,
       endLine: dedentLine(state, state.lines[endLine - 1] ?? "", depth),
+      blankLinesBeforeElse: hasElseBranch ? thenBlock.trailingBlankLines : 0,
+      blankLinesBeforeEnd: elseTrailingBlankLines ?? thenBlock.trailingBlankLines,
     },
-    thenItems,
+    thenItems: thenBlock.items,
     elseItems,
     hasElseBranch,
     elseIf: asElseIf,
@@ -760,7 +771,7 @@ function readParsedItems(state: ImportState, source: string, syntaxId?: string):
     return null;
   }
 
-  return collectBlock(state, ast.body, 1, state.lines.length, 0, true);
+  return collectBlock(state, ast.body, 1, state.lines.length, 0, true)?.items ?? null;
 }
 
 // ── Import from source that doesn't parse ──
@@ -828,7 +839,7 @@ function readFallbackRange(
   toLine: number,
   depth: number,
   topLevel = false,
-): FlowItem[] {
+): BlockBuilder {
   const builder = new BlockBuilder(topLevel);
 
   for (let lineNumber = fromLine; lineNumber <= toLine; lineNumber += 1) {
@@ -870,7 +881,7 @@ function readFallbackRange(
     }
   }
 
-  return builder.items;
+  return builder;
 }
 
 function readFallbackSimpleLine(code: string, comment: string): FlowItem | null {
@@ -914,14 +925,18 @@ function readFallbackIf(
   const match = (asElseIf ? ELSEIF_HEADER_RE : IF_HEADER_RE).exec(header.code);
   const [nextBranch, ...laterBranches] = branches;
   const thenEnd = (nextBranch ?? endLine) - 1;
-  const thenItems = readFallbackRange(state, blocks, headerLine + 1, thenEnd, depth + 1);
+  const thenBlock = readFallbackRange(state, blocks, headerLine + 1, thenEnd, depth + 1);
   let elseItems: FlowItem[] = [];
   let elseLine: string | undefined;
+  let elseTrailingBlankLines: number | null = null;
 
   if (nextBranch !== undefined) {
+    elseTrailingBlankLines = 0;
     if (ELSE_RE.test(readLine(state, nextBranch).code)) {
       elseLine = dedentLine(state, state.lines[nextBranch - 1] ?? "", depth);
-      elseItems = readFallbackRange(state, blocks, nextBranch + 1, endLine - 1, depth + 1);
+      const elseBlock = readFallbackRange(state, blocks, nextBranch + 1, endLine - 1, depth + 1);
+      elseItems = elseBlock.items;
+      elseTrailingBlankLines = elseBlock.trailingBlankLines;
     } else {
       elseItems = [readFallbackIf(state, blocks, nextBranch, laterBranches, endLine, depth, true)];
     }
@@ -937,8 +952,10 @@ function readFallbackIf(
       comment: header.comment,
       elseLine,
       endLine: dedentLine(state, state.lines[endLine - 1] ?? "", depth),
+      blankLinesBeforeElse: nextBranch !== undefined ? thenBlock.trailingBlankLines : 0,
+      blankLinesBeforeEnd: elseTrailingBlankLines ?? thenBlock.trailingBlankLines,
     },
-    thenItems,
+    thenItems: thenBlock.items,
     elseItems,
     hasElseBranch: nextBranch !== undefined,
     elseIf: asElseIf,
@@ -955,6 +972,7 @@ function readFallbackLoop(
 ): FlowItem {
   const header = readLine(state, headerLine);
   const match = (block.kind === "while" ? WHILE_HEADER_RE : FOR_HEADER_RE).exec(header.code);
+  const body = readFallbackRange(state, blocks, headerLine + 1, block.end - 1, depth + 1);
   return {
     kind: "loop",
     controlKind: block.kind,
@@ -965,8 +983,9 @@ function readFallbackLoop(
       suffix: match?.[3] ?? "",
       comment: header.comment,
       endLine: dedentLine(state, state.lines[block.end - 1] ?? "", depth),
+      blankLinesBeforeEnd: body.trailingBlankLines,
     },
-    bodyItems: readFallbackRange(state, blocks, headerLine + 1, block.end - 1, depth + 1),
+    bodyItems: body.items,
     blankBefore: 0,
   };
 }
@@ -1355,7 +1374,7 @@ export function buildFlowchartFromPseudocode(source: string, syntaxId?: string):
   };
   const items =
     readParsedItems(state, normalized, syntaxId) ??
-    readFallbackRange(state, matchFallbackBlocks(state), 1, state.lines.length, 0, true);
+    readFallbackRange(state, matchFallbackBlocks(state), 1, state.lines.length, 0, true).items;
   const context: LayoutContext = {
     nodes: [],
     edges: [],
@@ -1686,6 +1705,10 @@ function negateConditionText(condition: string, dialect: FlowchartDialect): stri
 
 const EMPTY_EMIT: EmitResult = { lines: [], visited: new Set<string>(), soleIfId: null };
 
+function blankLines(count: number | undefined): string[] {
+  return Array.from({ length: Math.min(1000, Math.max(0, Math.floor(Number(count) || 0))) }, () => "");
+}
+
 function emitLoop(
   context: EmitContext,
   nodeData: FlowchartNodeData,
@@ -1694,7 +1717,7 @@ function emitLoop(
 ): string[] {
   const { dialect, indentUnit } = context;
   const baseCondition = getNodePrimaryText(nodeData) || "Condition";
-  const body = indentLines(bodyLines, indentUnit);
+  const body = [...indentLines(bodyLines, indentUnit), ...blankLines(nodeData.sourceForm?.blankLinesBeforeEnd)];
 
   if (nodeData.controlKind === "for") {
     const iterator =
@@ -1703,7 +1726,7 @@ function emitLoop(
     const form = nodeData.sourceForm?.kind === "for" ? nodeData.sourceForm : null;
     // A NEXT line follows the iterator in the header, so renaming it in the inspector keeps the loop valid.
     const endLine = form?.endLine
-      ? form.endLine.replace(NEXT_WITH_ITERATOR_RE, (line, keyword: string) => (iterator ? `${keyword}${iterator}` : line))
+      ? form.endLine.replace(NEXT_WITH_ITERATOR_RE, (next, keyword: string) => (iterator ? `${keyword}${iterator}` : next))
       : dialect.endFor(iterator);
     return [formatLine(nodeData, "for", baseCondition, dialect), ...body, endLine];
   }
@@ -1731,12 +1754,16 @@ function emitIf(
     // The false branch is one IF that was written as ELSEIF: fold it back into this block,
     // swapping its IF header for the ELSEIF form and sharing this block's closing line.
     const chainedHeader = formatLine(chained, "elseif", getNodePrimaryText(chained) || "Condition", dialect);
-    lines.push(chainedHeader, ...falseBranch.lines.slice(1, -1));
+    lines.push(...blankLines(form?.blankLinesBeforeElse), chainedHeader, ...falseBranch.lines.slice(1, -1));
   } else if (emitElse) {
-    lines.push(form?.elseLine ?? dialect.elseLine, ...indentLines(falseBranch.lines, indentUnit));
+    lines.push(
+      ...blankLines(form?.blankLinesBeforeElse),
+      form?.elseLine ?? dialect.elseLine,
+      ...indentLines(falseBranch.lines, indentUnit),
+    );
   }
 
-  lines.push(form?.endLine ?? dialect.endIf);
+  lines.push(...blankLines(form?.blankLinesBeforeEnd), form?.endLine ?? dialect.endIf);
   return lines;
 }
 
@@ -1765,8 +1792,7 @@ function emitSequence(
     }
 
     const nodeData = node.data as FlowchartNodeData;
-    const blankLines = Math.min(1000, Math.max(0, Math.floor(Number(nodeData.blankLinesBefore) || 0)));
-    lines.push(...Array.from({ length: blankLines }, () => ""));
+    lines.push(...blankLines(nodeData.blankLinesBefore));
     blockCount += 1;
 
     if (nodeData.type === "decision") {

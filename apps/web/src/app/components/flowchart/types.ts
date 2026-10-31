@@ -28,6 +28,10 @@ export interface FlowchartSourceForm {
   elseLine?: string;
   /** The closing line of an IF or loop, as written. */
   endLine?: string;
+  /** Blank lines at the end of the first branch, before the ELSE or ELSEIF line. */
+  blankLinesBeforeElse?: number;
+  /** Blank lines at the end of the last branch or loop body, before the closing line. */
+  blankLinesBeforeEnd?: number;
 }
 
 export interface FlowchartNodeData extends Record<string, unknown> {

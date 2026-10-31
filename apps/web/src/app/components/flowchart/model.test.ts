@@ -269,6 +269,32 @@ describe("flowchart model helpers", () => {
       ].join("\n"),
     },
     {
+      name: "blank lines before ELSE, ELSEIF, and closing lines",
+      syntaxId: "cambridge-igcse",
+      source: [
+        "DECLARE A : INTEGER",
+        "INPUT A",
+        "IF A = 1 THEN",
+        "    OUTPUT 1",
+        "",
+        "ELSEIF A = 2 THEN",
+        "    OUTPUT 2",
+        "",
+        "ELSE",
+        "    OUTPUT 3",
+        "",
+        "",
+        "ENDIF",
+        "FOR A <- 1 TO 2",
+        "    WHILE A > 5 DO",
+        "        A <- A - 1",
+        "",
+        "    ENDWHILE",
+        "",
+        "NEXT A",
+      ].join("\n"),
+    },
+    {
       name: "ELSEIF chains",
       syntaxId: "cambridge-igcse",
       source: [
@@ -501,7 +527,7 @@ describe("flowchart model helpers", () => {
       "INPUT A",
       "FOR I <- 1 TO 3",
       "    OUTPUT A",
-      "NEXT I",
+      "NEXT I // finished",
       "IF A = 1 THEN",
       "    OUTPUT 1",
       "ELSEIF A = 2 THEN",
@@ -522,7 +548,7 @@ describe("flowchart model helpers", () => {
 
     const code = generatePseudocodeFromFlowchart(nodes, snapshot.edges);
 
-    expect(code).toContain("FOR K <- 1 TO 5\n    OUTPUT A\nNEXT K");
+    expect(code).toContain("FOR K <- 1 TO 5\n    OUTPUT A\nNEXT K // finished");
     expect(code).toContain("ELSEIF A = 3 THEN");
     expect(compilePseudocode({ source: code, filename: "main.pseudo", strict: true }).success).toBe(true);
   });
