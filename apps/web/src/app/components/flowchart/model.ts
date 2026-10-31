@@ -820,9 +820,10 @@ function convertCase(state: ImportState, statement: CaseStatementNode, depth: nu
   const { startLine, endLine } = statement.span;
   const header = readLine(state, startLine);
   const subject = readSpanText(state, statement.expression.span);
-  // A CASE tests its subject once. If the chain later has to become IF / ELSEIF, each option would
-  // evaluate the subject again, which changes the program when the subject calls a function.
-  if (subject && /[A-Za-z_][A-Za-z0-9_]*\s*\(/.test(subject.replace(/"[^"]*"|'[^']*'/g, '""'))) {
+  // A CASE reads its subject once. If the chain later has to become IF / ELSEIF, each option reads
+  // it again, which changes the program when the subject, or an option before it, calls a function
+  // that can change it. Such a CASE stays as written.
+  if (subject && callsFunction(subject)) {
     return null;
   }
   if (
@@ -901,7 +902,8 @@ function convertCase(state: ImportState, statement: CaseStatementNode, depth: nu
       return null;
     }
     // A label such as `A OR B` would need brackets to read as one condition, which would change it.
-    if (hasTopLevelOperator(label.slice(valueStart, valueEnd))) {
+    const value = label.slice(valueStart, valueEnd);
+    if (hasTopLevelOperator(value) || callsFunction(value)) {
       return null;
     }
     arms.push({
@@ -943,6 +945,11 @@ function convertCase(state: ImportState, statement: CaseStatementNode, depth: nu
     otherwise,
     blankBefore: 0,
   };
+}
+
+/** Whether an expression calls a procedure or function, ignoring text inside strings. */
+function callsFunction(expression: string): boolean {
+  return /[A-Za-z_][A-Za-z0-9_]*\s*\(/.test(expression.replace(/"[^"]*"|'[^']*'/g, '""'));
 }
 
 /** A CASE option's statement written after its label: `1 : OUTPUT "One"`. */

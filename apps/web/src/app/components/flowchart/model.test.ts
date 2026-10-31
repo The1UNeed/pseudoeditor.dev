@@ -887,6 +887,26 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
     expect(snapshot.nodes.some((node) => dataOf(node).controlKind === "case")).toBe(false);
   });
 
+  it("leaves a CASE whose option calls a function as written", () => {
+    const source = [
+      "DECLARE X : INTEGER",
+      "FUNCTION Change() RETURNS INTEGER",
+      "    X <- 2",
+      "    RETURN 0",
+      "ENDFUNCTION",
+      "X <- 1",
+      "CASE OF X",
+      '    Change() : OUTPUT "zero"',
+      '    1 : OUTPUT "one"',
+      '    OTHERWISE : OUTPUT "other"',
+      "ENDCASE",
+    ].join("\n");
+    expect(compiles(source)).toEqual([]);
+    const { snapshot, code } = roundTrip(source);
+    expect(code).toBe(source);
+    expect(snapshot.nodes.some((node) => dataOf(node).controlKind === "case")).toBe(false);
+  });
+
   it("gives each line typed into one process line its own entry in the line map", () => {
     const nodes: Node[] = [
       { id: "p", type: "process", position: { x: 0, y: 0 }, data: createFlowchartNodeData("process", { statements: ["DECLARE A : INTEGER", "A <- 1\nA <- A + 1"] }) },
