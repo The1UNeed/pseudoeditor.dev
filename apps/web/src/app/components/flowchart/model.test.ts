@@ -794,6 +794,40 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
     expect(compiles(moved)).toEqual([]);
   });
 
+  it("writes a CASE option whose condition gained another test as IF / ELSEIF", () => {
+    const source = ["DECLARE A : BOOLEAN", "DECLARE B : BOOLEAN", "CASE OF A", '    TRUE : OUTPUT "yes"', '    FALSE : OUTPUT "no"', "ENDCASE"].join("\n");
+    const { snapshot } = roundTrip(source);
+    const nodes = snapshot.nodes.map((node) =>
+      dataOf(node).content === "A = TRUE" ? { ...node, data: { ...dataOf(node), content: "A = TRUE OR B" } } : node,
+    );
+
+    const code = generatePseudocodeFromFlowchart(nodes, snapshot.edges);
+    expect(code).not.toContain("CASE OF");
+    expect(code).toContain('IF A = TRUE OR B THEN\n    OUTPUT "yes"\nELSEIF A = FALSE THEN');
+    expect(compiles(code)).toEqual([]);
+  });
+
+  it("keeps a routine at the top level when the block it was written before moves into a branch", () => {
+    const source = ["PROCEDURE P()", '    OUTPUT "p"', "ENDPROCEDURE", 'OUTPUT "first"', "IF TRUE THEN", '    OUTPUT "inside"', "ENDIF", "CALL P()"].join("\n");
+    const { snapshot } = roundTrip(source);
+    const first = snapshot.nodes.find((node) => dataOf(node).content === '"first"')!;
+    const decision = snapshot.nodes.find((node) => node.type === "decision")!;
+    const inside = snapshot.nodes.find((node) => dataOf(node).content === '"inside"')!;
+    // Rewire so the anchor block runs on the IF's Yes branch, before "inside".
+    const edges = snapshot.edges
+      .filter((edge) => edge.target !== first.id && edge.source !== first.id && !(edge.source === decision.id && edge.sourceHandle === "true"))
+      .concat([
+        { id: "start-if", source: snapshot.nodes.find((node) => dataOf(node).label === "Start")!.id, target: decision.id },
+        { id: "yes-first", source: decision.id, target: first.id, sourceHandle: "true" },
+        { id: "first-inside", source: first.id, target: inside.id },
+      ]);
+
+    const code = generatePseudocodeFromFlowchart(snapshot.nodes, edges);
+    expect(code.startsWith('PROCEDURE P()\n    OUTPUT "p"\nENDPROCEDURE')).toBe(true);
+    expect(code).toContain('IF TRUE THEN\n    OUTPUT "first"\n    OUTPUT "inside"\nENDIF');
+    expect(compiles(code)).toEqual([]);
+  });
+
   it("maps each generated line to the block that runs it", () => {
     const { snapshot } = roundTrip(cambridge);
     const { lines } = generatePseudocodeWithLineMap(snapshot.nodes, snapshot.edges);

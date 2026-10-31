@@ -2409,10 +2409,41 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The value of a CASE option from its condition, or null once the condition no longer tests the subject. */
+/** Whether text outside strings and brackets has a comparison or logical operator. */
+function hasTopLevelOperator(text: string): boolean {
+  let depth = 0;
+  let quote: string | null = null;
+  let outside = "";
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (quote) {
+      if (character === "\\") {
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      outside += " ";
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === "(" || character === "[") {
+      depth += 1;
+    } else if (character === ")" || character === "]") {
+      depth -= 1;
+    }
+    outside += depth === 0 ? character : " ";
+  }
+  return /[=<>≠≤≥!]|\b(?:and|or|not)\b/i.test(outside);
+}
+
+/**
+ * The value of a CASE option from its condition, or null once the condition is anything other than
+ * `Subject = value`, such as `Subject = 1 OR Other`, which a CASE label can't express.
+ */
 function readCaseValue(condition: string, subject: string): string | null {
   const match = new RegExp(`^${escapeRegExp(subject.trim())}\\s*==?\\s*(.+)$`).exec(condition.trim());
-  return match ? match[1] : null;
+  return match && !hasTopLevelOperator(match[1]) ? match[1] : null;
 }
 
 /** One option of a CASE: its label, then its statement on the same line or indented below. */
@@ -2563,7 +2594,20 @@ function findRepeatAt(
   return outer && decision ? { decision, backEdge: outer } : null;
 }
 
-function emitRoutinesBefore(context: EmitContext, nodeId: string, lines: FlowchartCodeLine[]): void {
+/**
+ * Writes the routines that belong before `nodeId`. Only a top-level sequence places them: a routine
+ * whose block was moved into a branch or loop goes to the top of the file instead, since routines
+ * can't be declared inside a block.
+ */
+function emitRoutinesBefore(
+  context: EmitContext,
+  nodeId: string,
+  lines: FlowchartCodeLine[],
+  topLevel: boolean,
+): void {
+  if (!topLevel) {
+    return;
+  }
   const routines = context.routinesBefore.get(nodeId);
   if (!routines || context.emittedAnchors.has(nodeId)) {
     return;
@@ -2602,7 +2646,8 @@ function emitSequence(
     }
 
     const nodeData = node.data as FlowchartNodeData;
-    emitRoutinesBefore(context, node.id, lines);
+    // Nested sequences always stop somewhere or sit on a decision's path; the top level does neither.
+    emitRoutinesBefore(context, node.id, lines, stopIds.size === 0 && activePath.size === 0);
     blockCount += 1;
     firstId ??= node.id;
 

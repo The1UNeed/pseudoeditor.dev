@@ -99,7 +99,8 @@ export function buildFlowchartRunSteps(
   run.steps.forEach((event, index) => {
     const line = lines[event.line - 1 - offset];
     const nodeId = event.test ? (line?.testId ?? line?.nodeId) : (line?.nodeId ?? line?.testId);
-    const output = run.steps[index + 1]?.output ?? run.output.length;
+    // A truncated trace stops before the run did, so its last step only knows the output so far.
+    const output = run.steps[index + 1]?.output ?? (run.truncated ? event.output : run.output.length);
     if (!nodeId) {
       return;
     }

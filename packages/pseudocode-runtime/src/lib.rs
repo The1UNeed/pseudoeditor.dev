@@ -300,12 +300,23 @@ impl Runtime {
                 }
             }
             "case" => {
+                // The first option's test is recorded before the subject is evaluated, so an
+                // error there stops on the CASE rather than on the statement before it.
+                let clauses = array_field(statement, "clauses");
+                let first_tested = clauses
+                    .first()
+                    .filter(|clause| !matches!(clause.get("value"), Some(JsonValue::Null) | None));
+                if let Some(clause) = first_tested {
+                    self.record(span_line(clause, "startLine"), true);
+                }
                 let subject = self.eval(required(statement, "expression")?)?;
-                for clause in array_field(statement, "clauses") {
+                for (index, clause) in clauses.iter().enumerate() {
                     let matches = match clause.get("value") {
                         Some(JsonValue::Null) | None => true,
                         Some(value_expr) => {
-                            self.record(span_line(clause, "startLine"), true);
+                            if index > 0 || first_tested.is_none() {
+                                self.record(span_line(clause, "startLine"), true);
+                            }
                             values_equal(&subject, &self.eval(value_expr)?)
                         }
                     };
@@ -316,6 +327,10 @@ impl Runtime {
                 Ok(Flow::Continue)
             }
             "for" => {
+                // The first test is recorded before the header is evaluated, so an error in its
+                // bounds stops on the FOR.
+                let line = span_line(statement, "startLine");
+                self.record(line, true);
                 let iterator = nested_str(statement, &["iterator", "name"]);
                 let end = self.eval(required(statement, "endValue")?)?.to_i64();
                 let step = match statement.get("stepValue") {
@@ -326,9 +341,12 @@ impl Runtime {
                     return Err(RuntimeError::at(statement, "FOR STEP cannot be zero"));
                 }
                 let mut value = self.eval(required(statement, "startValue")?)?.to_i64();
-                let line = span_line(statement, "startLine");
+                let mut first_test = true;
                 loop {
-                    self.record(line, true);
+                    if !first_test {
+                        self.record(line, true);
+                    }
+                    first_test = false;
                     if (step > 0 && value > end) || (step < 0 && value < end) {
                         break;
                     }
@@ -1441,6 +1459,33 @@ mod tests {
         assert_eq!(result["success"], true, "{}", result["stderr"]);
         assert_eq!(result["trace"].as_array().unwrap().len(), MAX_TRACE_STEPS);
         assert_eq!(result["traceTruncated"], true);
+    }
+
+    #[test]
+    fn ends_the_trace_on_a_block_header_that_fails() {
+        let divide_by_zero =
+            || json!({"kind":"binary","operator":"DIV","left":int(1),"right":int(0),"span":span()});
+        let for_ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"output","values":[string("before")],"span":at(1)},
+            {"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":divide_by_zero(),"stepValue":JsonValue::Null,"body":[],"span":lines(2, 3)}
+        ]})
+        .to_string();
+        let case_ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"output","values":[string("before")],"span":at(1)},
+            {"kind":"case","expression":divide_by_zero(),"clauses":[
+                {"value":int(1),"statement":{"kind":"output","values":[string("one")],"span":at(3)},"span":at(3)}
+            ],"span":lines(2, 4)}
+        ]})
+        .to_string();
+
+        for (ast, failing_line) in [(for_ast, 2), (case_ast, 3)] {
+            let result = traced(ast);
+            assert_eq!(result["success"], false);
+            assert_eq!(
+                trace_of(&result),
+                vec![(1, false, 0), (failing_line, true, 1)]
+            );
+        }
     }
 
     #[test]

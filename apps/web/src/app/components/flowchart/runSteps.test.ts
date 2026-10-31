@@ -95,6 +95,18 @@ describe("replaying a run on the flowchart", () => {
     expect(steps?.at(-1)?.output).toBe(1);
   });
 
+  it("stops on a FOR whose header fails, and keeps a cut-off trace's output to its last step", () => {
+    const failing = traceRun("DECLARE Zero : INTEGER\nDECLARE I : INTEGER\nZero <- 0\nFOR I <- 1 TO 10 DIV Zero\n    OUTPUT I\nNEXT I");
+    expect(failing.result.success).toBe(false);
+    expect(failing.path?.at(-1)).toBe("I <- 1 TO 10 DIV Zero");
+
+    const long = traceRun("DECLARE I : INTEGER\nFOR I <- 1 TO 3000\n    OUTPUT I\nNEXT I");
+    expect(long.result.traceTruncated).toBe(true);
+    const last = long.steps!.at(-1)!;
+    expect(last.output).toBeLessThan(3000);
+    expect(last.output).toBe(long.result.trace!.at(-1)!.output);
+  });
+
   it("refuses to replay once the flowchart no longer matches the code that ran", () => {
     const source = "OUTPUT 1\nOUTPUT 2";
     const { graph, result } = traceRun(source);
