@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 const DEFAULT_INSTRUCTION_BUDGET: usize = 1_000_000;
+// Enough steps to follow a program through a flowchart; longer runs keep the first steps.
+const MAX_TRACE_STEPS: usize = 5_000;
 
 #[derive(Debug, Clone, PartialEq)]
 enum Value {
@@ -28,6 +30,18 @@ struct RunInput {
     stdin_lines: Vec<String>,
     virtual_files: HashMap<String, Vec<String>>,
     instruction_budget: Option<usize>,
+    #[serde(default)]
+    trace: bool,
+}
+
+/// One step of a traced run: a statement starting, or a condition being tested.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TraceStep {
+    line: usize,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    test: bool,
+    /// Lines of output written before this step.
+    output: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -53,6 +67,10 @@ pub struct RunResult {
     diagnostics: Vec<Diagnostic>,
     #[serde(rename = "virtualFiles")]
     virtual_files: HashMap<String, Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    trace: Option<Vec<TraceStep>>,
+    #[serde(rename = "traceTruncated", skip_serializing_if = "std::ops::Not::not")]
+    trace_truncated: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +107,8 @@ struct Runtime {
     procedures: HashMap<String, JsonValue>,
     remaining_steps: usize,
     rng_state: u64,
+    trace: Option<Vec<TraceStep>>,
+    trace_truncated: bool,
 }
 
 impl Runtime {
@@ -111,6 +131,8 @@ impl Runtime {
                 .instruction_budget
                 .unwrap_or(DEFAULT_INSTRUCTION_BUDGET),
             rng_state: 0x9e37_79b9_7f4a_7c15,
+            trace: input.trace.then(Vec::new),
+            trace_truncated: false,
         };
         runtime.collect_routines();
         Ok(runtime)
@@ -125,6 +147,8 @@ impl Runtime {
                 stderr: String::new(),
                 diagnostics: Vec::new(),
                 virtual_files: self.virtual_files,
+                trace: self.trace,
+                trace_truncated: self.trace_truncated,
             },
             Err(error) => {
                 let diagnostic = Diagnostic {
@@ -147,6 +171,8 @@ impl Runtime {
                     stderr: error.message,
                     diagnostics: vec![diagnostic],
                     virtual_files: self.virtual_files,
+                    trace: self.trace,
+                    trace_truncated: self.trace_truncated,
                 }
             }
         }
@@ -206,7 +232,14 @@ impl Runtime {
 
     fn exec_statement(&mut self, statement: &JsonValue) -> RuntimeResult<Flow> {
         self.step(statement)?;
-        match str_field(statement, "kind").as_str() {
+        let kind = str_field(statement, "kind");
+        match kind.as_str() {
+            // Blocks trace each test of their condition instead of their start.
+            "if" => self.record(span_line(statement, "startLine"), true),
+            "while" | "for" | "repeat" | "case" => {}
+            _ => self.record(span_line(statement, "startLine"), false),
+        }
+        match kind.as_str() {
             "declare" => {
                 let name = nested_str(statement, &["identifier", "name"]);
                 let type_node = statement.get("typeNode").unwrap_or(&JsonValue::Null);
@@ -271,7 +304,10 @@ impl Runtime {
                 for clause in array_field(statement, "clauses") {
                     let matches = match clause.get("value") {
                         Some(JsonValue::Null) | None => true,
-                        Some(value_expr) => values_equal(&subject, &self.eval(value_expr)?),
+                        Some(value_expr) => {
+                            self.record(span_line(clause, "startLine"), true);
+                            values_equal(&subject, &self.eval(value_expr)?)
+                        }
                     };
                     if matches {
                         return self.exec_statement(required(clause, "statement")?);
@@ -290,7 +326,9 @@ impl Runtime {
                     return Err(RuntimeError::at(statement, "FOR STEP cannot be zero"));
                 }
                 let mut value = self.eval(required(statement, "startValue")?)?.to_i64();
+                let line = span_line(statement, "startLine");
                 loop {
+                    self.record(line, true);
                     if (step > 0 && value > end) || (step < 0 && value < end) {
                         break;
                     }
@@ -306,7 +344,11 @@ impl Runtime {
                 Ok(Flow::Continue)
             }
             "while" => {
-                while self.eval(required(statement, "condition")?)?.truthy() {
+                let line = span_line(statement, "startLine");
+                while {
+                    self.record(line, true);
+                    self.eval(required(statement, "condition")?)?.truthy()
+                } {
                     if let flow @ Flow::Return(_) =
                         self.exec_block(array_field(statement, "body"))?
                     {
@@ -316,13 +358,16 @@ impl Runtime {
                 Ok(Flow::Continue)
             }
             "repeat" => {
+                let condition = required(statement, "condition")?;
+                let line = span_line(condition, "startLine");
                 loop {
                     if let flow @ Flow::Return(_) =
                         self.exec_block(array_field(statement, "body"))?
                     {
                         return Ok(flow);
                     }
-                    if self.eval(required(statement, "condition")?)?.truthy() {
+                    self.record(line, true);
+                    if self.eval(condition)?.truthy() {
                         break;
                     }
                 }
@@ -350,8 +395,7 @@ impl Runtime {
                     self.virtual_files.entry(name.clone()).or_default();
                     0
                 };
-                self.open_files
-                    .insert(name, FileHandle { mode, pointer });
+                self.open_files.insert(name, FileHandle { mode, pointer });
                 Ok(Flow::Continue)
             }
             "readfile" => {
@@ -558,7 +602,9 @@ impl Runtime {
             "FLOAT" => return Ok(Value::Real(self.eval(&args[0])?.to_f64())),
             "ASC" => {
                 let text = self.eval(&args[0])?.display();
-                return Ok(Value::Integer(text.chars().next().map(|ch| ch as i64).unwrap_or(0)));
+                return Ok(Value::Integer(
+                    text.chars().next().map(|ch| ch as i64).unwrap_or(0),
+                ));
             }
             "CHR" => {
                 let code = self.eval(&args[0])?.to_i64() as u32;
@@ -569,7 +615,10 @@ impl Runtime {
             "POSITION" => {
                 let haystack = self.eval(&args[0])?.display();
                 let needle = self.eval(&args[1])?.display();
-                let position = haystack.find(&needle).map(|index| index as i64 + 1).unwrap_or(0);
+                let position = haystack
+                    .find(&needle)
+                    .map(|index| index as i64 + 1)
+                    .unwrap_or(0);
                 return Ok(Value::Integer(position));
             }
             "RAND" => {
@@ -653,7 +702,11 @@ impl Runtime {
         }
         self.scopes.push(scope);
         self.type_scopes.push(type_scope);
+        self.record(span_line(routine, "startLine"), false);
         let flow = self.exec_block(array_field(routine, "body"));
+        if flow.is_ok() {
+            self.record(span_line(routine, "endLine"), false);
+        }
         self.type_scopes.pop();
         self.scopes.pop();
         flow
@@ -818,6 +871,17 @@ impl Runtime {
             .or_default()
             .push(value);
         Ok(())
+    }
+
+    fn record(&mut self, line: usize, test: bool) {
+        let output = self.stdout.len();
+        if let Some(trace) = self.trace.as_mut() {
+            if trace.len() < MAX_TRACE_STEPS {
+                trace.push(TraceStep { line, test, output });
+            } else {
+                self.trace_truncated = true;
+            }
+        }
     }
 
     fn step(&mut self, source: &JsonValue) -> RuntimeResult<()> {
@@ -1041,6 +1105,14 @@ fn required<'a>(value: &'a JsonValue, key: &str) -> RuntimeResult<&'a JsonValue>
         .ok_or_else(|| RuntimeError::at(value, format!("Missing AST field \"{key}\"")))
 }
 
+fn span_line(value: &JsonValue, key: &str) -> usize {
+    value
+        .get("span")
+        .and_then(|span| span.get(key))
+        .and_then(JsonValue::as_u64)
+        .unwrap_or(1) as usize
+}
+
 fn str_field(value: &JsonValue, key: &str) -> String {
     value
         .get(key)
@@ -1080,6 +1152,7 @@ pub fn run_ast_json(
         stdin_lines,
         virtual_files,
         instruction_budget,
+        trace: false,
     };
     match Runtime::new(input) {
         Ok(runtime) => runtime.run(),
@@ -1098,6 +1171,8 @@ pub fn run_ast_json(
                 hint: None,
             }],
             virtual_files: HashMap::new(),
+            trace: None,
+            trace_truncated: false,
         },
     }
 }
@@ -1122,6 +1197,8 @@ pub fn run_pseudocode(request_json: &str) -> String {
                     hint: None,
                 }],
                 virtual_files: HashMap::new(),
+                trace: None,
+                trace_truncated: false,
             },
         },
         Err(error) => RunResult {
@@ -1139,6 +1216,8 @@ pub fn run_pseudocode(request_json: &str) -> String {
                 hint: None,
             }],
             virtual_files: HashMap::new(),
+            trace: None,
+            trace_truncated: false,
         },
     };
     serde_json::to_string(&result).unwrap_or_else(|error| {
@@ -1252,6 +1331,126 @@ mod tests {
             result.virtual_files.get("A.txt"),
             Some(&vec!["hello".to_string()])
         );
+    }
+
+    fn at(line: usize) -> JsonValue {
+        json!({"startLine": line, "startColumn": 1, "endLine": line, "endColumn": 1})
+    }
+
+    fn lines(start: usize, end: usize) -> JsonValue {
+        json!({"startLine": start, "startColumn": 1, "endLine": end, "endColumn": 1})
+    }
+
+    fn traced(ast_json: String) -> JsonValue {
+        let request =
+            json!({"ast_json": ast_json, "stdin_lines": [], "virtual_files": {}, "trace": true});
+        serde_json::from_str(&run_pseudocode(&request.to_string())).expect("result JSON")
+    }
+
+    fn trace_of(result: &JsonValue) -> Vec<(u64, bool, u64)> {
+        result["trace"]
+            .as_array()
+            .expect("trace")
+            .iter()
+            .map(|step| {
+                (
+                    step["line"].as_u64().unwrap(),
+                    step["test"].as_bool().unwrap_or(false),
+                    step["output"].as_u64().unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn traces_each_statement_and_condition_test() {
+        let output = |line: usize, text: &str| json!({"kind":"output","values":[string(text)],"span":at(line)});
+        let ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"declare","identifier":ident("Count"),"typeNode":{"kind":"basic","name":"INTEGER","span":span()},"span":at(1)},
+            {"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(2),"stepValue":JsonValue::Null,"body":[output(3, "loop")],"span":lines(2, 4)},
+            {"kind":"repeat","body":[
+                {"kind":"assignment","target":ident("Count"),"value":{"kind":"binary","operator":"+","left":ident("Count"),"right":int(1),"span":span()},"span":at(6)}
+            ],"condition":{"kind":"binary","operator":">=","left":ident("Count"),"right":int(2),"span":at(7)},"span":lines(5, 7)},
+            {"kind":"case","expression":ident("Count"),"clauses":[
+                {"value":int(1),"statement":output(9, "one"),"span":at(9)},
+                {"value":int(2),"statement":output(10, "two"),"span":at(10)},
+                {"value":JsonValue::Null,"statement":output(11, "other"),"span":at(11)}
+            ],"span":lines(8, 12)},
+            {"kind":"if","condition":{"kind":"literal","value":false,"literalType":"BOOLEAN","span":span()},"thenBody":[],"elseBody":[output(15, "else")],"span":lines(13, 16)}
+        ]})
+        .to_string();
+
+        let result = traced(ast);
+        assert_eq!(result["success"], true, "{}", result["stderr"]);
+        assert_eq!(
+            trace_of(&result),
+            vec![
+                (1, false, 0),
+                (2, true, 0),
+                (3, false, 0),
+                (2, true, 1),
+                (3, false, 1),
+                (2, true, 2),
+                (6, false, 2),
+                (7, true, 2),
+                (6, false, 2),
+                (7, true, 2),
+                (9, true, 2),
+                (10, true, 2),
+                (10, false, 2),
+                (13, true, 3),
+                (15, false, 3),
+            ]
+        );
+        assert!(result.get("traceTruncated").is_none());
+    }
+
+    #[test]
+    fn traces_entering_and_leaving_routines() {
+        let ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"procedureDefinition","name":"Greet","params":[],"body":[
+                {"kind":"output","values":[string("hi")],"span":at(2)}
+            ],"span":lines(1, 3)},
+            {"kind":"callStatement","name":"Greet","args":[],"span":at(4)},
+            {"kind":"output","values":[string("bye")],"span":at(5)}
+        ]})
+        .to_string();
+
+        let result = traced(ast);
+        assert_eq!(result["success"], true, "{}", result["stderr"]);
+        assert_eq!(
+            trace_of(&result),
+            vec![
+                (4, false, 0),
+                (1, false, 0),
+                (2, false, 0),
+                (3, false, 1),
+                (5, false, 1)
+            ]
+        );
+    }
+
+    #[test]
+    fn keeps_the_first_steps_of_a_long_trace() {
+        let ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(10_000),"stepValue":JsonValue::Null,"body":[],"span":lines(1, 2)}
+        ]})
+        .to_string();
+
+        let result = traced(ast);
+        assert_eq!(result["success"], true, "{}", result["stderr"]);
+        assert_eq!(result["trace"].as_array().unwrap().len(), MAX_TRACE_STEPS);
+        assert_eq!(result["traceTruncated"], true);
+    }
+
+    #[test]
+    fn leaves_the_trace_out_unless_asked() {
+        let result: JsonValue = serde_json::from_str(&run_pseudocode(
+            &json!({"ast_json": program(vec![]), "stdin_lines": [], "virtual_files": {}})
+                .to_string(),
+        ))
+        .unwrap();
+        assert!(result.get("trace").is_none());
     }
 
     #[test]

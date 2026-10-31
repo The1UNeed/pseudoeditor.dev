@@ -10,6 +10,7 @@ type RunWorkerMessage = {
     astJson: string;
     stdinLines: string[];
     virtualFiles: Record<string, string[]>;
+    trace?: boolean;
   };
 };
 
@@ -146,6 +147,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         ast_json: request.astJson,
         stdin_lines: request.stdinLines,
         virtual_files: request.virtualFiles,
+        trace: request.trace ?? false,
       }),
     );
     const result = JSON.parse(resultJson) as RunResult;
