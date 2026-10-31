@@ -18,9 +18,9 @@ import { PublicListLink, publicListClassName } from "@/app/components/PublicUi";
 import { defaultLocale, localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
+import { getDoc, getUnit, type Doc } from "@/lib/docs";
 import {
   authorName,
-  getDocs,
   getFaq,
   getPosts,
   githubUrl,
@@ -93,11 +93,14 @@ function HeroWindow({ workspace, compiled, terminal }: { workspace: string; comp
   );
 }
 
+/** One lesson from each part of the course, shown under "learn while you build". */
+const featuredDocSlugs = ["number-systems", "cpu-and-fde-cycle", "loops", "logic-gates"];
+
 export default async function LandingPage({ params }: LocaleParams) {
   const locale = await resolveLocale(params);
   const dict = getDictionary(locale);
   const t = dict.home;
-  const docs = getDocs(locale);
+  const docs = featuredDocSlugs.map((slug) => getDoc(locale, slug)).filter((doc): doc is Doc => Boolean(doc));
   const posts = getPosts(locale);
   const faqItems = getFaq(locale);
   const href = (path: string) => localePath(locale, path);
@@ -236,11 +239,11 @@ export default async function LandingPage({ params }: LocaleParams) {
             </Link>
           </div>
           <div className={publicListClassName}>
-            {docs.slice(0, 4).map((doc, index) => (
+            {docs.map((doc) => (
               <PublicListLink
                 key={doc.slug}
                 href={href(`/docs/${doc.slug}`)}
-                meta={`${t.guideLabel} ${index + 1}`}
+                meta={getUnit(locale, doc.unit).title}
                 title={doc.title}
                 description={doc.description}
               />

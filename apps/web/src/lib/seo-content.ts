@@ -1,5 +1,5 @@
 import type { Locale } from "@/i18n/config";
-import { docsZh, faqZh, postsZh } from "./seo-content.zh";
+import { faqZh, postsZh } from "./seo-content.zh";
 
 export const siteUrl = "https://www.pseudoeditor.dev";
 
@@ -20,18 +20,6 @@ export const productSlogan = "Free and open-source pseudo code editor and compil
 export const productTagline =
   "A free and open-source pseudo code editor and compiler for writing, running, debugging, and learning structured pseudocode in the browser.";
 
-export type SeoDoc = {
-  slug: string;
-  title: string;
-  description: string;
-  updated: string;
-  sections: Array<{
-    heading: string;
-    body: string[];
-    example?: string;
-  }>;
-};
-
 export type SeoPost = {
   slug: string;
   title: string;
@@ -44,226 +32,6 @@ export type SeoPost = {
     body: string[];
   }>;
 };
-
-export const docs: SeoDoc[] = [
-  {
-    slug: "getting-started",
-    title: "Getting started with PseudoEditor",
-    description:
-      "Open the browser editor, write your first pseudocode program, compile it, and run it directly in the browser.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Start in the browser",
-        body: [
-          "Open the app, create or select a pseudocode document, and type directly into the editor. PseudoEditor saves local work during development and supports cloud workspace sync on the deployed site when you sign in.",
-          "Use the Run button to compile the current file. Diagnostics appear with line and column details when the compiler finds syntax or semantic problems.",
-        ],
-      },
-      {
-        heading: "First program",
-        body: [
-          "A simple program declares variables, assigns values with <-, and writes output with OUTPUT. Keep one statement per line when you are learning because diagnostics are easier to follow.",
-        ],
-        example: `DECLARE Name : STRING
-INPUT Name
-OUTPUT "Hello ", Name`,
-      },
-    ],
-  },
-  {
-    slug: "syntax",
-    title: "Pseudocode syntax reference",
-    description:
-      "Reference the core pseudocode syntax supported by the browser compiler, including assignment, conditions, loops, arrays, and output.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Core statements",
-        body: [
-          "Use DECLARE for variables, <- for assignment, INPUT for user input, and OUTPUT for displayed values.",
-          "Pick Cambridge IGCSE, Cambridge A Level, IB, OCR, or AQA in Settings so the compiler follows that board's notation.",
-        ],
-        example: `DECLARE Total : INTEGER
-Total <- 0
-OUTPUT Total`,
-      },
-      {
-        heading: "Blocks",
-        body: [
-          "Selection and loop blocks use clear closing keywords such as ENDIF, NEXT, ENDWHILE, and UNTIL. Matching block endings makes programs easier to trace and debug.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "variables-input-output",
-    title: "Variables, input, and output",
-    description:
-      "Learn how PseudoEditor handles declarations, assignment, INPUT prompts, and OUTPUT statements.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Declare before use",
-        body: [
-          "Declare each variable with a type before assigning to it. This helps the compiler catch misspellings and mismatched values early.",
-          "Common scalar types include INTEGER, REAL, STRING, CHAR, and BOOLEAN.",
-        ],
-        example: `DECLARE Score : INTEGER
-DECLARE Passed : BOOLEAN
-Score <- 74
-Passed <- TRUE`,
-      },
-      {
-        heading: "Interactive input",
-        body: [
-          "When a program reaches INPUT, the terminal asks for the next line of input. This lets you test validation loops and menu programs in the browser.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "selection",
-    title: "IF, THEN, ELSE selection",
-    description:
-      "Use IF statements to branch pseudocode programs based on comparisons and Boolean expressions.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Choose between paths",
-        body: [
-          "Selection runs one block when a condition is true and optionally runs an ELSE block when it is false.",
-          "Use indentation consistently. The compiler reads the keywords, but clean indentation makes tracing much easier.",
-        ],
-        example: `IF Mark >= 50
-  THEN
-    OUTPUT "Pass"
-  ELSE
-    OUTPUT "Try again"
-ENDIF`,
-      },
-    ],
-  },
-  {
-    slug: "loops",
-    title: "FOR, WHILE, and REPEAT loops",
-    description:
-      "Choose the right pseudocode loop for fixed counts, pre-condition repetition, and validation tasks.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Pick the loop by intent",
-        body: [
-          "Use FOR when the repeat count is known. Use WHILE when a condition must be checked before each run. Use REPEAT UNTIL when the body must run at least once.",
-        ],
-        example: `FOR Index <- 1 TO 5
-    OUTPUT Index
-NEXT Index`,
-      },
-      {
-        heading: "Avoid endless loops",
-        body: [
-          "A WHILE loop must update the value used by the condition. If the condition never changes, the program cannot finish.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "arrays",
-    title: "Arrays and indexed values",
-    description:
-      "Declare arrays, access indexed items, and process list-style data in pseudocode.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Declare an array",
-        body: [
-          "Arrays store related values under one name. Use indexes to read or write a specific item.",
-        ],
-        example: `DECLARE Scores : ARRAY[1:5] OF INTEGER
-Scores[1] <- 80
-OUTPUT Scores[1]`,
-      },
-    ],
-  },
-  {
-    slug: "flowcharts",
-    title: "Flowcharts from pseudocode",
-    description:
-      "Use the PseudoEditor flowchart mode to reason about process, input/output, and decision nodes.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Visualize control flow",
-        body: [
-          "Flowcharts help you see where a program starts, where decisions split, and where loops return to an earlier step.",
-          "Use flowchart mode as a planning companion, then keep the pseudocode source as the final executable version.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "saving-workspaces",
-    title: "Saving browser workspaces",
-    description:
-      "Understand how local browser storage and signed-in cloud sync work in PseudoEditor.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Local and cloud modes",
-        body: [
-          "On localhost, PseudoEditor saves to browser storage. On pseudoeditor.dev, signed-in users can save workspaces through Clerk authentication and Convex cloud sync.",
-          "Signed-out production sessions can edit in memory, but signing in is required before cloud saving.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "debugging-errors",
-    title: "Debugging compiler errors",
-    description:
-      "Use diagnostics, line numbers, and generated output to fix pseudocode syntax and logic problems.",
-    updated: "2026-05-04",
-    sections: [
-      {
-        heading: "Read the first error first",
-        body: [
-          "Syntax problems often cascade. Fix the earliest error, run again, and then move to the next diagnostic.",
-          "Line and column details point to where the compiler first noticed the problem, which may be slightly after the actual typo.",
-        ],
-      },
-      {
-        heading: "Check declarations and block endings",
-        body: [
-          "Many beginner errors come from using an undeclared variable, mixing value types, or forgetting an ENDIF, NEXT, ENDWHILE, or UNTIL.",
-        ],
-      },
-    ],
-  },
-  {
-    slug: "exam-style-practice",
-    title: "How to practise random pseudocode questions",
-    description:
-      "Use PseudoEditor's random practice questions to rehearse IGCSE, O Level, and A Level algorithm tasks in the browser editor.",
-    updated: "2026-09-19",
-    sections: [
-      {
-        heading: "Start with a random task",
-        body: [
-          "Open Practice and click Practice a random question. The page picks an original exam-style task so you cannot memorise a fixed order.",
-          "Filter by topic when you want only loops, arrays, strings, or procedures. Leave the filter on any topic for mixed Paper 2 revision.",
-        ],
-      },
-      {
-        heading: "Write it in the editor",
-        body: [
-          "Each question has a starter file. Open it in the editor, complete the algorithm, then use Run with the sample input.",
-          "Treat the sample output as a first check, then trace one edge case by hand before moving to another question.",
-        ],
-      },
-    ],
-  },
-];
 
 export const posts: SeoPost[] = [
   {
@@ -454,13 +222,8 @@ export const faqItems: FaqItem[] = [
   },
 ];
 
-const docsByLocale: Record<Locale, SeoDoc[]> = { en: docs, zh: docsZh };
 const postsByLocale: Record<Locale, SeoPost[]> = { en: posts, zh: postsZh };
 const faqByLocale: Record<Locale, FaqItem[]> = { en: faqItems, zh: faqZh };
-
-export function getDocs(locale: Locale): SeoDoc[] {
-  return docsByLocale[locale];
-}
 
 export function getPosts(locale: Locale): SeoPost[] {
   return postsByLocale[locale];
@@ -468,10 +231,6 @@ export function getPosts(locale: Locale): SeoPost[] {
 
 export function getFaq(locale: Locale): FaqItem[] {
   return faqByLocale[locale];
-}
-
-export function getDoc(locale: Locale, slug: string) {
-  return getDocs(locale).find((doc) => doc.slug === slug);
 }
 
 export function getPost(locale: Locale, slug: string) {

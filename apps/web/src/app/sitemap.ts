@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { languageAlternates, locales, localeUrl } from "@/i18n/config";
 import { practiceQuestions } from "@/lib/practice-questions";
-import { docs, posts } from "@/lib/seo-content";
+import { docs } from "@/lib/docs";
+import { posts } from "@/lib/seo-content";
 
 const staticRoutes: Array<{ path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }> = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
