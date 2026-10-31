@@ -10,6 +10,8 @@ export interface FlowchartRunStep {
   edgeIds: string[];
   /** Lines of output written once this step has run. */
   output: number;
+  /** For an IF or CASE option: whether its condition held, which names the branch taken. */
+  taken?: boolean;
 }
 
 export interface FlowchartRunInput {
@@ -23,7 +25,8 @@ export interface FlowchartRunInput {
 // Blocks with no runnable code, such as comments, sit between two steps on at most a few arrows.
 const MAX_PATH_LENGTH = 12;
 
-function findPath(outgoing: Map<string, Edge[]>, fromId: string, toId: string): string[] {
+/** The shortest run of arrows from `fromId` to `toId`, or null when there is none nearby. */
+function searchPath(outgoing: Map<string, Edge[]>, fromId: string, toId: string): string[] | null {
   const previous = new Map<string, Edge>();
   const queue: Array<{ id: string; depth: number }> = [{ id: fromId, depth: 0 }];
   const seen = new Set([fromId]);
@@ -52,7 +55,44 @@ function findPath(outgoing: Map<string, Edge[]>, fromId: string, toId: string): 
       }
     }
   }
-  return [];
+  return null;
+}
+
+/**
+ * The arrows followed from one step's block to the next. Leaving a decision, the branch must be the
+ * one the run took: IF and CASE conditions are written as drawn, so their result names it. A loop's
+ * condition may be written negated, so its branch is used only when it is the one shortest way;
+ * otherwise no arrow is lit rather than a guessed one.
+ */
+function findPath(
+  outgoing: Map<string, Edge[]>,
+  nodeMap: Map<string, Node>,
+  from: FlowchartRunStep,
+  toId: string,
+): string[] {
+  const data = nodeMap.get(from.nodeId)?.data as FlowchartNodeData | undefined;
+  if (data?.type !== "decision") {
+    return searchPath(outgoing, from.nodeId, toId) ?? [];
+  }
+
+  const through = (exit: Edge) => {
+    if (exit.target === toId) return [exit.id];
+    const rest = searchPath(outgoing, exit.target, toId);
+    return rest ? [exit.id, ...rest] : null;
+  };
+  const exits = (outgoing.get(from.nodeId) ?? []).filter(
+    (edge) => edge.sourceHandle === "true" || edge.sourceHandle === "false",
+  );
+  const writtenAsDrawn = !data.controlKind || data.controlKind === "if" || data.controlKind === "case";
+  if (from.taken !== undefined && writtenAsDrawn) {
+    const exit = exits.find((edge) => edge.sourceHandle === (from.taken ? "true" : "false"));
+    return (exit && through(exit)) ?? [];
+  }
+
+  const paths = exits.map(through).filter((path): path is string[] => path !== null);
+  const shortest = Math.min(...paths.map((path) => path.length));
+  const best = paths.filter((path) => path.length === shortest);
+  return best.length === 1 ? best[0] : [];
 }
 
 /**
@@ -86,10 +126,11 @@ export function buildFlowchartRunSteps(
   const start = sorted.find((node) => isStartNode(node.data as FlowchartNodeData));
   const end = sorted.find((node) => isEndNode(node.data as FlowchartNodeData));
 
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const steps: FlowchartRunStep[] = [];
-  const visit = (nodeId: string, output: number) => {
+  const visit = (nodeId: string, output: number, taken?: boolean) => {
     const previous = steps.at(-1);
-    steps.push({ nodeId, edgeIds: previous ? findPath(outgoing, previous.nodeId, nodeId) : [], output });
+    steps.push({ nodeId, edgeIds: previous ? findPath(outgoing, nodeMap, previous, nodeId) : [], output, taken });
   };
 
   if (start) {
@@ -111,7 +152,7 @@ export function buildFlowchartRunSteps(
       return;
     }
     lastWasStatement = !event.test;
-    visit(nodeId, output);
+    visit(nodeId, output, event.test ? event.taken : undefined);
   });
   if (run.completed && !run.truncated && end && steps.at(-1)?.nodeId !== end.id) {
     visit(end.id, run.output.length);

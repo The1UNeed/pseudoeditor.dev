@@ -36,8 +36,10 @@ export interface RunRequest {
 export interface RunTraceStep {
   line: number;
   test?: boolean;
-  /** Lines of output written before this step. */
+  /** Lines of output written before this step, as stdout splits into lines. */
   output: number;
+  /** For an IF or a CASE option: whether its condition held. */
+  taken?: boolean;
 }
 
 export interface RunResult {

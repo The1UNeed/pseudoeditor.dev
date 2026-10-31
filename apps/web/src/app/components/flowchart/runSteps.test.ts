@@ -115,6 +115,14 @@ describe("replaying a run on the flowchart", () => {
     expect(steps?.map((step) => output[step.output - 1] ?? null)).toEqual([null, "b", "c", "d", "d"]);
   });
 
+  it("follows the branch an IF took even when neither branch runs a statement", () => {
+    const source = 'IF FALSE THEN\n    // then\nELSE\n    // otherwise\nENDIF\nOUTPUT "after"';
+    const { graph, steps, path } = traceRun(source);
+    expect(path).toEqual(["Start", "FALSE", '"after"', "End"]);
+    const followed = steps![2].edgeIds.map((id) => graph.edges.find((edge) => edge.id === id)!);
+    expect(followed[0].sourceHandle).toBe("false");
+  });
+
   it("refuses to replay once the flowchart no longer matches the code that ran", () => {
     const source = "OUTPUT 1\nOUTPUT 2";
     const { graph, result } = traceRun(source);

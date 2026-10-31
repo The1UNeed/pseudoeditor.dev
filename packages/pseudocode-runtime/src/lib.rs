@@ -42,6 +42,9 @@ pub struct TraceStep {
     test: bool,
     /// Lines of output written before this step, as stdout splits into lines.
     output: usize,
+    /// For an IF or a CASE option: whether its condition held.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    taken: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -236,12 +239,12 @@ impl Runtime {
     fn exec_statement(&mut self, statement: &JsonValue) -> RuntimeResult<Flow> {
         self.step(statement)?;
         let kind = str_field(statement, "kind");
-        match kind.as_str() {
-            // Blocks trace each test of their condition instead of their start.
+        // Blocks trace each test of their condition instead of their start.
+        let if_test = match kind.as_str() {
             "if" => self.record(span_line(statement, "startLine"), true),
-            "while" | "for" | "repeat" | "case" => {}
+            "while" | "for" | "repeat" | "case" => None,
             _ => self.record(span_line(statement, "startLine"), false),
-        }
+        };
         match kind.as_str() {
             "declare" => {
                 let name = nested_str(statement, &["identifier", "name"]);
@@ -297,7 +300,9 @@ impl Runtime {
                 Ok(Flow::Continue)
             }
             "if" => {
-                if self.eval(required(statement, "condition")?)?.truthy() {
+                let taken = self.eval(required(statement, "condition")?)?.truthy();
+                self.set_taken(if_test, taken);
+                if taken {
                     self.exec_block(array_field(statement, "thenBody"))
                 } else {
                     self.exec_block(array_field(statement, "elseBody"))
@@ -310,18 +315,21 @@ impl Runtime {
                 let first_tested = clauses
                     .first()
                     .filter(|clause| !matches!(clause.get("value"), Some(JsonValue::Null) | None));
-                if let Some(clause) = first_tested {
-                    self.record(span_line(clause, "startLine"), true);
-                }
+                let first_test = first_tested
+                    .and_then(|clause| self.record(span_line(clause, "startLine"), true));
                 let subject = self.eval(required(statement, "expression")?)?;
                 for (index, clause) in clauses.iter().enumerate() {
                     let matches = match clause.get("value") {
                         Some(JsonValue::Null) | None => true,
                         Some(value_expr) => {
-                            if index > 0 || first_tested.is_none() {
-                                self.record(span_line(clause, "startLine"), true);
-                            }
-                            values_equal(&subject, &self.eval(value_expr)?)
+                            let test = if index > 0 || first_tested.is_none() {
+                                self.record(span_line(clause, "startLine"), true)
+                            } else {
+                                first_test
+                            };
+                            let matches = values_equal(&subject, &self.eval(value_expr)?);
+                            self.set_taken(test, matches);
+                            matches
                         }
                     };
                     if matches {
@@ -895,13 +903,30 @@ impl Runtime {
         Ok(())
     }
 
-    fn record(&mut self, line: usize, test: bool) {
+    /// Adds a step to the trace, returning its index so a test can be given its result.
+    fn record(&mut self, line: usize, test: bool) -> Option<usize> {
         let output = self.output_lines;
-        if let Some(trace) = self.trace.as_mut() {
-            if trace.len() < MAX_TRACE_STEPS {
-                trace.push(TraceStep { line, test, output });
-            } else {
-                self.trace_truncated = true;
+        let trace = self.trace.as_mut()?;
+        if trace.len() < MAX_TRACE_STEPS {
+            trace.push(TraceStep {
+                line,
+                test,
+                output,
+                taken: None,
+            });
+            Some(trace.len() - 1)
+        } else {
+            self.trace_truncated = true;
+            None
+        }
+    }
+
+    /// Records which way an IF or CASE option went, so the replay can follow the branch taken
+    /// even when neither branch runs a statement.
+    fn set_taken(&mut self, step: Option<usize>, taken: bool) {
+        if let (Some(index), Some(trace)) = (step, self.trace.as_mut()) {
+            if let Some(step) = trace.get_mut(index) {
+                step.taken = Some(taken);
             }
         }
     }
@@ -1506,6 +1531,30 @@ mod tests {
         assert_eq!(
             trace_of(&result),
             vec![(1, false, 0), (2, false, 2), (3, false, 3)]
+        );
+    }
+
+    #[test]
+    fn records_which_way_each_if_and_case_option_went() {
+        let ast = json!({"kind":"program","span":span(),"body":[
+            {"kind":"if","condition":{"kind":"literal","value":false,"literalType":"BOOLEAN","span":span()},"thenBody":[],"elseBody":[],"span":lines(1, 3)},
+            {"kind":"case","expression":int(2),"clauses":[
+                {"value":int(1),"statement":{"kind":"output","values":[string("one")],"span":at(5)},"span":at(5)},
+                {"value":int(2),"statement":{"kind":"output","values":[string("two")],"span":at(6)},"span":at(6)}
+            ],"span":lines(4, 7)}
+        ]})
+        .to_string();
+
+        let result = traced(ast);
+        let taken: Vec<JsonValue> = result["trace"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|step| step.get("taken").cloned().unwrap_or(JsonValue::Null))
+            .collect();
+        assert_eq!(
+            taken,
+            vec![json!(false), json!(false), json!(true), JsonValue::Null]
         );
     }
 
