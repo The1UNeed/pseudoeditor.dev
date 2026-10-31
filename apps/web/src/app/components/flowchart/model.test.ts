@@ -781,7 +781,7 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
     expect(edited).toContain("PROCEDURE Welcome(Name : STRING)\n    OUTPUT \"Hello \", Name\nENDPROCEDURE");
     expect(compiles(edited)).toEqual([]);
 
-    // The routines were written before `Count <- 0`; deleting that block moves them to the top.
+    // The routines were written before `Count <- 0`; deleting that block moves them to the end.
     const anchor = renamedCall.find((node) => (dataOf(node).statements ?? []).includes("Count <- 0"))!;
     const remaining = renamedCall.filter((node) => node !== anchor);
     const edges = [
@@ -789,7 +789,8 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
       ...bridgeEdgesAroundDeletedNodes([anchor], snapshot.edges),
     ];
     const moved = generatePseudocodeFromFlowchart(remaining, edges);
-    expect(moved.startsWith("PROCEDURE Welcome(Name : STRING)")).toBe(true);
+    expect(moved).toMatch(/\n\nPROCEDURE Welcome\(Name : STRING\)[\s\S]*ENDFUNCTION$/);
+    expect(moved.startsWith("DECLARE Count : INTEGER")).toBe(true);
     expect(moved).not.toContain("Count <- 0");
     expect(compiles(moved)).toEqual([]);
   });
@@ -847,9 +848,58 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
       ]);
 
     const code = generatePseudocodeFromFlowchart(snapshot.nodes, edges);
-    expect(code.startsWith('PROCEDURE P()\n    OUTPUT "p"\nENDPROCEDURE')).toBe(true);
+    expect(code.endsWith('\n\nPROCEDURE P()\n    OUTPUT "p"\nENDPROCEDURE')).toBe(true);
     expect(code).toContain('IF TRUE THEN\n    OUTPUT "first"\n    OUTPUT "inside"\nENDIF');
     expect(compiles(code)).toEqual([]);
+  });
+
+  it("keeps a moved routine after the declarations it uses", () => {
+    const source = ["DECLARE Count : INTEGER", "PROCEDURE PrintCount()", "    OUTPUT Count", "ENDPROCEDURE", 'OUTPUT "first"', "CALL PrintCount()"].join("\n");
+    const { snapshot } = roundTrip(source);
+    const anchorBlock = snapshot.nodes.find((node) => dataOf(node).content === '"first"')!;
+    const nodes = snapshot.nodes.filter((node) => node !== anchorBlock);
+    const edges = [
+      ...snapshot.edges.filter((edge) => edge.source !== anchorBlock.id && edge.target !== anchorBlock.id),
+      ...bridgeEdgesAroundDeletedNodes([anchorBlock], snapshot.edges),
+    ];
+
+    const code = generatePseudocodeFromFlowchart(nodes, edges);
+    expect(code).toBe(["DECLARE Count : INTEGER", "CALL PrintCount()", "", "PROCEDURE PrintCount()", "    OUTPUT Count", "ENDPROCEDURE"].join("\n"));
+    expect(compiles(code)).toEqual([]);
+  });
+
+  it("leaves a CASE whose subject calls a function as written", () => {
+    const source = [
+      "DECLARE Counter : INTEGER",
+      "FUNCTION NextValue() RETURNS INTEGER",
+      "    Counter <- Counter + 1",
+      "    RETURN Counter",
+      "ENDFUNCTION",
+      "Counter <- 0",
+      "CASE OF NextValue()",
+      '    0 : OUTPUT "zero"',
+      '    1 : OUTPUT "one"',
+      '    OTHERWISE : OUTPUT "other"',
+      "ENDCASE",
+    ].join("\n");
+    const { snapshot, code } = roundTrip(source);
+    expect(code).toBe(source);
+    expect(snapshot.nodes.some((node) => dataOf(node).controlKind === "case")).toBe(false);
+  });
+
+  it("gives each line typed into one process line its own entry in the line map", () => {
+    const nodes: Node[] = [
+      { id: "p", type: "process", position: { x: 0, y: 0 }, data: createFlowchartNodeData("process", { statements: ["DECLARE A : INTEGER", "A <- 1\nA <- A + 1"] }) },
+      { id: "o", type: "inputOutput", position: { x: 0, y: 100 }, data: createFlowchartNodeData("inputOutput", { ioType: "output", content: "A" }) },
+    ];
+    const { code, lines } = generatePseudocodeWithLineMap(nodes, [{ id: "e", source: "p", target: "o" }]);
+    expect(code.split("\n")).toHaveLength(4);
+    expect(lines.map((line) => [line.text, line.nodeId])).toEqual([
+      ["DECLARE A : INTEGER", "p"],
+      ["A <- 1", "p"],
+      ["A <- A + 1", "p"],
+      ["OUTPUT A", "o"],
+    ]);
   });
 
   it("maps each generated line to the block that runs it", () => {

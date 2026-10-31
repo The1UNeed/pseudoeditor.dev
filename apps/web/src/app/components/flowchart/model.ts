@@ -820,6 +820,11 @@ function convertCase(state: ImportState, statement: CaseStatementNode, depth: nu
   const { startLine, endLine } = statement.span;
   const header = readLine(state, startLine);
   const subject = readSpanText(state, statement.expression.span);
+  // A CASE tests its subject once. If the chain later has to become IF / ELSEIF, each option would
+  // evaluate the subject again, which changes the program when the subject calls a function.
+  if (subject && /[A-Za-z_][A-Za-z0-9_]*\s*\(/.test(subject.replace(/"[^"]*"|'[^']*'/g, '""'))) {
+    return null;
+  }
   if (
     endLine <= startLine ||
     !subject ||
@@ -2759,7 +2764,8 @@ function emitSequence(
       continue;
     }
 
-    const nodeLines = buildNodeLines(nodeData, dialect);
+    // A line typed in the inspector can hold several statements; each is a line of its own.
+    const nodeLines = buildNodeLines(nodeData, dialect).flatMap((line) => line.split(/\r?\n/));
     lines.push(...codeLines(nodeLines, { nodeId: node.id }));
     if (nodeData.type === "terminator") {
       hasMarker ||= nodeLines.length > 0;
@@ -2887,9 +2893,16 @@ export function generatePseudocodeWithLineMap(
     }
   }
 
-  // A routine whose block was deleted goes at the top, where routines usually are.
+  // A routine whose block was deleted or moved into a branch goes at the end, after every
+  // declaration its body could use; routines can be called before they are written.
   const unplaced = routines.filter((routine) => !routine.anchor || !context.emittedAnchors.has(routine.anchor));
-  const trimmed = trimBlankLines([...unplaced.flatMap((routine) => routine.lines), ...lines]);
+  for (const routine of unplaced) {
+    if (lines.length > 0 && routine.lines[0]?.text.trim()) {
+      lines.push({ text: "" });
+    }
+    lines.push(...routine.lines);
+  }
+  const trimmed = trimBlankLines(lines);
   return { code: trimmed.map((line) => line.text).join("\n"), lines: trimmed };
 }
 
