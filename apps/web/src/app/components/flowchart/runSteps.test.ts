@@ -133,6 +133,14 @@ describe("replaying a run on the flowchart", () => {
     expect(steps?.at(-1)?.edgeIds).toEqual([]);
   });
 
+  it("ends a run that failed in a CASE label's test on the option, not its statement", () => {
+    const { result, path } = traceRun(
+      'DECLARE Zero : INTEGER\nDECLARE A : INTEGER\nZero <- 0\nA <- 1\nCASE OF A\n    1 DIV Zero : OUTPUT "one"\n    OTHERWISE : OUTPUT "other"\nENDCASE',
+    );
+    expect(result.success).toBe(false);
+    expect(path?.at(-1)).toBe("A = 1 DIV Zero");
+  });
+
   it("refuses to replay once the flowchart no longer matches the code that ran", () => {
     const source = "OUTPUT 1\nOUTPUT 2";
     const { graph, result } = traceRun(source);

@@ -887,6 +887,11 @@ describe("REPEAT, CASE, and routines on the flowchart", () => {
     expect(snapshot.nodes.some((node) => dataOf(node).controlKind === "case")).toBe(false);
   });
 
+  it("writes back a file of only routines unchanged", () => {
+    const source = ["PROCEDURE A()", '    OUTPUT "a"', "ENDPROCEDURE", "PROCEDURE B()", '    OUTPUT "b"', "ENDPROCEDURE"].join("\n");
+    expect(roundTrip(source).code).toBe(source);
+  });
+
   it("leaves a CASE whose option calls a function as written", () => {
     const source = [
       "DECLARE X : INTEGER",

@@ -2904,7 +2904,8 @@ export function generatePseudocodeWithLineMap(
   // declaration its body could use; routines can be called before they are written.
   const unplaced = routines.filter((routine) => !routine.anchor || !context.emittedAnchors.has(routine.anchor));
   for (const routine of unplaced) {
-    if (lines.length > 0 && routine.lines[0]?.text.trim()) {
+    // A relocated routine is set apart from the code it now follows; others keep their own spacing.
+    if (routine.anchor && lines.length > 0 && routine.lines[0]?.text.trim()) {
       lines.push({ text: "" });
     }
     lines.push(...routine.lines);

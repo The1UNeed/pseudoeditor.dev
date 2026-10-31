@@ -159,7 +159,13 @@ export function buildFlowchartRunSteps(
   // A run that failed ends on the block its error points at, such as an OUTPUT whose expression
   // failed after a function it called had returned.
   const failedLine = !run.completed && run.errorLine ? lines[run.errorLine - 1 - offset] : undefined;
-  const failedId = failedLine?.nodeId ?? failedLine?.testId;
+  // A CASE label holds its option's test and statement on one line; a run that failed in the test
+  // never reached the statement.
+  const lastEvent = run.steps.at(-1);
+  const failedInTest = Boolean(lastEvent?.test && lastEvent.line === run.errorLine);
+  const failedId = failedInTest
+    ? (failedLine?.testId ?? failedLine?.nodeId)
+    : (failedLine?.nodeId ?? failedLine?.testId);
   if (failedId && steps.at(-1)?.nodeId !== failedId) {
     visit(failedId, run.steps.at(-1)?.output ?? 0);
   }
