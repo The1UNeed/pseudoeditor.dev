@@ -140,6 +140,12 @@ function FlowchartEditorInner({
   // Blocks added on the canvas are written in the file's syntax and indentation.
   const indentUnit = useMemo(() => inferIndentUnit(source ?? ''), [source]);
   const codeStyle = useMemo(() => ({ syntaxId, indentUnit }), [indentUnit, syntaxId]);
+  // Read through a ref so a syntax change alone never publishes: the flowchart stays mounted while
+  // hidden, and the page writes published code into whichever file is open.
+  const codeStyleRef = useRef(codeStyle);
+  useEffect(() => {
+    codeStyleRef.current = codeStyle;
+  }, [codeStyle]);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -198,7 +204,7 @@ function FlowchartEditorInner({
   }, [setEdges, setNodes, source, syntaxId]);
 
   useEffect(() => {
-    const code = generatePseudocodeFromFlowchart(nodes, edges, codeStyle);
+    const code = generatePseudocodeFromFlowchart(nodes, edges, codeStyleRef.current);
     if (!hasInitializedCodeSyncRef.current) {
       hasInitializedCodeSyncRef.current = true;
       lastPublishedCodeRef.current = code;
@@ -217,7 +223,7 @@ function FlowchartEditorInner({
 
     lastPublishedCodeRef.current = code;
     onCodeChange?.(code);
-  }, [codeStyle, edges, nodes, onCodeChange]);
+  }, [edges, nodes, onCodeChange]);
 
   const syncDecisionEdges = useCallback(
     (nodeId: string, nextData: FlowchartNodeData) => {
