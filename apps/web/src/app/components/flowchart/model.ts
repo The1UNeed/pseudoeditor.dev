@@ -1745,7 +1745,9 @@ function emitIf(
   emitElse: boolean,
 ): string[] {
   const { dialect, index, indentUnit } = context;
-  const form = nodeData.sourceForm;
+  // A loop whose back edge was removed is written as an IF, so its saved loop lines don't apply.
+  const form =
+    nodeData.sourceForm?.kind === "if" || nodeData.sourceForm?.kind === "elseif" ? nodeData.sourceForm : undefined;
   const header = formatLine(nodeData, "if", getNodePrimaryText(nodeData) || "Condition", dialect);
   const lines = [header, ...indentLines(trueLines, indentUnit)];
   const chained = falseStartId ? (index.nodeMap.get(falseStartId)?.data as FlowchartNodeData | undefined) : undefined;

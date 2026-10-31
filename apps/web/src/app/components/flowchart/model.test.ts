@@ -579,4 +579,16 @@ describe("flowchart model helpers", () => {
       ["DECLARE A : INTEGER", "INPUT A", "IF A > 1 THEN", "ELSE", '    OUTPUT "y"', "ENDIF", 'OUTPUT "done"'].join("\n"),
     );
   });
+
+  it("closes an imported loop with ENDIF once its back edge is removed", () => {
+    const source = ["DECLARE A : INTEGER", "A <- 3", "WHILE A > 0 DO", "    OUTPUT A", "ENDWHILE"].join("\n");
+    const snapshot = buildFlowchartFromPseudocode(source);
+    const body = snapshot.nodes.find((node) => node.type === "inputOutput");
+    const edges = snapshot.edges.filter((edge) => edge.source !== body?.id);
+
+    const code = generatePseudocodeFromFlowchart(snapshot.nodes, edges);
+
+    expect(code).toBe(["DECLARE A : INTEGER", "A <- 3", "IF A > 0 THEN", "    OUTPUT A", "ELSE", "ENDIF"].join("\n"));
+    expect(compilePseudocode({ source: code, filename: "main.pseudo", strict: true }).success).toBe(true);
+  });
 });
