@@ -20,7 +20,6 @@ const { loadWorkspaceMock, saveWorkspaceMock, compilePseudocodeMock, runMock, au
   },
 }));
 const localStore = new Map<string, string>();
-const FLOWCHART_MODE_STORAGE_KEY = "pseudocode-compiler-flowchart-mode-enabled";
 const UserButtonContext = createContext({ openSettings: () => {} });
 const UserButtonProfilePageContext = createContext(false);
 
@@ -277,10 +276,6 @@ function getExplorerHeaderButton(name: string): HTMLElement {
   return match;
 }
 
-function enableFlowchartModeBeta() {
-  localStore.set(FLOWCHART_MODE_STORAGE_KEY, "true");
-}
-
 describe("HomePage workspace flow", () => {
   afterEach(() => {
     cleanup();
@@ -412,14 +407,13 @@ describe("HomePage workspace flow", () => {
   });
 
   it("live updates the editor when flowchart code changes", async () => {
-    enableFlowchartModeBeta();
     mockLoadedWorkspace(createWorkspaceFixture());
     render(<HomePage />);
 
     expect(await screen.findByRole("textbox", { name: "Mock editor" })).toHaveValue('OUTPUT "Main"');
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to flowchart view" }));
-    fireEvent.click(screen.getByRole("button", { name: "Mock Live Flowchart" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mock Live Flowchart" }));
 
     await waitFor(() => {
       expect(screen.getByRole("textbox", { name: "Mock editor", hidden: true })).toHaveValue(
@@ -429,14 +423,13 @@ describe("HomePage workspace flow", () => {
   });
 
   it("keeps the flowchart connected to the current pseudocode source", async () => {
-    enableFlowchartModeBeta();
     mockLoadedWorkspace(createWorkspaceFixture());
     render(<HomePage />);
 
     const editor = await screen.findByRole("textbox", { name: "Mock editor" });
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to flowchart view" }));
-    expect(screen.getByLabelText("Mock flowchart source")).toHaveTextContent('OUTPUT "Main"');
+    expect(await screen.findByLabelText("Mock flowchart source")).toHaveTextContent('OUTPUT "Main"');
 
     fireEvent.change(editor, { target: { value: 'OUTPUT "Updated from editor"' } });
 
@@ -448,7 +441,6 @@ describe("HomePage workspace flow", () => {
   });
 
   it("keeps the flowchart visible while terminal output appears underneath", async () => {
-    enableFlowchartModeBeta();
     mockLoadedWorkspace(createWorkspaceFixture());
     compilePseudocodeMock.mockReturnValue({
       success: true,
@@ -467,7 +459,7 @@ describe("HomePage workspace flow", () => {
     await screen.findByRole("textbox", { name: "Mock editor" });
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to flowchart view" }));
-    expect(screen.getByLabelText("Mock flowchart source")).toHaveTextContent('OUTPUT "Main"');
+    expect(await screen.findByLabelText("Mock flowchart source")).toHaveTextContent('OUTPUT "Main"');
 
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
@@ -477,30 +469,24 @@ describe("HomePage workspace flow", () => {
     });
   });
 
-  it("requires enabling Flowchart mode beta from settings before opening it", async () => {
+  it("offers the flowchart from the toolbar without a beta setting, loading it on first open", async () => {
     authState.user = null;
     mockLoadedWorkspace(createWorkspaceFixture());
     render(<HomePage />);
 
     await screen.findByRole("textbox", { name: "Mock editor" });
 
-    expect(
-      screen.queryByRole("button", { name: "Switch to flowchart view" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to flowchart view" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Mock flowchart source")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
-
     const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    expect(within(dialog).getByText("Beta features")).toBeInTheDocument();
-    expect(within(dialog).getByText("Beta")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mock Live Flowchart" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Beta features")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("switch")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Enable Flowchart mode beta" }));
-
-    expect(localStore.get(FLOWCHART_MODE_STORAGE_KEY)).toBe("true");
-    expect(
-      screen.getByRole("button", { name: "Switch to flowchart view" }),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to flowchart view" }));
+    expect(await screen.findByLabelText("Mock flowchart source")).toHaveTextContent('OUTPUT "Main"');
   });
 
   it("lets the user pick an exam syntax from settings", async () => {
@@ -641,7 +627,6 @@ describe("HomePage workspace flow", () => {
   it("uses the phone layout on narrow windows regardless of user agent and hides the flowchart switch", async () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
-    enableFlowchartModeBeta();
     mockLoadedWorkspace(createWorkspaceFixture());
 
     try {
@@ -650,7 +635,7 @@ describe("HomePage workspace flow", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "SETTINGS" }));
       expect(screen.getByText("Theme")).toBeInTheDocument();
-      expect(screen.queryByRole("switch", { name: "Enable Flowchart mode beta" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Switch to flowchart view" })).not.toBeInTheDocument();
     } finally {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
     }

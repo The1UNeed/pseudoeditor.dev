@@ -10,6 +10,26 @@ export type FlowchartNodeType =
   | 'inputOutput'     // Input/Output - parallelogram
   | 'subroutine';     // Subroutine - rectangle with side bars
 
+export type FlowchartSourceFormKind = 'if' | 'elseif' | 'while' | 'for' | 'input' | 'output' | 'call';
+
+/**
+ * How a block was written in the source. Regenerating code from the flowchart reuses it so the
+ * user's own keywords, spacing, and trailing comments survive a round trip in every exam syntax.
+ */
+export interface FlowchartSourceForm {
+  kind: FlowchartSourceFormKind;
+  /** Text before the block's content, such as `IF ` or `print(`. */
+  prefix: string;
+  /** Text after the block's content, such as ` THEN` or `)`. */
+  suffix: string;
+  /** Trailing comment on the block's first line, including the whitespace before it. */
+  comment: string;
+  /** The ELSE line of an IF, as written. */
+  elseLine?: string;
+  /** The closing line of an IF or loop, as written. */
+  endLine?: string;
+}
+
 export interface FlowchartNodeData extends Record<string, unknown> {
   label: string;
   type: FlowchartNodeType;
@@ -18,11 +38,10 @@ export interface FlowchartNodeData extends Record<string, unknown> {
   trueLabel?: string;
   falseLabel?: string;
   controlKind?: 'if' | 'while' | 'for';
-  loopBodyHandle?: 'true' | 'false';
   forIterator?: string;
   hasElseBranch?: boolean;
-  trueBranchEmpty?: boolean;
-  falseBranchEmpty?: boolean;
+  /** An IF written as ELSEIF / ELSE IF directly after its parent's branch. */
+  elseIf?: boolean;
   // For input/output
   ioType?: 'input' | 'output';
   // For process
@@ -30,6 +49,12 @@ export interface FlowchartNodeData extends Record<string, unknown> {
   statements?: string[];
   // For subroutine
   subroutineName?: string;
+  // Source round-tripping
+  sourceForm?: FlowchartSourceForm;
+  /** Blank lines in the source directly before this block. */
+  blankLinesBefore?: number;
+  /** A Start or End added for display that has no `// Start` or `// End` line in the source. */
+  implicit?: boolean;
 }
 
 export interface FlowchartEdgeData {

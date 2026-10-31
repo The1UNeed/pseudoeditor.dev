@@ -14,17 +14,19 @@ import {
   Node,
   ReactFlowProvider,
   useReactFlow,
-  MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './FlowchartNodes';
 import {
   buildFlowchartFromPseudocode,
   FLOWCHART_PALETTE_ITEMS,
+  createFlowchartEdge,
   createFlowchartNodeData,
   generatePseudocodeFromFlowchart,
   getDecisionEdgeLabel,
+  inferIndentUnit,
   parsePalettePayload,
+  bridgeEdgesAroundDeletedNodes,
   serializePaletteItem,
 } from './model';
 import { FlowchartNodeData, FlowchartNodeType, NODE_DIMENSIONS, NODE_TYPE_CONFIG } from './types';
@@ -127,13 +129,17 @@ function FlowchartEditorInner({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showPalette, setShowPalette] = useState(true);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const hasInitializedCodeSyncRef = useRef(false);
   const isHydratingFromSourceRef = useRef(false);
   const lastPublishedCodeRef = useRef<string>('');
   const nodesRef = useRef<Node[]>(initialNodes);
   const edgesRef = useRef<Edge[]>(initialEdges);
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, deleteElements } = useReactFlow();
+  // Blocks added on the canvas are written in the file's syntax and indentation.
+  const indentUnit = useMemo(() => inferIndentUnit(source ?? ''), [source]);
+  const codeStyle = useMemo(() => ({ syntaxId, indentUnit }), [indentUnit, syntaxId]);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -164,7 +170,8 @@ function FlowchartEditorInner({
     }
 
     const nextSource = source.replace(/\r\n/g, '\n').trim();
-    const currentCode = generatePseudocodeFromFlowchart(nodesRef.current, edgesRef.current)
+    const style = { syntaxId, indentUnit: inferIndentUnit(source) };
+    const currentCode = generatePseudocodeFromFlowchart(nodesRef.current, edgesRef.current, style)
       .replace(/\r\n/g, '\n')
       .trim();
 
@@ -180,7 +187,7 @@ function FlowchartEditorInner({
       console.warn("Flowchart import failed.", error);
       return;
     }
-    const importedCode = generatePseudocodeFromFlowchart(imported.nodes, imported.edges)
+    const importedCode = generatePseudocodeFromFlowchart(imported.nodes, imported.edges, style)
       .replace(/\r\n/g, '\n')
       .trim();
 
@@ -191,7 +198,7 @@ function FlowchartEditorInner({
   }, [setEdges, setNodes, source, syntaxId]);
 
   useEffect(() => {
-    const code = generatePseudocodeFromFlowchart(nodes, edges);
+    const code = generatePseudocodeFromFlowchart(nodes, edges, codeStyle);
     if (!hasInitializedCodeSyncRef.current) {
       hasInitializedCodeSyncRef.current = true;
       lastPublishedCodeRef.current = code;
@@ -210,7 +217,7 @@ function FlowchartEditorInner({
 
     lastPublishedCodeRef.current = code;
     onCodeChange?.(code);
-  }, [edges, nodes, onCodeChange]);
+  }, [codeStyle, edges, nodes, onCodeChange]);
 
   const syncDecisionEdges = useCallback(
     (nodeId: string, nextData: FlowchartNodeData) => {
@@ -241,10 +248,14 @@ function FlowchartEditorInner({
         return;
       }
 
-      const nextData = {
+      const nextData: FlowchartNodeData = {
         ...selectedNodeData,
         ...updates,
-      } satisfies FlowchartNodeData;
+      };
+      if (updates.ioType && updates.ioType !== selectedNodeData.ioType) {
+        // The kept source text belongs to the old mode, so the new mode uses the syntax's own keyword.
+        delete nextData.sourceForm;
+      }
 
       setNodes((currentNodes) =>
         currentNodes.map((node) =>
@@ -274,22 +285,47 @@ function FlowchartEditorInner({
       const sourceData = sourceNode ? (sourceNode.data as FlowchartNodeData) : null;
       const branchLabel = sourceData ? getDecisionEdgeLabel(connection, sourceData) : undefined;
 
+      // Each exit leads to one next step, so a new connection replaces the one already on that handle.
       setEdges((currentEdges) =>
         addEdge(
-          {
-            ...connection,
-            type: 'smoothstep',
-            animated: true,
-            label: branchLabel,
-            style: { stroke: 'var(--accent)', strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--accent)' },
-            labelStyle: { fill: 'var(--text2)', fontSize: 11 },
-          },
-          currentEdges,
+          createFlowchartEdge(
+            `edge-${connection.source}-${connection.sourceHandle ?? 'next'}-${connection.target}-${Date.now()}`,
+            connection.source,
+            connection.target,
+            { sourceHandle: connection.sourceHandle, targetHandle: connection.targetHandle, label: branchLabel },
+          ),
+          currentEdges.filter(
+            (edge) =>
+              edge.source !== connection.source ||
+              (edge.sourceHandle ?? null) !== (connection.sourceHandle ?? null),
+          ),
         ),
       );
     },
     [nodes, setEdges],
+  );
+
+  const onNodesDelete = useCallback(
+    (deletedNodes: Node[]) => {
+      // React Flow drops the deleted blocks' edges before this runs, so the bridges come from the
+      // edges of the last render.
+      const bridges = bridgeEdgesAroundDeletedNodes(deletedNodes, edgesRef.current);
+      if (bridges.length === 0) {
+        return;
+      }
+      setEdges((currentEdges) => [
+        ...currentEdges,
+        ...bridges.filter(
+          (bridge) =>
+            !currentEdges.some(
+              (edge) =>
+                edge.source === bridge.source &&
+                (edge.sourceHandle ?? null) === (bridge.sourceHandle ?? null),
+            ),
+        ),
+      ]);
+    },
+    [setEdges],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -333,7 +369,7 @@ function FlowchartEditorInner({
   };
 
   const generatePseudocode = useCallback(() => {
-    const code = generatePseudocodeFromFlowchart(nodes, edges);
+    const code = generatePseudocodeFromFlowchart(nodes, edges, codeStyle);
     lastPublishedCodeRef.current = code;
 
     if (onGenerateCode) {
@@ -341,17 +377,32 @@ function FlowchartEditorInner({
     }
 
     return code;
-  }, [edges, nodes, onGenerateCode]);
+  }, [codeStyle, edges, nodes, onGenerateCode]);
 
   const deleteSelected = useCallback(() => {
-    setNodes((currentNodes) => currentNodes.filter((node) => !node.selected));
-    setEdges((currentEdges) => currentEdges.filter((edge) => !edge.selected));
-  }, [setEdges, setNodes]);
+    // deleteElements runs onNodesDelete, so the blocks around a deleted one stay connected.
+    void deleteElements({
+      nodes: nodes.filter((node) => node.selected),
+      edges: edges.filter((edge) => edge.selected),
+    });
+  }, [deleteElements, edges, nodes]);
 
+  useEffect(() => {
+    if (!confirmingClear) return;
+    const timer = window.setTimeout(() => setConfirmingClear(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [confirmingClear]);
+
+  // The canvas is the file's code, so clearing it takes a second click.
   const clearCanvas = useCallback(() => {
+    if (!confirmingClear) {
+      setConfirmingClear(true);
+      return;
+    }
+    setConfirmingClear(false);
     setNodes([]);
     setEdges([]);
-  }, [setEdges, setNodes]);
+  }, [confirmingClear, setEdges, setNodes]);
 
   const processStatements = useMemo(() => {
     if (!selectedNodeData || selectedNodeData.type !== 'process') {
@@ -461,7 +512,7 @@ function FlowchartEditorInner({
             "
           >
             <Trash2 className="h-4 w-4" />
-            {t.flowchart.clearCanvas}
+            {confirmingClear ? t.flowchart.confirmClearCanvas : t.flowchart.clearCanvas}
           </button>
         </div>
       </div>
@@ -486,6 +537,7 @@ function FlowchartEditorInner({
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodesDelete={onNodesDelete}
           onDragOver={onDragOver}
           onDrop={onDrop}
           nodeTypes={nodeTypes}
@@ -577,7 +629,7 @@ function FlowchartEditorInner({
                               }
                             `}
                           >
-                            {mode === 'input' ? 'Input' : 'Output'}
+                            {mode === 'input' ? t.flowchart.input : t.flowchart.output}
                           </button>
                         );
                       })}
@@ -586,7 +638,7 @@ function FlowchartEditorInner({
 
                   <label className="block space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text3)]">
-                      {selectedNodeData.ioType === 'input' ? 'Variable' : 'Value or expression'}
+                      {selectedNodeData.ioType === 'input' ? t.flowchart.variable : t.flowchart.valueExpression}
                     </span>
                     <textarea
                       value={typeof selectedNodeData.content === 'string' ? selectedNodeData.content : ''}
@@ -636,13 +688,13 @@ function FlowchartEditorInner({
                         >
                           <div className="mb-2 flex items-center justify-between">
                             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text3)]">
-                              Line {index + 1}
+                              {t.flowchart.line(index + 1)}
                             </span>
                             <button
                               type="button"
                               onClick={() => removeProcessStatement(index)}
                               className="rounded-lg p-1 text-[var(--text3)] transition hover:bg-red-500/10 hover:text-red-400"
-                              aria-label={`Remove process line ${index + 1}`}
+                              aria-label={t.flowchart.removeLine(index + 1)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

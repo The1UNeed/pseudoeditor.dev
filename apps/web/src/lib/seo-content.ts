@@ -190,14 +190,53 @@ OUTPUT Scores[1]`,
     slug: "flowcharts",
     title: "Flowcharts from pseudocode",
     description:
-      "Use the PseudoEditor flowchart mode to reason about process, input/output, and decision nodes.",
-    updated: "2026-05-04",
+      "Open flowchart mode, see how pseudocode maps to flowchart shapes, and edit a program from either view.",
+    updated: "2026-10-31",
     sections: [
       {
         heading: "Visualize control flow",
         body: [
           "Flowcharts help you see where a program starts, where decisions split, and where loops return to an earlier step.",
-          "Use flowchart mode as a planning companion, then keep the pseudocode source as the final executable version.",
+          "Flowchart mode draws the open file as a flowchart. It is the same program: edit either view and the other follows.",
+        ],
+      },
+      {
+        heading: "Open flowchart mode",
+        body: [
+          "Open a file, then select the flowchart button in the toolbar. Select it again to go back to the code.",
+          "Flowchart mode needs a mouse or trackpad, so it is available on desktop and laptop screens but not on phones and tablets.",
+        ],
+      },
+      {
+        heading: "How code becomes shapes",
+        body: [
+          "Start and End are rounded terminators. INPUT and OUTPUT are parallelograms, and CALL is a subroutine box.",
+          "IF, WHILE, and FOR become decision diamonds. The Yes branch leaves from the right and the No branch from the bottom; a loop's body has an arrow back to its decision. An ELSEIF chain is drawn as a decision in the No branch.",
+          "Everything else, such as DECLARE, assignments, REPEAT, CASE, procedure and function definitions, and comments, is kept in Process blocks exactly as you wrote it.",
+        ],
+        example: `// The loop and the IF become decisions; the assignments sit in Process blocks
+DECLARE Count : INTEGER
+Count <- 0
+WHILE Count < 3 DO
+    Count <- Count + 1
+    IF Count = 2 THEN
+        OUTPUT "Two"
+    ENDIF
+ENDWHILE
+OUTPUT "Done"`,
+      },
+      {
+        heading: "Edit in either view",
+        body: [
+          "Drag blocks from the palette onto the canvas, connect each block's bottom handle to the next block's top, and select a block to edit its text in the inspector. To make a loop, connect the end of a decision's branch back to the decision.",
+          "Every change to the flowchart updates the file straight away. Your keywords, comments, blank lines, and indentation stay as they are, and blocks you add use the keywords of the exam syntax chosen in Settings.",
+          "Deleting a block other than a decision joins the blocks before and after it. Generate Code switches back to the code view, and Clear Canvas asks for a second click because it empties the file.",
+        ],
+      },
+      {
+        heading: "Code with errors",
+        body: [
+          "The flowchart still opens when the file doesn't compile. It reads the file line by line instead, and any line it can't place, such as an IF that is missing its ENDIF, appears unchanged in a Process block.",
         ],
       },
     ],

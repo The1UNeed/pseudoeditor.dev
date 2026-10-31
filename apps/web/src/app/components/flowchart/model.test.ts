@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { compilePseudocode } from "@pseudoeditor/compiler";
 import {
   buildFlowchartFromPseudocode,
   createFlowchartNodeData,
   generatePseudocodeFromFlowchart,
   getDecisionEdgeLabel,
+  inferIndentUnit,
+  bridgeEdgesAroundDeletedNodes,
 } from "@/app/components/flowchart/model";
 import type { FlowchartNodeData } from "@/app/components/flowchart/types";
 import type { Edge, Node } from "@xyflow/react";
@@ -136,8 +139,6 @@ describe("flowchart model helpers", () => {
       "ENDIF",
       'OUTPUT "Done"',
     ].join("\n");
-    const expected = ["// Start", body, "// End"].join("\n");
-
     const snapshot = buildFlowchartFromPseudocode(body);
     const decisionNode = snapshot.nodes.find((node) => node.type === "decision");
     const finalOutputNode = snapshot.nodes.find((node) => {
@@ -161,7 +162,7 @@ describe("flowchart model helpers", () => {
 
     expect((trueTarget?.position.x ?? 0) > (decisionNode?.position.x ?? 0)).toBe(true);
     expect((falseTarget?.position.y ?? 0) > (decisionNode?.position.y ?? 0)).toBe(true);
-    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(expected);
+    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(body);
   });
 
   it("round-trips WHILE loops through a decision node with a back edge", () => {
@@ -172,7 +173,6 @@ describe("flowchart model helpers", () => {
       "ENDWHILE",
       'OUTPUT "Done"',
     ].join("\n");
-    const expected = ["// Start", body, "// End"].join("\n");
 
     const snapshot = buildFlowchartFromPseudocode(body);
     const decisionNode = snapshot.nodes.find((node) => node.type === "decision");
@@ -180,7 +180,7 @@ describe("flowchart model helpers", () => {
 
     expect(decisionNode).toBeTruthy();
     expect(backEdge).toBeTruthy();
-    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(expected);
+    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(body);
   });
 
   it("round-trips FOR loops through a decision node with a back edge", () => {
@@ -199,9 +199,7 @@ describe("flowchart model helpers", () => {
     expect(decisionNode).toBeTruthy();
     expect((decisionNode?.data as FlowchartNodeData | undefined)?.controlKind).toBe("for");
     expect(backEdge).toBeTruthy();
-    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(
-      ["// Start", source, "// End"].join("\n"),
-    );
+    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(source);
   });
 
   it("keeps control structures as decisions when falling back to line parsing", () => {
@@ -220,15 +218,339 @@ describe("flowchart model helpers", () => {
     expect(decisionNodes.map((node) => (node.data as FlowchartNodeData).controlKind)).toEqual(["for", "if"]);
     expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(
       [
-        "// Start",
         "DECLARE invalid_name : INTEGER",
         "FOR Index <- 1 TO 5",
         "    IF Index = 1 THEN",
         '        OUTPUT "First"',
         "    ENDIF",
         "NEXT Index",
-        "// End",
       ].join("\n"),
+    );
+  });
+
+  it("keeps nested FOR loops as loops instead of turning the inner one into an IF", () => {
+    const source = [
+      "DECLARE I : INTEGER",
+      "DECLARE J : INTEGER",
+      "FOR I <- 1 TO 3",
+      "    FOR J <- 1 TO 3",
+      "        OUTPUT I * J",
+      "    NEXT J",
+      "NEXT I",
+    ].join("\n");
+
+    const snapshot = buildFlowchartFromPseudocode(source);
+    const loops = snapshot.nodes.filter((node) => (node.data as FlowchartNodeData).controlKind === "for");
+
+    expect(loops).toHaveLength(2);
+    expect(generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges)).toBe(source);
+  });
+
+  const roundTripCases: Array<{ name: string; syntaxId: string; source: string }> = [
+    {
+      name: "comments, blank lines, and expressions as written",
+      syntaxId: "cambridge-alevel",
+      source: [
+        "// Read a value",
+        "DECLARE Total : INTEGER // running total",
+        "DECLARE Name : STRING",
+        "",
+        "INPUT Name // who",
+        "Total <- (1 + 2) * 3",
+        "IF Total MOD 2 = 0 THEN // even?",
+        "    // say so",
+        '    OUTPUT "Even " & Name',
+        "ELSE // odd",
+        '    OUTPUT "http://example.com"',
+        "ENDIF // done",
+        "",
+        "",
+        "OUTPUT Square(Total)",
+      ].join("\n"),
+    },
+    {
+      name: "ELSEIF chains",
+      syntaxId: "cambridge-igcse",
+      source: [
+        "DECLARE A : INTEGER",
+        "INPUT A",
+        "IF A = 1 THEN",
+        "    OUTPUT 1",
+        "ELSEIF A = 2 THEN",
+        "    OUTPUT 2",
+        "ELSE",
+        "    OUTPUT 3",
+        "ENDIF",
+      ].join("\n"),
+    },
+    {
+      name: "loops nested in branches and branches nested in loops",
+      syntaxId: "cambridge-igcse",
+      source: [
+        "DECLARE I : INTEGER",
+        "DECLARE J : INTEGER",
+        "INPUT J",
+        "IF J > 0 THEN",
+        "    FOR I <- 1 TO J STEP 2",
+        "        WHILE J > I DO",
+        "            J <- J - 1",
+        "        ENDWHILE",
+        "        IF I = 3 THEN",
+        '            OUTPUT "three"',
+        "        ENDIF",
+        "    NEXT I",
+        "ELSE",
+        "    WHILE J < 0 DO",
+        "    ENDWHILE",
+        "ENDIF",
+        "OUTPUT J",
+      ].join("\n"),
+    },
+    {
+      name: "REPEAT, CASE, and procedures kept as text blocks",
+      syntaxId: "cambridge-igcse",
+      source: [
+        "PROCEDURE Greet(Name : STRING)",
+        "",
+        '    OUTPUT "Hi ", Name',
+        "ENDPROCEDURE",
+        "DECLARE A : INTEGER",
+        "A <- 0",
+        "WHILE A < 3 DO",
+        "    REPEAT",
+        "        A <- A + 1",
+        "    UNTIL A > 1",
+        "    CASE OF A",
+        '        2 : OUTPUT "two"',
+        '        OTHERWISE OUTPUT "other"',
+        "    ENDCASE",
+        "ENDWHILE",
+        'CALL Greet("Sam")',
+      ].join("\n"),
+    },
+    {
+      name: "tab indentation",
+      syntaxId: "cambridge-igcse",
+      source: "DECLARE A : INTEGER\nINPUT A\nIF A > 1 THEN\n\tIF A > 2 THEN\n\t\tOUTPUT A\n\tENDIF\nENDIF",
+    },
+    {
+      name: "IB loops and selection",
+      syntaxId: "ib-dp",
+      source: [
+        "X = 0",
+        "input X",
+        "if X > 5 then",
+        '    output "big"',
+        "else if X > 2 then",
+        '    output "mid"',
+        "end if",
+        "loop while X > 0",
+        "    X = X - 1",
+        "end loop",
+        "loop I from 1 to 3",
+        "    output I",
+        "end loop",
+        "loop until X = 3",
+        "    X = X + 1",
+        "end loop",
+      ].join("\n"),
+    },
+    {
+      name: "OCR print, input, and method calls",
+      syntaxId: "ocr-gcse",
+      source: [
+        'name = input("Name: ")',
+        "total = 0",
+        "for i = 1 to 3",
+        "    total = total + i",
+        "next i",
+        "while total > 0",
+        "    total = total - 1",
+        "endwhile",
+        "if total == 0 then",
+        '    print("Total = " + str(total))',
+        "elseif total == 1 then",
+        "    print(name)",
+        "endif",
+      ].join("\n"),
+    },
+    {
+      name: "AQA USERINPUT and ENDFOR",
+      syntaxId: "aqa-gcse",
+      source: [
+        "# AQA program",
+        "x ← USERINPUT",
+        "IF x > 3 THEN",
+        '    OUTPUT "big"',
+        "ELSE IF x > 1 THEN",
+        '    OUTPUT "mid"',
+        "ENDIF",
+        "FOR i ← 1 TO 3",
+        "    OUTPUT i",
+        "ENDFOR",
+        "WHILE x > 0",
+        "    x ← x - 1",
+        "ENDWHILE",
+      ].join("\n"),
+    },
+    {
+      name: "explicit Start and End markers",
+      syntaxId: "cambridge-igcse",
+      source: ['// Start', 'OUTPUT "x"', "// End"].join("\n"),
+    },
+    {
+      name: "source that does not compile, including an IF still being typed",
+      syntaxId: "cambridge-igcse",
+      source: [
+        "DECLARE A : INTEGR",
+        "INPUT A",
+        "WHILE A > 0 DO",
+        "    IF A = 2 THEN",
+        '        OUTPUT "two"',
+        "    ELSEIF A = 3 THEN",
+        '        OUTPUT "three"',
+        "    ENDIF",
+        "    A <- A - 1",
+        "ENDWHILE",
+        "IF A > 1 THEN",
+        '    OUTPUT "x"',
+        'OUTPUT "y"',
+      ].join("\n"),
+    },
+  ];
+
+  it.each(roundTripCases)("regenerates the source unchanged: $name", ({ syntaxId, source }) => {
+    const snapshot = buildFlowchartFromPseudocode(source, syntaxId);
+    const code = generatePseudocodeFromFlowchart(snapshot.nodes, snapshot.edges, {
+      syntaxId,
+      indentUnit: inferIndentUnit(source),
+    });
+
+    expect(code).toBe(source);
+  });
+
+  it("draws decisions for the IF and loop blocks of every syntax", () => {
+    const otherSyntaxes = new Set(["ib-dp", "ocr-gcse", "aqa-gcse"]);
+    for (const { syntaxId, source } of roundTripCases.filter((testCase) => otherSyntaxes.has(testCase.syntaxId))) {
+      const kinds = buildFlowchartFromPseudocode(source, syntaxId).nodes
+        .map((node) => (node.data as FlowchartNodeData).controlKind)
+        .filter(Boolean);
+      expect(kinds, syntaxId).toEqual(expect.arrayContaining(["if", "for", "while"]));
+    }
+  });
+
+  it.each([
+    { syntaxId: "cambridge-igcse", setup: "DECLARE Value : INTEGER\nValue <- 3", assign: "<-" },
+    { syntaxId: "cambridge-alevel", setup: "DECLARE Value : INTEGER\nValue <- 3", assign: "<-" },
+    { syntaxId: "ib-dp", setup: "Value = 3", assign: "=" },
+    { syntaxId: "ocr-gcse", setup: "Value = 3", assign: "=" },
+    { syntaxId: "aqa-gcse", setup: "Value ← 3", assign: "←" },
+  ])("writes blocks added on the canvas in $syntaxId keywords that compile", ({ syntaxId, setup, assign }) => {
+    const snapshot = buildFlowchartFromPseudocode(setup, syntaxId);
+    const endNode = snapshot.nodes.find((node) => (node.data as FlowchartNodeData).label === "End");
+    const lastEdge = snapshot.edges.find((edge) => edge.target === endNode?.id);
+    if (!endNode || !lastEdge) {
+      throw new Error("Imported graph has no End terminator.");
+    }
+
+    const add = (id: string, type: string, data: FlowchartNodeData, y: number): Node => ({
+      id,
+      type,
+      position: { x: 0, y },
+      data,
+    });
+    const nodes: Node[] = [
+      ...snapshot.nodes,
+      add("input", "inputOutput", createFlowchartNodeData("inputOutput", { ioType: "input", content: "Value" }), 1000),
+      add("check", "decision", createFlowchartNodeData("decision", { content: "Value > 10" }), 1100),
+      add("big", "inputOutput", createFlowchartNodeData("inputOutput", { ioType: "output", content: '"Big"' }), 1200),
+      add("loop", "decision", createFlowchartNodeData("decision", { content: "Value > 0" }), 1300),
+      add("step", "process", createFlowchartNodeData("process", { statements: [`Value ${assign} Value - 1`] }), 1400),
+      add("until", "decision", createFlowchartNodeData("decision", { content: "Value > 5" }), 1500),
+      add("again", "process", createFlowchartNodeData("process", { statements: [`Value ${assign} Value + 1`] }), 1600),
+    ];
+    const edges: Edge[] = [
+      ...snapshot.edges.filter((edge) => edge !== lastEdge),
+      { id: "a", source: lastEdge.source, target: "input" },
+      { id: "b", source: "input", target: "check" },
+      { id: "c", source: "check", sourceHandle: "true", target: "big" },
+      { id: "d", source: "check", sourceHandle: "false", target: "loop" },
+      { id: "e", source: "big", target: "loop" },
+      { id: "f", source: "loop", sourceHandle: "true", target: "step" },
+      { id: "g", source: "step", target: "loop" },
+      { id: "h", source: "loop", sourceHandle: "false", target: "until" },
+      { id: "i", source: "until", sourceHandle: "false", target: "again" },
+      { id: "j", source: "again", target: "until" },
+      { id: "k", source: "until", sourceHandle: "true", target: endNode.id },
+    ];
+
+    const code = generatePseudocodeFromFlowchart(nodes, edges, { syntaxId });
+    const errors = compilePseudocode({ source: code, filename: "main.pseudo", strict: true, syntaxId }).diagnostics.filter(
+      (diagnostic) => diagnostic.severity === "error",
+    );
+
+    expect(code.startsWith(setup)).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  it("keeps a FOR loop's NEXT and an ELSEIF chain valid after editing them in the inspector", () => {
+    const source = [
+      "DECLARE I : INTEGER",
+      "DECLARE K : INTEGER",
+      "DECLARE A : INTEGER",
+      "INPUT A",
+      "FOR I <- 1 TO 3",
+      "    OUTPUT A",
+      "NEXT I",
+      "IF A = 1 THEN",
+      "    OUTPUT 1",
+      "ELSEIF A = 2 THEN",
+      "    OUTPUT 2",
+      "ENDIF",
+    ].join("\n");
+    const snapshot = buildFlowchartFromPseudocode(source);
+    const nodes = snapshot.nodes.map((node) => {
+      const data = node.data as FlowchartNodeData;
+      if (data.controlKind === "for") {
+        return { ...node, data: { ...data, content: "K <- 1 TO 5" } };
+      }
+      if (data.elseIf) {
+        return { ...node, data: { ...data, content: "A = 3" } };
+      }
+      return node;
+    });
+
+    const code = generatePseudocodeFromFlowchart(nodes, snapshot.edges);
+
+    expect(code).toContain("FOR K <- 1 TO 5\n    OUTPUT A\nNEXT K");
+    expect(code).toContain("ELSEIF A = 3 THEN");
+    expect(compilePseudocode({ source: code, filename: "main.pseudo", strict: true }).success).toBe(true);
+  });
+
+  it("joins the blocks around a deleted block", () => {
+    const source = [
+      "DECLARE A : INTEGER",
+      "INPUT A",
+      "IF A > 1 THEN",
+      '    OUTPUT "x"',
+      "ELSE",
+      '    OUTPUT "y"',
+      "ENDIF",
+      'OUTPUT "done"',
+    ].join("\n");
+    const snapshot = buildFlowchartFromPseudocode(source);
+    const deleted = snapshot.nodes.filter((node) => (node.data as FlowchartNodeData).content === '"x"');
+    const nodes = snapshot.nodes.filter((node) => !deleted.includes(node));
+
+    const bridges = bridgeEdgesAroundDeletedNodes(deleted, snapshot.edges);
+    const edges = [
+      ...snapshot.edges.filter((edge) => !deleted.some((node) => edge.source === node.id || edge.target === node.id)),
+      ...bridges,
+    ];
+
+    expect(bridges).toHaveLength(1);
+    expect(generatePseudocodeFromFlowchart(nodes, edges)).toBe(
+      ["DECLARE A : INTEGER", "INPUT A", "IF A > 1 THEN", "ELSE", '    OUTPUT "y"', "ENDIF", 'OUTPUT "done"'].join("\n"),
     );
   });
 });
