@@ -110,7 +110,7 @@ export const hardwareEn: Doc[] = [
           kind: "table",
           columns: ["Factor", "What it is", "Why it helps"],
           rows: [
-            ["Clock speed", "Number of FDE cycles per second, in GHz", "More cycles per second, so more instructions processed"],
+            ["Clock speed", "Number of clock cycles per second, in GHz", "More clock cycles per second, so instructions are processed faster"],
             ["Cores", "Separate processing units inside one CPU", "Several instructions can be processed at the same time"],
             ["Cache", "Very fast memory inside the CPU", "Frequently used data and instructions are fetched without going to slower RAM"],
           ],

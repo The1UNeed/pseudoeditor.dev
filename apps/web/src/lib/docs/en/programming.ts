@@ -151,7 +151,7 @@ ENDIF`,
       {
         heading: "Nested IF",
         body: [
-          "An `IF` can sit inside another `IF`. The inner condition is only checked when the outer one is TRUE. Indent each level so you can see which `ENDIF` closes which `IF`.",
+          "An `IF` can sit inside the `THEN` or `ELSE` block of another `IF`. The inner condition is only checked when the program reaches the branch that contains it: here, only when `Mark >= 70` is FALSE. Indent each level so you can see which `ENDIF` closes which `IF`.",
         ],
         example: `DECLARE Mark : INTEGER
 INPUT Mark
@@ -355,7 +355,7 @@ OUTPUT "Random whole number from 0 to 100: ", ROUND(RANDOM() * 100, 0)`,
           "A string is a sequence of characters. In Cambridge pseudocode the first character is at position **1**. Click a character to see its position.",
         ],
         visualTitle: "Positions in \"COMPUTER\"",
-        visual: { kind: "array", name: "Word", values: [["C", "O", "M", "P", "U", "T", "E", "R"]], highlight: [0, 3] },
+        visual: { kind: "array", name: "Word", values: [["C", "O", "M", "P", "U", "T", "E", "R"]], highlight: [0, 3], string: true },
       },
       {
         heading: "String handling",

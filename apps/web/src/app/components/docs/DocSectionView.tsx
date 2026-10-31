@@ -59,7 +59,7 @@ function VisualBody({ visual, t }: { visual: DocVisual; t: Labels }) {
     case "sql":
       return <SqlResult {...visual} resultLabel={t.queryResult} />;
     case "array":
-      return <ArrayGrid name={visual.name} values={visual.values} highlight={visual.highlight} />;
+      return <ArrayGrid name={visual.name} values={visual.values} highlight={visual.highlight} string={visual.string} />;
     case "flowchart":
       return <Flowchart nodes={visual.nodes} loop={visual.loop} shapeNames={t.shapes} />;
     case "structure":

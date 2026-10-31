@@ -123,7 +123,7 @@ export const dataTransmissionEn: Doc[] = [
       {
         heading: "Parity blocks",
         body: [
-          "A **parity block** adds a parity bit to every row and a **parity byte** for every column. If one bit is wrong, its row and its column will both fail, and where they cross shows exactly which bit to correct.",
+          "A **parity block** adds a parity bit to every byte (row) and a parity bit for every column. The column parity bits together form a **parity byte** under the block. If one bit is wrong, its row and its column will both fail, and where they cross shows exactly which bit to correct.",
         ],
       },
       {

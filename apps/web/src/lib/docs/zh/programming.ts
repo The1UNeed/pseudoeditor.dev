@@ -151,7 +151,7 @@ ENDIF`,
       {
         heading: "嵌套 IF",
         body: [
-          "一个 `IF` 可以放在另一个 `IF` 里面。只有外层条件为 TRUE 时，才会检查内层条件。每一层都要缩进，这样才能看清哪个 `ENDIF` 结束哪个 `IF`。",
+          "一个 `IF` 可以放在另一个 `IF` 的 `THEN` 或 `ELSE` 块里。只有程序走到包含它的那个分支时，才会检查内层条件：在这里，只有 `Mark >= 70` 为 FALSE 时才会检查。每一层都要缩进，这样才能看清哪个 `ENDIF` 结束哪个 `IF`。",
         ],
         example: `DECLARE Mark : INTEGER
 INPUT Mark
@@ -345,7 +345,7 @@ OUTPUT "Random whole number from 0 to 100: ", ROUND(RANDOM() * 100, 0)`,
         heading: "字符串是带编号的字符",
         body: ["字符串是一串字符。在剑桥伪代码中，第一个字符的位置是 **1**。点击某个字符查看它的位置。"],
         visualTitle: "\"COMPUTER\" 中的位置",
-        visual: { kind: "array", name: "Word", values: [["C", "O", "M", "P", "U", "T", "E", "R"]], highlight: [0, 3] },
+        visual: { kind: "array", name: "Word", values: [["C", "O", "M", "P", "U", "T", "E", "R"]], highlight: [0, 3], string: true },
       },
       {
         heading: "字符串处理",

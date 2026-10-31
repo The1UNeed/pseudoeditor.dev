@@ -41,12 +41,24 @@ export function TraceTable({ columns, rows, stepper = false }: { columns: string
 }
 
 /** A 1D or 2D array. Click a cell to see how to address it. */
-export function ArrayGrid({ name, values, highlight }: { name: string; values: string[][]; highlight?: [number, number] }) {
+export function ArrayGrid({
+  name,
+  values,
+  highlight,
+  string = false,
+}: {
+  name: string;
+  values: string[][];
+  highlight?: [number, number];
+  string?: boolean;
+}) {
   const t = useDictionary().docs.visual;
   const [selected, setSelected] = useState<[number, number]>(highlight ?? [0, 0]);
   const twoD = values.length > 1;
   const [row, column] = selected;
-  const address = twoD ? `${name}[${row + 1}, ${column + 1}]` : `${name}[${column + 1}]`;
+  const addressOf = (r: number, c: number) =>
+    string ? `SUBSTRING(${name}, ${c + 1}, 1)` : twoD ? `${name}[${r + 1}, ${c + 1}]` : `${name}[${c + 1}]`;
+  const address = addressOf(row, column);
 
   return (
     <div className="space-y-4">
@@ -80,7 +92,7 @@ export function ArrayGrid({ name, values, highlight }: { name: string; values: s
                         className="doc-cell"
                         data-state={active ? "found" : inLine ? "checked" : "idle"}
                         onClick={() => setSelected([rowIndex, cellIndex])}
-                        aria-label={twoD ? `${name}[${rowIndex + 1}, ${cellIndex + 1}]` : `${name}[${cellIndex + 1}]`}
+                        aria-label={addressOf(rowIndex, cellIndex)}
                       >
                         {cell}
                       </button>

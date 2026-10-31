@@ -87,6 +87,8 @@ export type DocVisual =
       /** One row for a 1D array, several for a 2D array. */
       values: string[][];
       highlight?: [number, number];
+      /** The cells are the characters of a string, addressed with SUBSTRING instead of an index. */
+      string?: boolean;
     }
   | {
       kind: "flowchart";
