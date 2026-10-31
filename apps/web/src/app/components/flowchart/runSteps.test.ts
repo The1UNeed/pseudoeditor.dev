@@ -29,6 +29,7 @@ function traceRun(source: string, syntaxId = "cambridge-igcse", stdinLines: stri
     output: result.stdout.length > 0 ? result.stdout.split("\n") : [],
     completed: result.success,
     truncated: Boolean(result.traceTruncated),
+    errorLine: result.success ? undefined : result.diagnostics[0]?.line,
   };
   const steps = buildFlowchartRunSteps(graph.nodes, graph.edges, { syntaxId, indentUnit: inferIndentUnit(source) }, run);
   const describeNode = (nodeId: string) => {
@@ -121,6 +122,15 @@ describe("replaying a run on the flowchart", () => {
     expect(path).toEqual(["Start", "FALSE", '"after"', "End"]);
     const followed = steps![2].edgeIds.map((id) => graph.edges.find((edge) => edge.id === id)!);
     expect(followed[0].sourceHandle).toBe("false");
+  });
+
+  it("ends a failed run on the block whose expression failed, not on a routine it had left", () => {
+    const { result, path, steps } = traceRun(
+      "FUNCTION Zero() RETURNS INTEGER\n    RETURN 0\nENDFUNCTION\nOUTPUT 1 DIV Zero()",
+    );
+    expect(result.success).toBe(false);
+    expect(path?.slice(-3)).toEqual(["RETURN 0", "Return", "1 DIV Zero()"]);
+    expect(steps?.at(-1)?.edgeIds).toEqual([]);
   });
 
   it("refuses to replay once the flowchart no longer matches the code that ran", () => {

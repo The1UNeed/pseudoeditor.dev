@@ -61,6 +61,8 @@ export interface RunTrace {
   output: string[];
   /** False when the run stopped on an error. */
   completed: boolean;
+  /** The line the error points at, when the run stopped on one. */
+  errorLine?: number;
 }
 
 export interface AppNotice {
@@ -633,6 +635,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
           truncated: Boolean(runResult.traceTruncated),
           output: stdout.length > 0 ? stdout.split("\n") : [],
           completed: runResult.success && runResult.stderr.trim().length === 0,
+          errorLine: runResult.success ? undefined : runResult.diagnostics[0]?.line,
         });
       }
       const failed = runResult.stderr.trim().length > 0 || runResult.diagnostics.length > 0;

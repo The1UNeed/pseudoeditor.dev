@@ -20,6 +20,8 @@ export interface FlowchartRunInput {
   output: string[];
   completed: boolean;
   truncated: boolean;
+  /** Where the run failed, from its error; the last traced step can be inside a routine it had left. */
+  errorLine?: number;
 }
 
 // Blocks with no runnable code, such as comments, sit between two steps on at most a few arrows.
@@ -154,6 +156,13 @@ export function buildFlowchartRunSteps(
     lastWasStatement = !event.test;
     visit(nodeId, output, event.test ? event.taken : undefined);
   });
+  // A run that failed ends on the block its error points at, such as an OUTPUT whose expression
+  // failed after a function it called had returned.
+  const failedLine = !run.completed && run.errorLine ? lines[run.errorLine - 1 - offset] : undefined;
+  const failedId = failedLine?.nodeId ?? failedLine?.testId;
+  if (failedId && steps.at(-1)?.nodeId !== failedId) {
+    visit(failedId, run.steps.at(-1)?.output ?? 0);
+  }
   if (run.completed && !run.truncated && end && steps.at(-1)?.nodeId !== end.id) {
     visit(end.id, run.output.length);
   }
