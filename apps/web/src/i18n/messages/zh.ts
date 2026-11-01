@@ -3,9 +3,9 @@ import { editorZh } from "./editor.zh";
 
 export const zh: Dictionary = {
   meta: {
-    homeTitle: "PseudoEditor - 免费在线伪代码编辑器、编译器与运行器，为学生打造",
+    homeTitle: "PseudoEditor - 免费在线伪代码编译器与编辑器",
     homeDescription:
-      "在浏览器中编写、编译、运行并调试剑桥风格伪代码。永久免费且开源，专为 IGCSE、O Level 与 A Level 计算机科学学生设计。无需安装，无需注册。",
+      "在线编写和运行剑桥 IGCSE、A Level、IB、OCR 与 AQA 伪代码。免费开源的编译器，提供错误诊断与流程图，无需安装。",
     keywords: [
       "PseudoEditor",
       "伪代码编辑器",
@@ -46,7 +46,7 @@ export const zh: Dictionary = {
       "支持云端同步的多文件工作区",
     ],
     blogName: "PseudoEditor 博客",
-    editorTitle: "编辑器",
+    editorTitle: "在线伪代码编译器与运行器",
     editorDescription: "打开 PseudoEditor 编辑器，在多文件工作区中编写、编译、运行和调试伪代码。",
     docsTitle: "工作室编辑器文档",
     docsDescription: "学习使用 PseudoEditor 工作室：创建文件、运行伪代码、修复错误、使用流程图和保存工作区。",
@@ -113,8 +113,9 @@ export const zh: Dictionary = {
     ctaDocs: "阅读文档",
     ctaPractice: "练习一道随机题",
     noAccount: "永久免费，无需账号。只有需要云端同步时才需要登录。",
+    compilerGuide: "如何编译和运行伪代码",
     windowWorkspace: "工作区",
-    windowCompiled: "3 毫秒内完成编译",
+    windowCompiled: "示例程序",
     windowTerminal: "终端",
     featuresEyebrow: "你将获得",
     featuresTitle: "编辑器、编译器和运行时，一个都不用安装。",
@@ -141,7 +142,7 @@ export const zh: Dictionary = {
       },
       {
         title: "开放且可审计",
-        body: "编辑器、编译器和运行时的每一行代码都基于 Apache License 2.0 发布。没有跟踪器，没有付费墙。",
+        body: "编辑器、编译器和运行时的每一行代码都基于 Apache License 2.0 发布。你可以阅读代码、运行自己的副本，或提交修复。",
       },
     ],
     studentsEyebrow: "为课堂而生",

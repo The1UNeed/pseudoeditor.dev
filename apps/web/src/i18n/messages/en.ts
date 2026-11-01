@@ -2,9 +2,9 @@ import { editorEn } from "./editor.en";
 
 export const en = {
   meta: {
-    homeTitle: "PseudoEditor - Free online pseudocode editor, compiler and runner for students",
+    homeTitle: "PseudoEditor - Free online pseudocode compiler and editor",
     homeDescription:
-      "Write, compile, run and debug Cambridge-style pseudocode in your browser. Free forever and open source, built for IGCSE, O Level and A Level Computer Science students. No install, no account needed.",
+      "Write and run pseudocode online for Cambridge IGCSE, A Level, IB, OCR and AQA. Free, open-source compiler with diagnostics and flowcharts. No install needed.",
     keywords: [
       "PseudoEditor",
       "pseudocode editor",
@@ -45,7 +45,7 @@ export const en = {
       "Multi-file workspaces with cloud sync",
     ],
     blogName: "PseudoEditor Blog",
-    editorTitle: "Editor",
+    editorTitle: "Online pseudocode compiler and runner",
     editorDescription:
       "Open the PseudoEditor editor to write, compile, run, and debug pseudocode with multi-file workspaces.",
     docsTitle: "Studio editor documentation",
@@ -116,8 +116,9 @@ export const en = {
     ctaDocs: "Read the docs",
     ctaPractice: "Practice a random question",
     noAccount: "Free forever. No account needed. Sign in only if you want cloud sync.",
+    compilerGuide: "How to compile and run pseudocode",
     windowWorkspace: "Workspace",
-    windowCompiled: "compiled in 3 ms",
+    windowCompiled: "Example program",
     windowTerminal: "Terminal",
     featuresEyebrow: "what you get",
     featuresTitle: "An editor, a compiler, and a runtime. Nothing to install.",
@@ -144,7 +145,7 @@ export const en = {
       },
       {
         title: "Open and auditable",
-        body: "Every line of the editor, compiler, and runtime is published under the Apache License 2.0. No trackers, no paywall.",
+        body: "Every line of the editor, compiler, and runtime is published under the Apache License 2.0. Read the code, run your own copy, or contribute a fix.",
       },
     ],
     studentsEyebrow: "built for the classroom",

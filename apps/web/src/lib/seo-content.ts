@@ -318,6 +318,16 @@ export const faqItems: FaqItem[] = [
       "Yes. PseudoEditor compiles supported pseudocode to an AST and runs it in the browser runtime, including interactive INPUT prompts.",
   },
   {
+    question: "What is a pseudocode compiler or pseudo emulator?",
+    answer:
+      "A pseudocode compiler checks a defined pseudocode syntax before execution. A pseudocode runner, sometimes called a pseudo emulator, executes those instructions so you can test an algorithm. PseudoEditor includes both, with error diagnostics, interactive input, and program output. Select your exam board in Settings because pseudocode has no single universal syntax.",
+  },
+  {
+    question: "Do I need Visual Studio Code to run pseudocode?",
+    answer:
+      "No. PseudoEditor is a standalone browser app with its own pseudocode compiler and runtime. Open the editor, create a file, select your exam syntax, and choose Run. You do not need to install Visual Studio Code or an extension.",
+  },
+  {
     question: "Does the browser version save my work?",
     answer:
       "Local development saves to browser storage. On pseudoeditor.dev, signed-in users can save workspaces with Clerk authentication and Convex cloud sync.",

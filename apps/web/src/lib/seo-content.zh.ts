@@ -270,6 +270,16 @@ export const faqZh: FaqItem[] = [
     answer: "可以。PseudoEditor 会把支持的伪代码编译成 AST，并在浏览器运行时中执行，包括交互式的 INPUT 输入提示。",
   },
   {
+    question: "伪代码编译器或 pseudo emulator 是什么？",
+    answer:
+      "伪代码编译器会在执行前检查特定的伪代码语法。伪代码运行器有时也被称为 pseudo emulator，它会执行这些指令，让你测试算法。PseudoEditor 同时提供两者，支持错误诊断、交互输入与程序输出。伪代码没有统一语法，请先在设置中选择你的考试局。",
+  },
+  {
+    question: "运行伪代码需要 Visual Studio Code 吗？",
+    answer:
+      "不需要。PseudoEditor 是独立的浏览器应用，自带伪代码编译器与运行时。打开编辑器，创建文件，选择考试语法，然后点击运行即可。无需安装 Visual Studio Code 或扩展。",
+  },
+  {
     question: "浏览器版本会保存我的工作吗？",
     answer:
       "本地开发环境会保存到浏览器存储。在 pseudoeditor.dev 上，登录用户可以通过 Clerk 身份验证和 Convex 云端同步保存工作区。",

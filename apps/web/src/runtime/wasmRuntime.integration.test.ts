@@ -4,6 +4,8 @@ import path from "node:path";
 import { compilePseudocode } from "@/compiler";
 import initRuntime, { run_pseudocode } from "./wasm/pkg/pseudocode_runtime";
 import type { RunResult } from "@/compiler/types";
+import { getDoc } from "@/lib/docs";
+import { locales } from "@/i18n/config";
 
 beforeAll(async () => {
   const wasmBytes = await readFile(path.join(process.cwd(), "src/runtime/wasm/pkg/pseudocode_runtime_bg.wasm"));
@@ -37,6 +39,19 @@ function runSource(source: string, options?: {
 }
 
 describe("WASM pseudocode runtime integration", () => {
+  it.each(locales)("produces the documented compiler guide outputs in %s", (locale) => {
+    const example = getDoc(locale, "pseudocode-compiler")?.sections.find((section) => section.example)?.example;
+    expect(example).toBeTruthy();
+    expect(runSource(example!, { syntaxId: "cambridge-igcse" })).toMatchObject({
+      success: true,
+      stdout: "Total = 15",
+    });
+    expect(runSource(example!.replace("TO 5", "TO 3"), { syntaxId: "cambridge-igcse" })).toMatchObject({
+      success: true,
+      stdout: "Total = 6",
+    });
+  });
+
   it("runs exam-board operators and routines added for selectable syntax", () => {
     expect(runSource('print(17 div 5)\nprint(17 mod 5)\nprint("ab" + "cd")', { syntaxId: "ocr-gcse" })).toMatchObject({
       success: true,

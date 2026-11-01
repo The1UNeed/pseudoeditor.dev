@@ -15,6 +15,7 @@ export async function generateMetadata({ params }: LocaleParams): Promise<Metada
     title: t.loginTitle,
     description: t.loginDescription,
     alternates: localizedMetadata(locale, "/login"),
+    robots: { index: false, follow: true },
   };
 }
 
