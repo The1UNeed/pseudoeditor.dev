@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { practiceQuestions } from "@/lib/practice-questions";
 import { docs, docPath, getGuides, getLessons } from "@/lib/docs";
 import { posts } from "@/lib/seo-content";
+import { courseLessonPath, getCourseLessons, getLessonCatalog } from "@/lib/lesson-syllabi";
 import sitemap from "./sitemap";
 
 describe("sitemap", () => {
@@ -9,7 +10,8 @@ describe("sitemap", () => {
   const urls = entries.map((entry) => entry.url);
 
   it("lists every page once per locale", () => {
-    expect(entries).toHaveLength((11 + docs.length + posts.length + practiceQuestions.length) * 2);
+    const coursePages = getLessonCatalog("en").filter((course) => course.id !== "igcse").flatMap((course) => getCourseLessons("en", course.id));
+    expect(entries).toHaveLength((11 + docs.length + coursePages.length + posts.length + practiceQuestions.length) * 2);
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls).toContain("https://www.pseudoeditor.dev");
     expect(urls).toContain("https://www.pseudoeditor.dev/zh");
@@ -31,6 +33,16 @@ describe("sitemap", () => {
     for (const guide of getGuides("en")) {
       expect(urls).toContain(`https://www.pseudoeditor.dev/docs/${guide.slug}`);
       expect(urls).not.toContain(`https://www.pseudoeditor.dev/lessons/${guide.slug}`);
+    }
+  });
+
+  it("indexes course-specific lesson pages in both languages", () => {
+    for (const course of getLessonCatalog("en")) {
+      for (const lesson of getCourseLessons("en", course.id)) {
+        const path = courseLessonPath(course.id, lesson.slug);
+        expect(urls).toContain(`https://www.pseudoeditor.dev${path}`);
+        expect(urls).toContain(`https://www.pseudoeditor.dev/zh${path}`);
+      }
     }
   });
 
