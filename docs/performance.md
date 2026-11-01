@@ -111,10 +111,54 @@ producing `55`, code-to-flowchart switching, replay through the final output, an
 backward seeking to the start. Unit/regression checks cover exact compiler output,
 immutable state, merge ordering, stale worker responses, compilation sharing, Monaco completion and Find, and interactive input output
 `Hello, Ada`. No browser console warnings or errors appeared during these checks.
-Final integration passes all 260 JavaScript/TypeScript tests and 18 Rust tests,
+Final integration passes all 264 JavaScript/TypeScript tests and 18 Rust tests,
 ESLint, clippy, formatting, strict checks with both TSRS and tsc, and production
 builds on Node 26 and Node 22. Node 22 web coverage also passes. The deliberately
 skipped tests are opt-in timing benchmarks. Review results are recorded with the PR.
 
 The [Sol review ledger](performance/review.md) records the independent findings
 and the production-only startup regression fix.
+
+## Warm caches and hot start
+
+These are cache-hit versus uncached-operation comparisons in the current version,
+not additional before/after PR speedups. The 40-entry compile cache and initialized
+WASM reuse largely predate this PR. PR changes add in-flight compile coalescing,
+exact request verification, and LRU refresh on hits.
+
+| Operation | Miss or new instance | Warm | Time reduction |
+| --- | ---: | ---: | ---: |
+| Compile 10-byte source | 0.0200 ms | 0.0017 ms | 91.69% |
+| Compile 10,426-byte source | 0.6719 ms | 0.0241 ms | 96.42% |
+| Compile 147,803-byte source | 7.1356 ms | 0.3666 ms | 94.86% |
+| WASM instance initialization plus `OUTPUT 123` vs reused instance | 0.1573 ms | 0.0052 ms | 96.72% |
+| Production build, `.next` retained | 6.50 s recorded cold build | 3.062 s | 52.89% |
+
+Compilation uses the real compiler runner and compiler with workers unavailable,
+including source hashing and exact cache lookup. It excludes worker transport and
+browser loading. Each source has five warmups and 21 measured miss/hit pairs.
+WASM uses bytes already in memory, 15 fresh instances and batches of 100 repeat
+runs; it excludes fetch, module import, and worker startup. Engine-level compiled
+module caches may be reused. These numbers do not measure full-page hot start.
+Builds have one unmeasured warmup and three measured runs with `.next` retained;
+the cold comparison is the earlier single recorded sample, not an alternating
+same-session cold/warm experiment.
+
+Run `node scripts/benchmark-cache.mjs --build` for the full measurements, or omit
+`--build` for compiler/runtime-only measurements. Raw samples and scope descriptions
+are in [warm-cache.json](performance/warm-cache.json).
+
+The in-memory compile cache and WASM worker state do not survive a page reload.
+HTTP asset caching can reuse bytes across reloads, but that is separate from
+retaining initialized workers. Strict TSRS checks currently disable incremental
+disk state. Persistent compilation caches and browser reload latency are not
+claimed as implemented or measured here.
+
+A cache reliability fix evicts a rejected WASM initialization promise. A temporary
+load failure previously stayed cached until the worker was replaced or the page
+reloaded. The next run can now retry, while successful initialization stays warm.
+Four regression tests cover failed preload/run retry, concurrent preload sharing,
+and fresh inputs on each execution. Fault injection against the actual worker
+and real WASM reproduced the failure before the fix, then produced `123` on retry
+and `456` on the next warm run with only two fetch attempts total. Execution
+results are not cached, so INPUT, file operations and other effects still run.

@@ -88,7 +88,10 @@ function ensureAbsoluteWorkerFetch() {
 async function ensureRuntimeReady() {
   if (!runtimeReady) {
     ensureAbsoluteWorkerFetch();
-    runtimeReady = initRuntime().then(() => undefined);
+    runtimeReady = initRuntime().then(() => undefined).catch((error) => {
+      runtimeReady = null;
+      throw error;
+    });
   }
 
   await runtimeReady;
