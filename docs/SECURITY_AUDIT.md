@@ -116,3 +116,29 @@ The PostHog project lives on US Cloud, so ingestion moved from `https://eu.i.pos
 `connect-src` follows `POSTHOG_HOST` and still allows exactly one PostHog origin. Nothing else about the configuration
 changed. The privacy policy, security page, and terms (English and Chinese) now say analytics are stored in the United
 States.
+
+## Addendum 2026-11-01: second audit round and remediation
+
+Two independent GLM 5.3 reviews of the post-audit tree found seven findings (one high, two low, four info),
+all fixed in this change set, plus a CI gate so advisory drift cannot return silently.
+
+| # | Severity | Finding | Status |
+| --- | --- | --- | --- |
+| 1 | High | `next` 16.3.4 sat in RCE-class advisory ranges (cache poisoning/rewrite/open-redirect in dev server and App Router), with vulnerable `sharp`, `baseline-browser-mapping`, and `source-map-js` transitives. | Fixed: `next` and `eslint-config-next` pinned to 16.4.3 in `package.json` and `apps/web/package.json`. `pnpm audit --prod` reports 0 vulnerabilities. |
+| 2 | Low | The `dompurify` override floor `^3.4.14` still admitted later bypass advisories reachable through `monaco-editor`'s 3.2.7 pin. | Fixed: override raised to `^3.4.17` (`package.json`); `source-map-js` `^1.2.2` added for GHSA-68fv-2mgg-jv7q. Both rows documented in `README.md`. |
+| 3 | Low | The Rust runtime consumed instruction budget only in `step()` via `exec_statement`/`eval`, so an empty-body `FOR I <- 1 TO <huge>` iterated without spending budget and could spin the worker past its timeout. | Fixed: the FOR loop spends one `step()` per iteration in `packages/pseudocode-runtime/src/lib.rs`, returning `RUN408` like other budget exhaustion; unit test added; WASM package rebuilt (`apps/web/src/runtime/wasm/pkg`). |
+| 4 | Info | `parseUnary` recursed per MINUS/NOT token without depth accounting, bypassing `MAX_NESTING_DEPTH` and yielding an uncaught `RangeError` instead of `SYN099` on deep unary chains. | Fixed: unary recursion routed through `enterNesting()` in `packages/compiler/src/parser.ts`; a 5,000-token MINUS chain now reports `SYN099`. |
+| 5 | Info | The `CMP413` source cap counted UTF-16 code units, so a CJK source could compile past the 256 KB encoded limit. | Fixed: the cap measures UTF-8 bytes via `getUtf8ByteLength` in `packages/compiler/src/index.ts`. |
+| 6 | Info | `apps/web/scripts/deploy.sh`, a third-party claimable-deploy helper (`codex-deploy-skills.vercel.sh`), was dead code referenced by nothing; real deploys go through `scripts/vercel-build.sh` and `vercel.json`. | Removed. |
+| 7 | Info | The pre-Clerk Codex review sat at `report.md`, reading as a current assessment. | Archived to `docs/report-2026-05-codex-review.md` with a superseded banner pointing here. |
+
+### CI audit gate
+
+`.github/workflows/audit.yml` runs `pnpm audit --prod --audit-level=high` weekly (Sundays 03:17 UTC) and on
+`workflow_dispatch`, with no install step (audit reads the lockfile). It is deliberately not run per push:
+CI would break every PR on pre-existing advisories below the threshold, while the weekly gate still catches
+high-or-worse drift between releases. SHA-pinned actions and `permissions: contents: read` match `ci.yml`.
+
+### Residual risks
+
+Unchanged from the main report and the PostHog addenda.

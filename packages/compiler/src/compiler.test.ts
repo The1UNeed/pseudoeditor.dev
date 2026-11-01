@@ -196,4 +196,31 @@ READFILE "data.txt", Line`,
     ]);
   });
 
+  it("reports SYN099 for thousands of consecutive unary MINUS tokens instead of a RangeError", () => {
+    const source = `DECLARE Value : INTEGER\nValue <- ${"-".repeat(5000)}1`;
+
+    const result = compilePseudocode({ source, filename: "main.pseudo", strict: true });
+
+    expect(result.diagnostics.some((diagnostic) => diagnostic.code === "SYN099")).toBe(true);
+  });
+
+  it("rejects valid CJK sources whose UTF-8 size exceeds the cap even when .length is under it", () => {
+    // Each CJK character is 3 UTF-8 bytes but 1 UTF-16 code unit, so ~90,000
+    // characters stay under the 262,144-unit .length while passing 256 KB encoded.
+    // The source must stay semantically valid: on the old .length check this
+    // program compiled successfully, which was the actual bypass.
+    const oversized = `OUTPUT 1\n// ${"汉".repeat(90_000)}`;
+    const result = compilePseudocode({ source: oversized, filename: "main.pseudo", strict: true });
+
+    expect(result.success).toBe(false);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.code === "CMP413")).toBe(true);
+  });
+
+  it("still compiles ASCII sources up to the cap", () => {
+    const source = `DECLARE Value : INTEGER\nValue <- 1\nOUTPUT "${"a".repeat(256 * 1024 - 60)}"`;
+
+    const result = compilePseudocode({ source, filename: "main.pseudo", strict: true });
+
+    expect(result.diagnostics.some((diagnostic) => diagnostic.code === "CMP413")).toBe(false);
+  });
 });

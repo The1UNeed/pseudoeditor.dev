@@ -409,6 +409,9 @@ impl Runtime {
                     if (step > 0 && value > end) || (step < 0 && value < end) {
                         break;
                     }
+                    // An empty body never reaches a statement or expression, so the loop
+                    // itself must spend one budget step per iteration or it can spin forever.
+                    self.step_at(statement.location)?;
                     self.assign_slot(*iterator, Value::Integer(value));
                     // A declaration in the body can replace the iterator's type. Otherwise
                     // the INTEGER type remains unchanged across all loop iterations.

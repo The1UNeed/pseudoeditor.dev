@@ -405,6 +405,9 @@ impl Runtime {
                     if (step > 0 && value > end) || (step < 0 && value < end) {
                         break;
                     }
+                    // An empty body never reaches exec_statement or eval, so the loop itself
+                    // must spend one budget step per iteration or it can spin forever.
+                    self.step(statement)?;
                     self.assign_name(iterator, Value::Integer(value));
                     self.declare_type(iterator, "INTEGER");
                     if let flow @ Flow::Return(_) =
@@ -1729,6 +1732,18 @@ mod tests {
     fn stops_infinite_loops_with_budget() {
         let ast = program(vec![
             json!({"kind":"while","condition":{"kind":"literal","value":true,"literalType":"BOOLEAN","span":span()},"body":[],"span":span()}),
+        ]);
+        let result = run_ast_json(&ast, Vec::new(), HashMap::new(), Some(10));
+        assert!(!result.success);
+        assert_eq!(result.diagnostics[0].code, "RUN408");
+    }
+
+    #[test]
+    fn stops_empty_for_bodies_with_budget() {
+        // A huge bound with an empty body never runs a statement, so only the
+        // per-iteration budget step can stop it.
+        let ast = program(vec![
+            json!({"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(i64::MAX),"stepValue":JsonValue::Null,"body":[],"span":span()}),
         ]);
         let result = run_ast_json(&ast, Vec::new(), HashMap::new(), Some(10));
         assert!(!result.success);

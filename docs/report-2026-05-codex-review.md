@@ -1,3 +1,8 @@
+> **Superseded.** This is the May 2026 Codex security review of the pre-Clerk architecture (revision
+> 3063785, before accounts, cloud sync, and the rebrand). Every finding it reports has since been
+> fixed or otherwise addressed. It is kept for history only; the current security posture is
+> documented in [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
+
 # Security Review: pseudoeditor.dev
 
 ## Scope
