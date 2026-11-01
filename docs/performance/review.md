@@ -1,6 +1,9 @@
 # Sol review ledger
 
-One independent review round used GPT-6.1 Sol with xhigh reasoning effort.
+Two independent review rounds used GPT-6.1 Sol with xhigh reasoning effort.
+
+## Initial optimization
+
 Reviewed head: `999745c8d059fa60d595db1c12c1b30121e43fed`.
 Diff before the fix: 54 files, 2,506 additions and 476 deletions.
 
@@ -17,5 +20,17 @@ The parent reproduced S1 with Next's production config loader while simulating
 an absent TSRS package. Before the fix it failed with `MODULE_NOT_FOUND`; after
 the fix it loaded successfully. A normal CI regression test retains that check.
 The production build still runs TSRS checking. This small fix was verified by
-the parent; there was no second delegated review and no claim of a second Sol
-approval.
+the parent without a delegated re-check of S1.
+
+## Cache follow-up
+
+The second round reviewed `d1ac2d0` against `47ab19b` and returned APPROVE with
+no findings. It covered rejected WASM initialization eviction, concurrent retry
+sharing, successful instance reuse, the cache benchmark, and its documented scope.
+No files were edited by the reviewer. Usage was not exposed in the result.
+
+The reviewer independently passed 21 focused tests and the benchmark's correctness
+assertions. With the actual worker and real WASM, the baseline retained the failed
+initialization after one fetch. The fix completed concurrent retries with outputs
+`123` and `456`, then a warm run with output `789`, with two fetches total and one
+ready notification. `git diff --check` passed and the working tree stayed clean.
