@@ -6,9 +6,31 @@ import { eventUuidFromMessageId } from "./analytics";
 
 type ClerkWebhookEvent = {
   type: string;
-  data: { id?: string; deleted?: boolean };
+  data: { id?: string };
   timestamp?: number;
 };
+
+function parseClerkWebhookEvent(payload: string): ClerkWebhookEvent | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const { type, data, timestamp } = parsed as Record<string, unknown>;
+  if (typeof type !== "string" || !data || typeof data !== "object") {
+    return null;
+  }
+  const { id } = data as Record<string, unknown>;
+  return {
+    type,
+    data: { id: typeof id === "string" ? id : undefined },
+    timestamp: typeof timestamp === "number" ? timestamp : undefined,
+  };
+}
 
 const http = httpRouter();
 
@@ -31,11 +53,16 @@ http.route({
       "svix-signature": request.headers.get("svix-signature") ?? "",
     };
 
-    let event: ClerkWebhookEvent;
     try {
-      event = new Webhook(secret).verify(payload, headers) as unknown as ClerkWebhookEvent;
+      // svix 2.x only checks the signature; it no longer returns the parsed payload.
+      new Webhook(secret).verify(payload, headers);
     } catch {
       return new Response("Invalid webhook signature.", { status: 400 });
+    }
+
+    const event = parseClerkWebhookEvent(payload);
+    if (!event) {
+      return new Response("Invalid webhook payload.", { status: 400 });
     }
 
     if (event.type === "user.deleted" && typeof event.data.id === "string") {
@@ -49,7 +76,7 @@ http.route({
       await ctx.scheduler.runAfter(0, internal.analytics.captureAccountEvent, {
         event: accountEvent,
         uuid: await eventUuidFromMessageId(headers["svix-id"]),
-        timestamp: typeof event.timestamp === "number" ? event.timestamp : Date.now(),
+        timestamp: event.timestamp ?? Date.now(),
       });
     }
 
