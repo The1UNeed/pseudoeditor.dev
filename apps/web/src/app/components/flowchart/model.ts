@@ -124,6 +124,8 @@ interface GraphIndex {
   nodeMap: Map<string, Node>;
   outgoing: Map<string, Edge[]>;
   incoming: Map<string, Edge[]>;
+  /** Nodes in different components cannot loop back to one another. */
+  components: Map<string, number>;
   /** The edges that close REPEAT loops, which don't count as a way back when finding WHILE loops. */
   backEdges: Set<string>;
   /** For each first block of a REPEAT body, the edges that loop back to it. */
@@ -2004,6 +2006,48 @@ function buildNodeLines(data: FlowchartNodeData, dialect: FlowchartDialect): str
   }
 }
 
+/** Strongly connected components, using iterative walks so long programs do not exhaust the stack. */
+function findComponents(nodeMap: Map<string, Node>, outgoing: Map<string, Edge[]>, incoming: Map<string, Edge[]>): Map<string, number> {
+  const seen = new Set<string>();
+  const finished: string[] = [];
+  for (const id of nodeMap.keys()) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const stack = [{ id, next: 0 }];
+    while (stack.length > 0) {
+      const at = stack[stack.length - 1];
+      const exits = outgoing.get(at.id) ?? [];
+      if (at.next < exits.length) {
+        const target = exits[at.next++].target;
+        if (!seen.has(target)) {
+          seen.add(target);
+          stack.push({ id: target, next: 0 });
+        }
+      } else {
+        finished.push(at.id);
+        stack.pop();
+      }
+    }
+  }
+  const components = new Map<string, number>();
+  for (let i = finished.length - 1; i >= 0; i -= 1) {
+    const id = finished[i];
+    if (components.has(id)) continue;
+    components.set(id, i);
+    const stack = [id];
+    while (stack.length > 0) {
+      const at = stack.pop()!;
+      for (const edge of incoming.get(at) ?? []) {
+        if (!components.has(edge.source)) {
+          components.set(edge.source, i);
+          stack.push(edge.source);
+        }
+      }
+    }
+  }
+  return components;
+}
+
 /** Whether `fromId` leads to `toId` without passing through `avoidIds`. */
 function reachesNode(
   outgoing: Map<string, Edge[]>,
@@ -2013,8 +2057,8 @@ function reachesNode(
 ): boolean {
   const visited = new Set<string>();
   const queue = [fromId];
-  while (queue.length > 0) {
-    const currentId = queue.shift();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const currentId = queue[cursor];
     if (currentId === undefined) {
       break;
     }
@@ -2037,7 +2081,7 @@ function reachesNode(
  * both exits lead back round (a REPEAT inside a WHILE), the loop's own edge is the one whose target
  * gets back without passing through the other exit.
  */
-function findRepeatBackEdges(nodeMap: Map<string, Node>, outgoing: Map<string, Edge[]>, dialect: FlowchartDialect) {
+function findRepeatBackEdges(nodeMap: Map<string, Node>, outgoing: Map<string, Edge[]>, components: Map<string, number>, dialect: FlowchartDialect) {
   const backEdges = new Set<string>();
   const repeatEntries = new Map<string, Edge[]>();
 
@@ -2051,7 +2095,7 @@ function findRepeatBackEdges(nodeMap: Map<string, Node>, outgoing: Map<string, E
     const exits = (outgoing.get(node.id) ?? []).filter(
       (edge) => edge.sourceHandle === "true" || edge.sourceHandle === "false",
     );
-    let loops = exits.filter((edge) => reachesNode(outgoing, edge.target, node.id));
+    let loops = exits.filter((edge) => components.get(edge.target) === components.get(node.id));
     if (loops.length === 2) {
       const [first, second] = loops;
       const own = loops.filter((edge) =>
@@ -2120,7 +2164,8 @@ function buildGraphIndex(nodes: Node[], edges: Edge[], dialect: FlowchartDialect
     edgeList.sort(compareOutgoingEdges);
   }
 
-  return { nodeMap, outgoing, incoming, ...findRepeatBackEdges(nodeMap, outgoing, dialect) };
+  const components = findComponents(nodeMap, outgoing, incoming);
+  return { nodeMap, outgoing, incoming, components, ...findRepeatBackEdges(nodeMap, outgoing, components, dialect) };
 }
 
 function getDecisionBranchEdges(index: GraphIndex, nodeId: string): {
@@ -2134,44 +2179,6 @@ function getDecisionBranchEdges(index: GraphIndex, nodeId: string): {
   };
 }
 
-function getReachableDistances(
-  index: GraphIndex,
-  startId: string | null,
-  stopIds: ReadonlySet<string>,
-  forbiddenId: string,
-): Map<string, number> {
-  const distances = new Map<string, number>();
-  if (!startId) {
-    return distances;
-  }
-
-  const queue: Array<{ id: string; distance: number }> = [{ id: startId, distance: 0 }];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || distances.has(current.id)) {
-      continue;
-    }
-
-    if (current.id === forbiddenId && current.distance > 0) {
-      continue;
-    }
-
-    distances.set(current.id, current.distance);
-    if (stopIds.has(current.id) && current.distance > 0) {
-      continue;
-    }
-
-    for (const edge of index.outgoing.get(current.id) ?? []) {
-      if (!index.backEdges.has(edge.id) && !distances.has(edge.target)) {
-        queue.push({ id: edge.target, distance: current.distance + 1 });
-      }
-    }
-  }
-
-  return distances;
-}
-
 /**
  * Whether a branch returns to `targetId` without leaving through `blockedIds`. Blocking the enclosing
  * loop headers and merge points keeps an inner loop's exit, which flows back through the outer loop,
@@ -2183,7 +2190,7 @@ function branchReachesNode(
   targetId: string,
   blockedIds: ReadonlySet<string>,
 ): boolean {
-  if (!startId) {
+  if (!startId || index.components.get(startId) !== index.components.get(targetId)) {
     return false;
   }
 
@@ -2194,8 +2201,8 @@ function branchReachesNode(
   const visited = new Set<string>();
   const queue = [startId];
 
-  while (queue.length > 0) {
-    const currentId = queue.shift();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const currentId = queue[cursor];
     if (!currentId || visited.has(currentId) || blockedIds.has(currentId)) {
       continue;
     }
@@ -2230,46 +2237,52 @@ function findDecisionMergeNode(
     return trueStartId;
   }
 
-  const trueReachable = getReachableDistances(index, trueStartId, stopIds, decisionId);
-  const falseReachable = getReachableDistances(index, falseStartId, stopIds, decisionId);
-  const candidates: Array<{ id: string; maxDistance: number; totalDistance: number }> = [];
-
-  for (const [nodeId, trueDistance] of trueReachable) {
-    if (nodeId === decisionId || !falseReachable.has(nodeId)) {
-      continue;
+  // Explore both branches by distance. Once a shared node exists at depth d, no node
+  // deeper than d can beat its maximum branch distance. Finish that layer for ties.
+  const walks = [trueStartId, falseStartId].map((id) => ({
+    queue: [id],
+    cursor: 0,
+    queued: new Set([id]),
+    distances: new Map<string, number>(),
+    order: new Map<string, number>(),
+  }));
+  for (let depth = 0; walks.some((walk) => walk.cursor < walk.queue.length); depth += 1) {
+    const reached: string[] = [];
+    for (const walk of walks) {
+      const end = walk.queue.length;
+      while (walk.cursor < end) {
+        const id = walk.queue[walk.cursor++];
+        if (id === decisionId && depth > 0) continue;
+        walk.order.set(id, walk.distances.size);
+        walk.distances.set(id, depth);
+        reached.push(id);
+        if (stopIds.has(id) && depth > 0) continue;
+        for (const edge of index.outgoing.get(id) ?? []) {
+          if (!index.backEdges.has(edge.id) && !walk.queued.has(edge.target)) {
+            walk.queued.add(edge.target);
+            walk.queue.push(edge.target);
+          }
+        }
+      }
     }
-
-    const falseDistance = falseReachable.get(nodeId);
-    if (typeof falseDistance !== "number") {
-      continue;
+    const [left, right] = walks;
+    let bestId: string | null = null;
+    let bestTotal = Infinity;
+    for (const id of reached) {
+      const leftDistance = left.distances.get(id);
+      const rightDistance = right.distances.get(id);
+      if (id === decisionId || leftDistance === undefined || rightDistance === undefined) continue;
+      const total = leftDistance + rightDistance;
+      const positionDelta = bestId ? compareNodes(index.nodeMap.get(id)!, index.nodeMap.get(bestId)!) : 0;
+      const winsTie = bestId !== null && (positionDelta < 0 || (positionDelta === 0 && left.order.get(id)! < left.order.get(bestId)!));
+      if (total < bestTotal || (total === bestTotal && winsTie)) {
+        bestId = id;
+        bestTotal = total;
+      }
     }
-
-    candidates.push({
-      id: nodeId,
-      maxDistance: Math.max(trueDistance, falseDistance),
-      totalDistance: trueDistance + falseDistance,
-    });
+    if (bestId) return bestId;
   }
-
-  candidates.sort((left, right) => {
-    if (left.maxDistance !== right.maxDistance) {
-      return left.maxDistance - right.maxDistance;
-    }
-
-    if (left.totalDistance !== right.totalDistance) {
-      return left.totalDistance - right.totalDistance;
-    }
-
-    const leftNode = index.nodeMap.get(left.id);
-    const rightNode = index.nodeMap.get(right.id);
-    if (!leftNode || !rightNode) {
-      return left.id.localeCompare(right.id);
-    }
-
-    return compareNodes(leftNode, rightNode);
-  });
-
-  return candidates[0]?.id ?? null;
+  return null;
 }
 
 function codeLines(texts: string[], owner: Omit<FlowchartCodeLine, "text"> = {}): FlowchartCodeLine[] {

@@ -18,7 +18,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './FlowchartNodes';
 import { FlowchartRunControls } from './FlowchartRunControls';
-import { buildFlowchartRunSteps } from './runSteps';
+import { buildFlowchartRunSteps, indexFlowchartRunVisits } from './runSteps';
 import type { RunTrace } from '@/app/hooks/useWorkspaceSession';
 import {
   buildFlowchartFromPseudocode,
@@ -188,45 +188,48 @@ function FlowchartEditorInner({
     return () => window.clearTimeout(timer);
   }, [currentRunIndex, isRunPlaying, isVisible, runSpeed, runStepCount]);
 
+  const runVisits = useMemo(() => (runSteps ? indexFlowchartRunVisits(runSteps) : null), [runSteps]);
   const runView = useMemo(() => {
     if (!activeRun || !runSteps || runSteps.length === 0) return null;
-    const passed = runSteps.slice(0, currentRunIndex + 1);
     return {
       step: runSteps[currentRunIndex],
       next: runSteps[currentRunIndex + 1],
-      seenNodeIds: new Set(passed.map((step) => step.nodeId)),
-      seenEdgeIds: new Set(passed.flatMap((step) => step.edgeIds)),
       stopped: !activeRun.completed && !activeRun.truncated && currentRunIndex === runSteps.length - 1,
     };
   }, [activeRun, currentRunIndex, runSteps]);
 
+  // Reuse unchanged node/edge objects between replay steps. React Flow can then update only
+  // the blocks and arrows whose highlight changed instead of reconciling the whole graph.
+  const hasReplay = Boolean(runView);
+  const nodeViews = useMemo(() => hasReplay ? nodes.map((node) => ({
+    current: { ...node, className: 'flowchart-run-current' },
+    error: { ...node, className: 'flowchart-run-error' },
+    seen: { ...node, className: 'flowchart-run-seen' },
+    pending: { ...node, className: 'flowchart-run-pending' },
+  })) : [], [hasReplay, nodes]);
+  const edgeViews = useMemo(() => hasReplay ? edges.map((edge) => ({
+    current: { ...edge, className: 'flowchart-run-edge-current' },
+    seen: { ...edge, className: 'flowchart-run-edge-seen' },
+    pending: { ...edge, className: 'flowchart-run-edge-pending' },
+  })) : [], [edges, hasReplay]);
   const displayNodes = useMemo(() => {
-    if (!runView) return nodes;
-    return nodes.map((node) => ({
-      ...node,
-      className:
-        node.id === runView.step.nodeId
-          ? runView.stopped
-            ? 'flowchart-run-error'
-            : 'flowchart-run-current'
-          : runView.seenNodeIds.has(node.id)
-            ? 'flowchart-run-seen'
-            : 'flowchart-run-pending',
-    }));
-  }, [nodes, runView]);
+    if (!runView || !runVisits) return nodes;
+    return nodes.map((node, index) => node.id === runView.step.nodeId
+      ? runView.stopped ? nodeViews[index].error : nodeViews[index].current
+      : (runVisits.nodes.get(node.id) ?? Infinity) <= currentRunIndex
+        ? nodeViews[index].seen
+        : nodeViews[index].pending);
+  }, [currentRunIndex, nodes, nodeViews, runView, runVisits]);
 
   const displayEdges = useMemo(() => {
-    if (!runView) return edges;
+    if (!runView || !runVisits) return edges;
     const currentEdgeIds = new Set(runView.step.edgeIds);
-    return edges.map((edge) => ({
-      ...edge,
-      className: currentEdgeIds.has(edge.id)
-        ? 'flowchart-run-edge-current'
-        : runView.seenEdgeIds.has(edge.id)
-          ? 'flowchart-run-edge-seen'
-          : 'flowchart-run-edge-pending',
-    }));
-  }, [edges, runView]);
+    return edges.map((edge, index) => currentEdgeIds.has(edge.id)
+      ? edgeViews[index].current
+      : (runVisits.edges.get(edge.id) ?? Infinity) <= currentRunIndex
+        ? edgeViews[index].seen
+        : edgeViews[index].pending);
+  }, [currentRunIndex, edges, edgeViews, runView, runVisits]);
 
   const runDescription = useMemo(() => {
     if (!runView) return '';

@@ -14,6 +14,19 @@ export interface FlowchartRunStep {
   taken?: boolean;
 }
 
+/** First visits let replay seek in either direction without scanning every earlier step. */
+export function indexFlowchartRunVisits(steps: FlowchartRunStep[]) {
+  const nodes = new Map<string, number>();
+  const edges = new Map<string, number>();
+  steps.forEach((step, index) => {
+    if (!nodes.has(step.nodeId)) nodes.set(step.nodeId, index);
+    for (const id of step.edgeIds) {
+      if (!edges.has(id)) edges.set(id, index);
+    }
+  });
+  return { nodes, edges };
+}
+
 export interface FlowchartRunInput {
   source: string;
   steps: RunTraceStep[];
@@ -32,8 +45,8 @@ function searchPath(outgoing: Map<string, Edge[]>, fromId: string, toId: string)
   const previous = new Map<string, Edge>();
   const queue: Array<{ id: string; depth: number }> = [{ id: fromId, depth: 0 }];
   const seen = new Set([fromId]);
-  while (queue.length > 0) {
-    const current = queue.shift();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor];
     if (!current || current.depth >= MAX_PATH_LENGTH) {
       continue;
     }
@@ -122,7 +135,9 @@ export function buildFlowchartRunSteps(
 
   const outgoing = new Map<string, Edge[]>();
   for (const edge of edges) {
-    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge]);
+    const exits = outgoing.get(edge.source) ?? [];
+    exits.push(edge);
+    outgoing.set(edge.source, exits);
   }
   const sorted = [...nodes].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
   const start = sorted.find((node) => isStartNode(node.data as FlowchartNodeData));

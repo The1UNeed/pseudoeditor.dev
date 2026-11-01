@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value as JsonValue};
 use std::collections::HashMap;
+use std::rc::Rc;
+
+mod prepared;
+#[cfg(test)]
+mod reference;
+use prepared::{Expression, Location, Statement, Symbol};
 use wasm_bindgen::prelude::*;
 
 const DEFAULT_INSTRUCTION_BUDGET: usize = 1_000_000;
@@ -13,7 +19,7 @@ enum Value {
     Real(f64),
     String(String),
     Boolean(bool),
-    Array(PseudoArray),
+    Array(Box<PseudoArray>),
     Null,
 }
 
@@ -99,15 +105,24 @@ enum Flow {
 
 struct Runtime {
     ast: JsonValue,
-    scopes: Vec<HashMap<String, Value>>,
-    type_scopes: Vec<HashMap<String, String>>,
+    globals: Vec<Option<Value>>,
+    global_types: Vec<Option<Rc<str>>>,
+    scopes: Vec<HashMap<Symbol, Value>>,
+    type_scopes: Vec<HashMap<Symbol, Rc<str>>>,
+    symbols: HashMap<String, Symbol>,
+    #[cfg(test)]
+    use_prepared: bool,
+    // Source ASTs remain alive for the run. Cache keys identify their stable nodes;
+    // the prepared values own their decoded data and never dereference these addresses.
+    prepared_statements: HashMap<usize, Rc<Statement>>,
+    prepared_expressions: HashMap<usize, Rc<Expression>>,
     stdout: Vec<String>,
     stdin_lines: Vec<String>,
     stdin_cursor: usize,
     virtual_files: HashMap<String, Vec<String>>,
     open_files: HashMap<String, FileHandle>,
-    functions: HashMap<String, JsonValue>,
-    procedures: HashMap<String, JsonValue>,
+    functions: HashMap<String, Rc<JsonValue>>,
+    procedures: HashMap<String, Rc<JsonValue>>,
     remaining_steps: usize,
     rng_state: u64,
     trace: Option<Vec<TraceStep>>,
@@ -123,8 +138,15 @@ impl Runtime {
 
         let mut runtime = Self {
             ast,
-            scopes: vec![HashMap::new()],
-            type_scopes: vec![HashMap::new()],
+            globals: Vec::new(),
+            global_types: Vec::new(),
+            scopes: Vec::new(),
+            type_scopes: Vec::new(),
+            symbols: HashMap::new(),
+            #[cfg(test)]
+            use_prepared: true,
+            prepared_statements: HashMap::new(),
+            prepared_expressions: HashMap::new(),
             stdout: Vec::new(),
             stdin_lines: input.stdin_lines,
             stdin_cursor: 0,
@@ -192,12 +214,12 @@ impl Runtime {
             .cloned()
             .unwrap_or_default();
 
-        for statement in body {
-            let kind = str_field(&statement, "kind");
+        for statement in &body {
+            let kind = str_field(statement, "kind");
             if kind == "procedureDefinition" || kind == "functionDefinition" {
                 continue;
             }
-            if let Flow::Return(_) = self.exec_statement(&statement)? {
+            if let Flow::Return(_) = self.exec_statement(statement)? {
                 break;
             }
         }
@@ -212,14 +234,18 @@ impl Runtime {
             .cloned()
             .unwrap_or_default();
         for statement in body {
-            match str_field(&statement, "kind").as_str() {
+            match str_field(&statement, "kind") {
                 "procedureDefinition" => {
-                    self.procedures
-                        .insert(str_field(&statement, "name").to_lowercase(), statement);
+                    self.procedures.insert(
+                        str_field(&statement, "name").to_lowercase(),
+                        Rc::new(statement),
+                    );
                 }
                 "functionDefinition" => {
-                    self.functions
-                        .insert(str_field(&statement, "name").to_lowercase(), statement);
+                    self.functions.insert(
+                        str_field(&statement, "name").to_lowercase(),
+                        Rc::new(statement),
+                    );
                 }
                 _ => {}
             }
@@ -237,42 +263,59 @@ impl Runtime {
     }
 
     fn exec_statement(&mut self, statement: &JsonValue) -> RuntimeResult<Flow> {
+        #[cfg(test)]
+        if !self.use_prepared {
+            return self.exec_statement_generic(statement);
+        }
+        let key = statement as *const JsonValue as usize;
+        let prepared = match self.prepared_statements.get(&key) {
+            Some(prepared) => prepared.clone(),
+            None => {
+                let prepared = Rc::new(Statement::new(statement, &mut self.symbols));
+                self.prepared_statements.insert(key, prepared.clone());
+                prepared
+            }
+        };
+        self.exec_prepared(&prepared)
+    }
+
+    fn exec_statement_generic(&mut self, statement: &JsonValue) -> RuntimeResult<Flow> {
         self.step(statement)?;
         let kind = str_field(statement, "kind");
         // Blocks trace each test of their condition instead of their start.
-        let if_test = match kind.as_str() {
+        let if_test = match kind {
             "if" => self.record(span_line(statement, "startLine"), true),
             "while" | "for" | "repeat" | "case" => None,
             _ => self.record(span_line(statement, "startLine"), false),
         };
-        match kind.as_str() {
+        match kind {
             "declare" => {
                 let name = nested_str(statement, &["identifier", "name"]);
                 let type_node = statement.get("typeNode").unwrap_or(&JsonValue::Null);
                 let value = if str_field(type_node, "kind") == "array" {
-                    self.declare_type(&name, &str_field(type_node, "elementType"));
+                    self.declare_type(name, str_field(type_node, "elementType"));
                     let bounds = array_field(type_node, "dimensions")
                         .iter()
                         .map(|dim| (int_field(dim, "lower"), int_field(dim, "upper")))
                         .collect::<Vec<_>>();
-                    let default = default_value(&str_field(type_node, "elementType"));
-                    Value::Array(PseudoArray {
+                    let default = default_value(str_field(type_node, "elementType"));
+                    Value::Array(Box::new(PseudoArray {
                         bounds,
                         default: Box::new(default),
                         store: HashMap::new(),
-                    })
+                    }))
                 } else {
-                    self.declare_type(&name, &str_field(type_node, "name"));
-                    default_value(&str_field(type_node, "name"))
+                    self.declare_type(name, str_field(type_node, "name"));
+                    default_value(str_field(type_node, "name"))
                 };
-                self.assign_name(&name, value);
+                self.assign_name(name, value);
                 Ok(Flow::Continue)
             }
             "constant" => {
                 let name = nested_str(statement, &["identifier", "name"]);
                 let value = self.eval(required(statement, "value")?)?;
-                self.declare_type(&name, &value.type_name());
-                self.assign_name(&name, value);
+                self.declare_type(name, &value.type_name());
+                self.assign_name(name, value);
                 Ok(Flow::Continue)
             }
             "assignment" => {
@@ -362,8 +405,8 @@ impl Runtime {
                     if (step > 0 && value > end) || (step < 0 && value < end) {
                         break;
                     }
-                    self.assign_name(&iterator, Value::Integer(value));
-                    self.declare_type(&iterator, "INTEGER");
+                    self.assign_name(iterator, Value::Integer(value));
+                    self.declare_type(iterator, "INTEGER");
                     if let flow @ Flow::Return(_) =
                         self.exec_block(array_field(statement, "body"))?
                     {
@@ -405,7 +448,7 @@ impl Runtime {
             }
             "callStatement" => {
                 self.call_routine(
-                    &str_field(statement, "name"),
+                    str_field(statement, "name"),
                     array_field(statement, "args"),
                     statement,
                 )?;
@@ -425,7 +468,13 @@ impl Runtime {
                     self.virtual_files.entry(name.clone()).or_default();
                     0
                 };
-                self.open_files.insert(name, FileHandle { mode, pointer });
+                self.open_files.insert(
+                    name,
+                    FileHandle {
+                        mode: mode.to_string(),
+                        pointer,
+                    },
+                );
                 Ok(Flow::Continue)
             }
             "readfile" => {
@@ -450,116 +499,32 @@ impl Runtime {
     }
 
     fn eval(&mut self, expression: &JsonValue) -> RuntimeResult<Value> {
-        self.step(expression)?;
-        match str_field(expression, "kind").as_str() {
-            "literal" => Ok(match str_field(expression, "literalType").as_str() {
-                "INTEGER" => Value::Integer(
-                    expression
-                        .get("value")
-                        .and_then(JsonValue::as_i64)
-                        .unwrap_or(0),
-                ),
-                "REAL" => Value::Real(
-                    expression
-                        .get("value")
-                        .and_then(JsonValue::as_f64)
-                        .unwrap_or(0.0),
-                ),
-                "BOOLEAN" => Value::Boolean(
-                    expression
-                        .get("value")
-                        .and_then(JsonValue::as_bool)
-                        .unwrap_or(false),
-                ),
-                _ => Value::String(
-                    expression
-                        .get("value")
-                        .and_then(JsonValue::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                ),
-            }),
-            "identifier" => self.lookup(&str_field(expression, "name")).ok_or_else(|| {
-                RuntimeError::at(
-                    expression,
-                    format!(
-                        "Undeclared identifier \"{}\".",
-                        str_field(expression, "name")
-                    ),
-                )
-            }),
-            "arrayAccess" => self.read_array(expression),
-            "unary" => {
-                let operand = self.eval(required(expression, "operand")?)?;
-                if str_field(expression, "operator") == "NOT" {
-                    Ok(Value::Boolean(!operand.truthy()))
-                } else {
-                    match operand {
-                        Value::Real(value) => Ok(Value::Real(-value)),
-                        value => Ok(Value::Integer(-value.to_i64())),
-                    }
-                }
+        #[cfg(test)]
+        if !self.use_prepared {
+            return self.eval_reference(expression);
+        }
+        let key = expression as *const JsonValue as usize;
+        let prepared = match self.prepared_expressions.get(&key) {
+            Some(prepared) => prepared.clone(),
+            None => {
+                let prepared = Rc::new(Expression::new(expression, &mut self.symbols));
+                self.prepared_expressions.insert(key, prepared.clone());
+                prepared
             }
-            "binary" => self.eval_binary(expression),
+        };
+        self.eval_prepared(&prepared)
+    }
+
+    fn eval_generic(&mut self, expression: &JsonValue) -> RuntimeResult<Value> {
+        match str_field(expression, "kind") {
+            "arrayAccess" => self.read_array(expression),
             "call" => self.call_function(
-                &str_field(expression, "name"),
+                str_field(expression, "name"),
                 array_field(expression, "args"),
                 expression,
             ),
             _ => Ok(Value::Null),
         }
-    }
-
-    fn eval_binary(&mut self, expression: &JsonValue) -> RuntimeResult<Value> {
-        let left = self.eval(required(expression, "left")?)?;
-        let op = str_field(expression, "operator");
-        if op == "AND" {
-            return Ok(Value::Boolean(
-                left.truthy() && self.eval(required(expression, "right")?)?.truthy(),
-            ));
-        }
-        if op == "OR" {
-            return Ok(Value::Boolean(
-                left.truthy() || self.eval(required(expression, "right")?)?.truthy(),
-            ));
-        }
-        let right = self.eval(required(expression, "right")?)?;
-        Ok(match op.as_str() {
-            "+" if is_text(&left) || is_text(&right) => {
-                Value::String(format!("{}{}", left.display(), right.display()))
-            }
-            "+" => numeric_result(&left, &right, left.to_f64() + right.to_f64(), false),
-            "-" => numeric_result(&left, &right, left.to_f64() - right.to_f64(), false),
-            "*" => numeric_result(&left, &right, left.to_f64() * right.to_f64(), false),
-            "/" => {
-                if right.to_f64() == 0.0 {
-                    return Err(RuntimeError::at(expression, "Division by zero"));
-                }
-                Value::Real(left.to_f64() / right.to_f64())
-            }
-            "DIV" => {
-                let divisor = right.to_i64();
-                if divisor == 0 {
-                    return Err(RuntimeError::at(expression, "Division by zero"));
-                }
-                Value::Integer(left.to_i64().div_euclid(divisor))
-            }
-            "MOD" => {
-                let divisor = right.to_i64();
-                if divisor == 0 {
-                    return Err(RuntimeError::at(expression, "Modulo by zero"));
-                }
-                Value::Integer(left.to_i64().rem_euclid(divisor))
-            }
-            "^" => numeric_result(&left, &right, left.to_f64().powf(right.to_f64()), true),
-            "=" => Value::Boolean(values_equal(&left, &right)),
-            "<>" => Value::Boolean(!values_equal(&left, &right)),
-            "<" => Value::Boolean(compare_values(&left, &right, |a, b| a < b)),
-            "<=" => Value::Boolean(compare_values(&left, &right, |a, b| a <= b)),
-            ">" => Value::Boolean(compare_values(&left, &right, |a, b| a > b)),
-            ">=" => Value::Boolean(compare_values(&left, &right, |a, b| a >= b)),
-            _ => Value::Null,
-        })
     }
 
     fn call_function(
@@ -723,11 +688,11 @@ impl Runtime {
         let mut scope = HashMap::new();
         let mut type_scope = HashMap::new();
         for (param, arg) in params.iter().zip(args.iter()) {
-            let name = str_field(param, "name").to_lowercase();
+            let id = prepared::symbol(&mut self.symbols, str_field(param, "name"));
             let type_name = nested_str(param, &["typeNode", "name"]);
-            scope.insert(name.clone(), self.eval(arg)?);
+            scope.insert(id, self.eval(arg)?);
             if !type_name.is_empty() {
-                type_scope.insert(name, type_name);
+                type_scope.insert(id, Rc::from(type_name));
             }
         }
         self.scopes.push(scope);
@@ -743,9 +708,9 @@ impl Runtime {
     }
 
     fn assign_target(&mut self, target: &JsonValue, value: Value) -> RuntimeResult<()> {
-        match str_field(target, "kind").as_str() {
+        match str_field(target, "kind") {
             "identifier" => {
-                self.assign_name(&str_field(target, "name"), value);
+                self.assign_name(str_field(target, "name"), value);
                 Ok(())
             }
             "arrayAccess" => self.write_array(target, value),
@@ -754,50 +719,90 @@ impl Runtime {
     }
 
     fn assign_name(&mut self, name: &str, value: Value) {
-        let key = name.to_lowercase();
+        let id = prepared::symbol(&mut self.symbols, name);
+        self.assign_slot(id, value);
+    }
+
+    #[inline]
+    fn assign_slot(&mut self, id: Symbol, value: Value) {
+        if self.scopes.is_empty() {
+            if self.globals.len() <= id {
+                self.globals.resize(id + 1, None);
+            }
+            self.globals[id] = Some(value);
+            return;
+        }
         for scope in self.scopes.iter_mut().rev() {
-            if let Some(slot) = scope.get_mut(&key) {
+            if let Some(slot) = scope.get_mut(&id) {
                 *slot = value;
                 return;
             }
         }
-        self.scopes
-            .last_mut()
-            .expect("scope exists")
-            .insert(key, value);
+        if let Some(slot @ Some(_)) = self.globals.get_mut(id) {
+            *slot = Some(value);
+        } else if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(id, value);
+        } else {
+            if self.globals.len() <= id {
+                self.globals.resize(id + 1, None);
+            }
+            self.globals[id] = Some(value);
+        }
     }
 
-    fn lookup(&self, name: &str) -> Option<Value> {
-        let key = name.to_lowercase();
-        for scope in self.scopes.iter().rev() {
-            if let Some(value) = scope.get(&key) {
-                return Some(value.clone());
-            }
+    #[inline]
+    fn lookup_slot(&self, id: Symbol) -> Option<&Value> {
+        if self.scopes.is_empty() {
+            return self.globals.get(id).and_then(Option::as_ref);
         }
-        None
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get(&id))
+            .or_else(|| self.globals.get(id).and_then(Option::as_ref))
+    }
+
+    fn lookup_ref(&self, name: &str) -> Option<&Value> {
+        self.symbols
+            .get(&name.to_lowercase())
+            .and_then(|id| self.lookup_slot(*id))
     }
 
     fn declare_type(&mut self, name: &str, type_name: &str) {
-        self.type_scopes
-            .last_mut()
-            .expect("type scope exists")
-            .insert(name.to_lowercase(), type_name.to_string());
+        let id = prepared::symbol(&mut self.symbols, name);
+        self.declare_type_slot(id, &Rc::from(type_name));
     }
 
-    fn lookup_type(&self, name: &str) -> Option<String> {
-        let key = name.to_lowercase();
-        for scope in self.type_scopes.iter().rev() {
-            if let Some(type_name) = scope.get(&key) {
-                return Some(type_name.clone());
+    fn declare_type_slot(&mut self, id: Symbol, type_name: &Rc<str>) {
+        if let Some(scope) = self.type_scopes.last_mut() {
+            scope.insert(id, type_name.clone());
+        } else {
+            if self.global_types.len() <= id {
+                self.global_types.resize(id + 1, None);
+            }
+            if !self.global_types[id]
+                .as_ref()
+                .is_some_and(|current| Rc::ptr_eq(current, type_name))
+            {
+                self.global_types[id] = Some(type_name.clone());
             }
         }
-        None
+    }
+
+    fn lookup_type(&self, name: &str) -> Option<Rc<str>> {
+        let id = *self.symbols.get(&name.to_lowercase())?;
+        self.type_scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get(&id))
+            .or_else(|| self.global_types.get(id).and_then(Option::as_ref))
+            .cloned()
     }
 
     fn read_array(&mut self, target: &JsonValue) -> RuntimeResult<Value> {
         let name = str_field(target, "name");
         let indices = self.indices(target)?;
-        match self.lookup(&name) {
+        match self.lookup_ref(name) {
             Some(Value::Array(array)) => array
                 .get(&indices)
                 .ok_or_else(|| RuntimeError::at(target, "Index out of declared range")),
@@ -810,14 +815,19 @@ impl Runtime {
 
     fn write_array(&mut self, target: &JsonValue, value: Value) -> RuntimeResult<()> {
         let name = str_field(target, "name");
-        let key = name.to_lowercase();
+        let id = prepared::symbol(&mut self.symbols, name);
         let indices = self.indices(target)?;
         for scope in self.scopes.iter_mut().rev() {
-            if let Some(Value::Array(array)) = scope.get_mut(&key) {
+            if let Some(Value::Array(array)) = scope.get_mut(&id) {
                 return array
                     .set(indices, value)
                     .map_err(|message| RuntimeError::at(target, message));
             }
+        }
+        if let Some(Some(Value::Array(array))) = self.globals.get_mut(id) {
+            return array
+                .set(indices, value)
+                .map_err(|message| RuntimeError::at(target, message));
         }
         let bounds = indices
             .iter()
@@ -834,7 +844,7 @@ impl Runtime {
         array
             .set(indices, value)
             .map_err(|message| RuntimeError::at(target, message))?;
-        self.assign_name(&name, Value::Array(array));
+        self.assign_name(name, Value::Array(Box::new(array)));
         Ok(())
     }
 
@@ -857,10 +867,10 @@ impl Runtime {
         Ok(value)
     }
 
-    fn target_type(&self, statement: &JsonValue) -> Option<String> {
+    fn target_type(&self, statement: &JsonValue) -> Option<Rc<str>> {
         let target = statement.get("target")?;
-        match str_field(target, "kind").as_str() {
-            "identifier" | "arrayAccess" => self.lookup_type(&str_field(target, "name")),
+        match str_field(target, "kind") {
+            "identifier" | "arrayAccess" => self.lookup_type(str_field(target, "name")),
             _ => None,
         }
     }
@@ -876,13 +886,15 @@ impl Runtime {
                 format!("File {name} not opened in READ mode"),
             ));
         }
-        let data = self.virtual_files.get(name).cloned().unwrap_or_default();
-        if handle.pointer >= data.len() {
+        let Some(line) = self
+            .virtual_files
+            .get(name)
+            .and_then(|data| data.get(handle.pointer))
+        else {
             return Ok(String::new());
-        }
-        let line = data[handle.pointer].clone();
+        };
         handle.pointer += 1;
-        Ok(line)
+        Ok(line.clone())
     }
 
     fn write_file(&mut self, name: &str, value: String, source: &JsonValue) -> RuntimeResult<()> {
@@ -904,7 +916,11 @@ impl Runtime {
     }
 
     /// Adds a step to the trace, returning its index so a test can be given its result.
+    #[inline]
     fn record(&mut self, line: usize, test: bool) -> Option<usize> {
+        if self.trace_truncated {
+            return None;
+        }
         let output = self.output_lines;
         let trace = self.trace.as_mut()?;
         if trace.len() < MAX_TRACE_STEPS {
@@ -929,6 +945,15 @@ impl Runtime {
                 step.taken = Some(taken);
             }
         }
+    }
+
+    #[inline]
+    fn step_at(&mut self, source: Location) -> RuntimeResult<()> {
+        if self.remaining_steps == 0 {
+            return Err(source.error("Instruction budget exceeded."));
+        }
+        self.remaining_steps -= 1;
+        Ok(())
     }
 
     fn step(&mut self, source: &JsonValue) -> RuntimeResult<()> {
@@ -1107,7 +1132,6 @@ fn numeric_result(
     if !force_real_for_fractional
         && matches!(left, Value::Integer(_))
         && matches!(right, Value::Integer(_))
-        && value.fract() == 0.0
     {
         Value::Integer(value as i64)
     } else {
@@ -1160,20 +1184,16 @@ fn span_line(value: &JsonValue, key: &str) -> usize {
         .unwrap_or(1) as usize
 }
 
-fn str_field(value: &JsonValue, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(JsonValue::as_str)
-        .unwrap_or("")
-        .to_string()
+fn str_field<'a>(value: &'a JsonValue, key: &str) -> &'a str {
+    value.get(key).and_then(JsonValue::as_str).unwrap_or("")
 }
 
-fn nested_str(value: &JsonValue, path: &[&str]) -> String {
+fn nested_str<'a>(value: &'a JsonValue, path: &[&str]) -> &'a str {
     let mut current = value;
     for key in path {
         current = current.get(*key).unwrap_or(&JsonValue::Null);
     }
-    current.as_str().unwrap_or("").to_string()
+    current.as_str().unwrap_or("")
 }
 
 fn int_field(value: &JsonValue, key: &str) -> i64 {
@@ -1326,6 +1346,107 @@ mod tests {
         run_ast_json(&ast_json, Vec::new(), HashMap::new(), Some(10_000))
     }
 
+    fn assert_prepared_matches_reference(body: Vec<JsonValue>) {
+        for trace in [false, true] {
+            for budget in [0, 1, 2, 4, 8, 20, 1_000, 100_000] {
+                let input = RunInput {
+                    ast_json: program(body.clone()),
+                    stdin_lines: vec!["12".to_string(), "not a number".to_string()],
+                    virtual_files: HashMap::new(),
+                    instruction_budget: Some(budget),
+                    trace,
+                };
+                let prepared = Runtime::new(input.clone()).unwrap();
+                let mut reference = Runtime::new(input).unwrap();
+                reference.use_prepared = false;
+                assert_eq!(
+                    serde_json::to_value(prepared.run()).unwrap(),
+                    serde_json::to_value(reference.run()).unwrap(),
+                    "trace={trace}, budget={budget}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn prepared_operators_match_reference_including_errors_and_short_circuits() {
+        let pairs = [
+            (int(-17), int(5)),
+            (int(17), int(-5)),
+            (
+                json!({"kind":"literal","literalType":"REAL","value":2.5,"span":at(2)}),
+                int(-2),
+            ),
+            (int(0), int(0)),
+            (string("ab"), string("cd")),
+            (string("12"), int(3)),
+            (int(9_007_199_254_740_992), int(1)),
+        ];
+        for operator in [
+            "+", "-", "*", "/", "DIV", "MOD", "^", "=", "<>", "<", "<=", ">", ">=", "AND", "OR",
+        ] {
+            for (left, right) in &pairs {
+                assert_prepared_matches_reference(vec![
+                    json!({"kind":"output","values":[{"kind":"binary","operator":operator,"left":left,"right":right,"span":at(3)}],"span":at(4)}),
+                ]);
+            }
+        }
+        for value in [true, false] {
+            for operator in ["AND", "OR"] {
+                assert_prepared_matches_reference(vec![
+                    json!({"kind":"output","values":[{"kind":"binary","operator":operator,"left":{"kind":"literal","literalType":"BOOLEAN","value":value,"span":at(5)},"right":ident("Missing"),"span":at(6)}],"span":at(7)}),
+                ]);
+            }
+        }
+    }
+
+    #[test]
+    fn prepared_loops_return_and_traces_match_reference_at_budget_boundaries() {
+        let increment = json!({"kind":"assignment","target":ident("Count"),"value":{"kind":"binary","operator":"+","left":ident("Count"),"right":int(1),"span":at(3)},"span":at(3)});
+        let condition = json!({"kind":"binary","operator":">=","left":ident("Count"),"right":int(3),"span":at(6)});
+        assert_prepared_matches_reference(vec![
+            declare("Count", "INTEGER"),
+            json!({"kind":"for","iterator":ident("Index"),"startValue":int(3),"endValue":int(-1),"stepValue":int(-2),"body":[increment.clone()],"span":at(2)}),
+            json!({"kind":"repeat","body":[increment.clone()],"condition":condition,"span":lines(4,6)}),
+            json!({"kind":"while","condition":{"kind":"binary","operator":"<","left":ident("Count"),"right":int(6000),"span":at(7)},"body":[increment],"span":at(7)}),
+            json!({"kind":"output","values":[ident("Count")],"span":at(8)}),
+        ]);
+        assert_prepared_matches_reference(vec![
+            json!({"kind":"functionDefinition","name":"First","params":[],"body":[{"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(5),"body":[{"kind":"return","value":ident("Index"),"span":at(3)}],"span":at(2)}],"span":lines(1,4)}),
+            json!({"kind":"output","values":[{"kind":"call","name":"First","args":[],"span":at(5)}],"span":at(5)}),
+        ]);
+        // An invalid REPEAT must report its missing condition before running the body.
+        assert_prepared_matches_reference(vec![
+            json!({"kind":"repeat","body":[{"kind":"output","values":[string("unreachable")],"span":at(2)}],"span":at(1)}),
+        ]);
+    }
+
+    #[test]
+    fn prepared_routine_frames_preserve_parameter_order_and_global_updates() {
+        let mut body = (0..500)
+            .map(|index| declare(&format!("Global{index}"), "INTEGER"))
+            .collect::<Vec<_>>();
+        body.extend([
+            declare("A", "INTEGER"),
+            declare("Z", "INTEGER"),
+            json!({"kind":"functionDefinition","name":"Sum","params":[{"name":"Z","typeNode":{"name":"INTEGER"}},{"name":"A","typeNode":{"name":"INTEGER"}}],"body":[{"kind":"assignment","target":ident("Global1"),"value":int(9),"span":at(2)},{"kind":"return","value":{"kind":"binary","operator":"+","left":ident("z"),"right":ident("a"),"span":at(3)},"span":at(3)}],"span":lines(1,4)}),
+            json!({"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(10),"body":[{"kind":"output","values":[{"kind":"call","name":"SUM","args":[int(2),int(3)],"span":at(6)}],"span":at(6)}],"span":at(5)}),
+            json!({"kind":"output","values":[ident("GLOBAL1"),string(","),ident("A"),string(","),ident("Z")],"span":at(7)}),
+        ]);
+        assert_prepared_matches_reference(body);
+    }
+
+    #[test]
+    fn prepared_for_resets_the_iterator_type_when_the_body_redeclares_it() {
+        assert_prepared_matches_reference(vec![
+            json!({"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(2),"body":[
+                {"kind":"input","target":ident("INDEX"),"span":at(2)},
+                {"kind":"output","values":[ident("Index")],"span":at(3)},
+                {"kind":"declare","identifier":ident("index"),"typeNode":{"kind":"basic","name":"STRING"},"span":at(4)}
+            ],"span":lines(1,5)}),
+        ]);
+    }
+
     #[test]
     fn executes_arithmetic_and_loops() {
         let ast = program(vec![
@@ -1350,6 +1471,23 @@ mod tests {
         let result = run(ast);
         assert!(result.success, "{}", result.stderr);
         assert_eq!(result.stdout, "9");
+    }
+
+    #[test]
+    fn array_reads_keep_value_copies_bounds_and_case_insensitive_lookup() {
+        let access = |name: &str, index: i64| json!({"kind":"arrayAccess","name":name,"indices":[int(index)],"span":span()});
+        let ast = program(vec![
+            json!({"kind":"declare","identifier":ident("Data"),"typeNode":{"kind":"array","elementType":"INTEGER","dimensions":[{"lower":-1,"upper":1}]},"span":span()}),
+            json!({"kind":"assignment","target":access("DATA", -1),"value":int(7),"span":span()}),
+            json!({"kind":"assignment","target":ident("Copy"),"value":ident("data"),"span":span()}),
+            json!({"kind":"assignment","target":access("copy", -1),"value":int(9),"span":span()}),
+            json!({"kind":"output","values":[access("dAtA", -1), string(","), access("Copy", -1), string(","), access("DATA", 0)],"span":span()}),
+            json!({"kind":"output","values":[access("Data", 2)],"span":span()}),
+        ]);
+        let result = run(ast);
+        assert!(!result.success);
+        assert_eq!(result.stdout, "7,9,0");
+        assert_eq!(result.stderr, "Index out of declared range");
     }
 
     #[test]
@@ -1378,6 +1516,25 @@ mod tests {
             result.virtual_files.get("A.txt"),
             Some(&vec!["hello".to_string()])
         );
+    }
+
+    #[test]
+    fn reads_files_in_order_then_returns_empty_at_eof() {
+        let ast = program(vec![
+            json!({"kind":"openfile","fileIdentifier":string("data.txt"),"mode":"READ","span":span()}),
+            json!({"kind":"for","iterator":ident("Index"),"startValue":int(1),"endValue":int(4),"body":[
+                {"kind":"readfile","fileIdentifier":string("data.txt"),"target":ident("Line"),"span":span()},
+                {"kind":"output","values":[ident("Line")],"span":span()}
+            ],"span":span()}),
+        ]);
+        let files = HashMap::from([(
+            "data.txt".to_string(),
+            vec!["first".to_string(), "second".to_string()],
+        )]);
+        let result = run_ast_json(&ast, Vec::new(), files.clone(), Some(100));
+        assert!(result.success, "{}", result.stderr);
+        assert_eq!(result.stdout, "first\nsecond\n\n");
+        assert_eq!(result.virtual_files, files);
     }
 
     fn at(line: usize) -> JsonValue {

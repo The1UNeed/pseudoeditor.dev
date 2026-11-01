@@ -1,11 +1,9 @@
-import { compilePseudocode } from "@/compiler";
 import type { CompileRequest, CompileResult, Diagnostic } from "@/compiler/types";
 import type { CompilerWorkerResponseMessage } from "@/workers/compiler.worker";
 
 interface PendingCompile {
-  resolve: (result: CompilerRunResult) => void;
+  resolve: (result: CompileResult) => void;
   reject: (error: Error) => void;
-  cacheKey: string | null;
 }
 
 export interface CompilerRunResult {
@@ -51,6 +49,7 @@ class CompilerRunner {
   private latestRequestId = 0;
   private pending = new Map<number, PendingCompile>();
   private cache = new Map<string, CompileResult>();
+  private inFlight = new Map<string, Promise<CompileResult>>();
 
   private ensureWorker(): Worker | null {
     if (typeof Worker === "undefined") {
@@ -72,25 +71,11 @@ class CompilerRunner {
       this.pending.delete(id);
 
       if (event.data.kind === "error") {
-        pending.resolve({
-          result: compilerErrorResult(event.data.message),
-          requestId: id,
-          stale: id !== this.latestRequestId,
-          cached: false,
-        });
+        pending.reject(new Error(event.data.message));
         return;
       }
 
-      if (pending.cacheKey) {
-        this.setCachedResult(pending.cacheKey, event.data.result);
-      }
-
-      pending.resolve({
-        result: event.data.result,
-        requestId: id,
-        stale: id !== this.latestRequestId,
-        cached: false,
-      });
+      pending.resolve(event.data.result);
     };
 
     this.worker.onerror = (event) => {
@@ -127,67 +112,64 @@ class CompilerRunner {
     }
   }
 
-  compile(request: CompileRequest, cacheKey: string | null = null): Promise<CompilerRunResult> {
-    const cached = cacheKey ? this.cache.get(cacheKey) : undefined;
-    if (cached) {
-      const requestId = this.latestRequestId;
-      return Promise.resolve({
-        result: cached,
-        requestId,
-        stale: false,
-        cached: true,
-      });
+  async compile(request: CompileRequest, cacheKey: string | null = null): Promise<CompilerRunResult> {
+    const id = this.nextId++;
+    this.latestRequestId = id;
+    // The caller's key is a namespace, not proof that two sources are identical.
+    const identity = cacheKey === null ? null : JSON.stringify([
+      cacheKey, request.source, request.filename, request.syntaxId, request.strict,
+    ]);
+    const cached = identity === null ? undefined : this.cache.get(identity);
+    if (cached && identity !== null) {
+      this.setCachedResult(identity, cached);
+      return { result: cached, requestId: id, stale: false, cached: true };
     }
 
-    const id = this.nextId;
-    this.nextId += 1;
-    this.latestRequestId = id;
+    let compilation = identity === null ? undefined : this.inFlight.get(identity);
+    if (!compilation) {
+      compilation = this.execute(request, id).then((result) => {
+        if (identity !== null) this.setCachedResult(identity, result);
+        return result;
+      });
+      if (identity !== null) {
+        this.inFlight.set(identity, compilation);
+        const cleanup = () => {
+          if (this.inFlight.get(identity) === compilation) this.inFlight.delete(identity);
+        };
+        void compilation.then(cleanup, cleanup);
+      }
+    }
 
+    let result: CompileResult;
+    try {
+      result = await compilation;
+    } catch (error) {
+      result = compilerErrorResult(error instanceof Error ? error.message : "Unknown compiler error");
+    }
+    return { result, requestId: id, stale: id !== this.latestRequestId, cached: false };
+  }
+
+  private async execute(request: CompileRequest, id: number): Promise<CompileResult> {
     const worker = this.ensureWorker();
     if (!worker) {
-      let result: CompileResult;
-      try {
-        result = compilePseudocode(request);
-      } catch (error) {
-        result = compilerErrorResult(error instanceof Error ? error.message : "Unknown compiler error");
-      }
-      if (cacheKey) {
-        this.setCachedResult(cacheKey, result);
-      }
-      return Promise.resolve({
-        result,
-        requestId: id,
-        stale: false,
-        cached: false,
-      });
+      // Keep parser and semantic analysis out of the editor's initial client bundle.
+      const { compilePseudocode } = await import("@/compiler");
+      return compilePseudocode(request);
     }
 
-    return new Promise<CompilerRunResult>((resolve, reject) => {
+    return new Promise<CompileResult>((resolve, reject) => {
       const timer = setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.abandonWorker(new Error("Compiler timed out."));
-        }
+        if (this.pending.has(id)) this.abandonWorker(new Error("Compiler timed out."));
       }, COMPILE_TIMEOUT_MS);
       this.pending.set(id, {
-        resolve: (value) => {
-          clearTimeout(timer);
-          resolve(value);
-        },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-        cacheKey,
+        resolve: (value) => { clearTimeout(timer); resolve(value); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
       });
-      worker.postMessage({ kind: "compile", id, request });
-    }).catch((error) => {
-      const message = error instanceof Error ? error.message : "Unknown compiler error";
-      return {
-        result: compilerErrorResult(message),
-        requestId: id,
-        stale: id !== this.latestRequestId,
-        cached: false,
-      };
+      try {
+        worker.postMessage({ kind: "compile", id, request });
+      } catch (error) {
+        this.abandonWorker(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 

@@ -1,0 +1,23 @@
+
+ RUN  v4.1.5 <repo>/packages/compiler
+
+stdout | src/performance.test.ts > pseudocode compilation performance > measures 'arithmetic and branches'
+{"workload":"arithmetic and branches","name":"compile","sourceBytes":147803,"medianMs":9.873374999999953}
+{"workload":"arithmetic and branches","name":"tokenize","sourceBytes":147803,"medianMs":4.147541999999987}
+{"workload":"arithmetic and branches","name":"parse including tokenize","sourceBytes":147803,"medianMs":6.165208000000007}
+{"workload":"arithmetic and branches","name":"semantic analysis","sourceBytes":147803,"medianMs":0.5208750000000464}
+
+ ✓ src/performance.test.ts > pseudocode compilation performance > measures 'arithmetic and branches' 482ms
+stdout | src/performance.test.ts > pseudocode compilation performance > measures 'file processing branches'
+{"workload":"file processing branches","name":"compile","sourceBytes":51403,"medianMs":12.615375000000085}
+{"workload":"file processing branches","name":"tokenize","sourceBytes":51403,"medianMs":1.6967500000000655}
+{"workload":"file processing branches","name":"parse including tokenize","sourceBytes":51403,"medianMs":1.922292000000084}
+{"workload":"file processing branches","name":"semantic analysis","sourceBytes":51403,"medianMs":9.22787500000004}
+
+ ✓ src/performance.test.ts > pseudocode compilation performance > measures 'file processing branches' 626ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  19:10:31
+   Duration  1.23s (transform 38ms, setup 0ms, import 48ms, tests 1.11s, environment 0ms)
+

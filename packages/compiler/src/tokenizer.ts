@@ -32,6 +32,33 @@ export type TokenType =
   | "GTE"
   | "NEQ";
 
+const SINGLE_CHAR_TOKENS: Record<string, TokenType> = {
+  ":": "COLON",
+  ",": "COMMA",
+  "(": "LPAREN",
+  ")": "RPAREN",
+  "[": "LBRACKET",
+  "]": "RBRACKET",
+  ".": "DOT",
+  "&": "AMPERSAND",
+  "+": "PLUS",
+  "-": "MINUS",
+  "*": "STAR",
+  "/": "SLASH",
+  "^": "CARET",
+  "=": "EQ",
+  "<": "LT",
+  ">": "GT",
+};
+
+function isDigit(char: string): boolean {
+  return char >= "0" && char <= "9";
+}
+
+function isLetter(char: string): boolean {
+  return (char >= "A" && char <= "Z") || (char >= "a" && char <= "z");
+}
+
 export interface Token {
   type: TokenType;
   lexeme: string;
@@ -103,7 +130,7 @@ export function tokenize(
   };
 
   const identifierContinue = (char: string) =>
-    syntax.identifierUnderscore ? /[A-Za-z0-9_]/.test(char) : /[A-Za-z0-9]/.test(char);
+    isLetter(char) || isDigit(char) || (syntax.identifierUnderscore && char === "_");
 
   while (index < source.length) {
     const char = current();
@@ -190,35 +217,17 @@ export function tokenize(
       continue;
     }
 
-    const singleCharTokens: Record<string, TokenType> = {
-      ":": "COLON",
-      ",": "COMMA",
-      "(": "LPAREN",
-      ")": "RPAREN",
-      "[": "LBRACKET",
-      "]": "RBRACKET",
-      ".": "DOT",
-      "&": "AMPERSAND",
-      "+": "PLUS",
-      "-": "MINUS",
-      "*": "STAR",
-      "/": "SLASH",
-      "^": "CARET",
-      "=": "EQ",
-      "<": "LT",
-      ">": "GT",
-    };
-
-    if (singleCharTokens[char]) {
+    if (SINGLE_CHAR_TOKENS[char]) {
       advance();
-      addToken(singleCharTokens[char], char, startLine, startColumn, line, column - 1);
+      addToken(SINGLE_CHAR_TOKENS[char], char, startLine, startColumn, line, column - 1);
       continue;
     }
 
     if (char === '"') {
-      let lexeme = advance();
+      const start = index;
+      advance();
       while (current() !== '"' && current() !== "\n" && current() !== "\0") {
-        lexeme += advance();
+        advance();
       }
       if (current() !== '"') {
         diagnostics.push({
@@ -232,17 +241,18 @@ export function tokenize(
           hint: "String literals must end with a closing double quote.",
         });
       } else {
-        lexeme += advance();
+        advance();
       }
-      addToken("STRING_LITERAL", lexeme, startLine, startColumn, line, column - 1);
+      addToken("STRING_LITERAL", source.slice(start, index), startLine, startColumn, line, column - 1);
       continue;
     }
 
     if (char === "'" || char === "ꞌ") {
       const quote = char;
-      let lexeme = advance();
+      const start = index;
+      advance();
       while (current() !== quote && current() !== "\n" && current() !== "\0") {
-        lexeme += advance();
+        advance();
       }
       if (current() !== quote) {
         diagnostics.push({
@@ -256,34 +266,36 @@ export function tokenize(
           hint: "Character literals must end with a closing single quote.",
         });
       } else {
-        lexeme += advance();
+        advance();
       }
-      addToken("CHAR_LITERAL", lexeme, startLine, startColumn, line, column - 1);
+      addToken("CHAR_LITERAL", source.slice(start, index), startLine, startColumn, line, column - 1);
       continue;
     }
 
-    if (/[0-9]/.test(char)) {
-      let lexeme = "";
-      while (/[0-9]/.test(current())) {
-        lexeme += advance();
+    if (isDigit(char)) {
+      const start = index;
+      while (isDigit(current())) {
+        advance();
       }
-      if (current() === "." && /[0-9]/.test(peek())) {
-        lexeme += advance();
-        while (/[0-9]/.test(current())) {
-          lexeme += advance();
+      if (current() === "." && isDigit(peek())) {
+        advance();
+        while (isDigit(current())) {
+          advance();
         }
-        addToken("REAL_LITERAL", lexeme, startLine, startColumn, line, column - 1);
+        addToken("REAL_LITERAL", source.slice(start, index), startLine, startColumn, line, column - 1);
       } else {
-        addToken("INTEGER_LITERAL", lexeme, startLine, startColumn, line, column - 1);
+        addToken("INTEGER_LITERAL", source.slice(start, index), startLine, startColumn, line, column - 1);
       }
       continue;
     }
 
-    if (/[A-Za-z_]/.test(char)) {
-      let lexeme = advance();
+    if (isLetter(char) || char === "_") {
+      const start = index;
+      advance();
       while (identifierContinue(current())) {
-        lexeme += advance();
+        advance();
       }
+      const lexeme = source.slice(start, index);
       const upper = lexeme.toUpperCase();
       if (syntax.keywords.has(upper)) {
         const caseError = keywordCaseError(syntax, lexeme, upper);

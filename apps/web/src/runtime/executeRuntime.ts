@@ -166,9 +166,8 @@ export class PseudocodeRuntimeRunner {
         });
       }, effectiveTimeoutMs);
 
-      workerPromise.finally(() => {
-        window.clearTimeout(timer);
-      });
+      const clearTimer = () => window.clearTimeout(timer);
+      void workerPromise.then(clearTimer, clearTimer);
     });
 
     try {

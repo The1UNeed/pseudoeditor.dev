@@ -80,6 +80,13 @@ describe("FlowchartEditor", () => {
     expect(screen.getByTestId("flowchart-run-output").textContent).toBe("yes");
     fireEvent.click(screen.getByLabelText("Previous step"));
     expect(screen.getByText("Step 4 of 5")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("First step"));
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
+    expect(container.querySelector(".react-flow__node.flowchart-run-current")?.textContent).toContain("Start");
+    expect(container.querySelector(".react-flow__node.flowchart-run-seen")).toBeNull();
+    expect(screen.queryByTestId("flowchart-run-output")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Last step"));
+    expect(screen.getByTestId("flowchart-run-output").textContent).toBe("yes");
 
     fireEvent.click(screen.getByLabelText("Close the run"));
     expect(screen.queryByText(/^Step \d/)).toBeNull();

@@ -19,14 +19,17 @@
     "test:web": "pnpm --filter @pseudoeditor/web test",
     "build:runtime": "./scripts/build-runtime-wasm.sh",
     "test:runtime": "cargo test -p pseudocode-runtime",
-    "typecheck": "pnpm -r --if-present run typecheck && pnpm typecheck:convex",
-    "typecheck:convex": "tsc -p convex/tsconfig.json --noEmit",
-    "lint": "pnpm -r --if-present run lint"
+    "typecheck": "node scripts/typecheck.mjs",
+    "typecheck:convex": "tsrs -p convex/tsconfig.json --noEmit --fast --incremental false",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck:tsc": "node scripts/typecheck.mjs --tsc",
+    "benchmark:typecheck": "node scripts/benchmark-typecheck.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "convex": "^1.45.0",
     "next": "16.3.4",
+    "tsrs": "0.20.1-ts7.1.0-beta",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },

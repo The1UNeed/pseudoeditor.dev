@@ -1,0 +1,14 @@
+
+ RUN  v4.1.12 <repo>/apps/web
+
+stdout | src/app/components/flowchart/reference.benchmark.test.ts > compares both algorithms on the exact same 500-branch graph
+{"nodes":1502,"edges":2001,"rounds":7,"beforeMs":109.55116599999997,"afterMs":2.324124999999867,"improvementPercent":97.87850272629697,"samples":{"before":[111.051625,114.76866699999994,114.41395799999998,109.55116599999997,105.67216599999995,105.48058299999991,105.92541699999992],"after":[3.490792000000056,2.5288750000000846,2.374290999999971,2.131040999999982,2.0610000000000355,2.324124999999867,2.089917000000014]}}
+
+ ✓ src/app/components/flowchart/reference.benchmark.test.ts > retains the previous generation algorithm's output for 500 deterministic edited graphs 43ms
+ ✓ src/app/components/flowchart/reference.benchmark.test.ts > compares both algorithms on the exact same 500-branch graph 792ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  19:11:16
+   Duration  1.23s (transform 81ms, setup 29ms, import 106ms, tests 836ms, environment 191ms)
+

@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "routeEntryJsBytes": 668708,
+    "routeEntryGzipBytes": 195043,
+    "allEmittedJsBytes": 14583561,
+    "emittedJsFiles": 148
+  },
+  "optimized": {
+    "routeEntryJsBytes": 584826,
+    "routeEntryGzipBytes": 169291,
+    "allEmittedJsBytes": 6054552,
+    "emittedJsFiles": 48
+  }
+}
