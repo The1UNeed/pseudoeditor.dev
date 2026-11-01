@@ -134,6 +134,129 @@ export const postsZh: SeoPost[] = [
       },
     ],
   },
+  {
+    slug: "free-forever-and-open-source",
+    title: "PseudoEditor 开源了，而且永远免费",
+    description: "源代码基于 Apache License 2.0 发布在 GitHub 上，以后也不会推出付费套餐。",
+    date: "2026-10-27",
+    readingTime: "3 分钟阅读",
+    tags: ["开源", "免费", "公告"],
+    sections: [
+      {
+        heading: "免费，没有附加条件",
+        body: [
+          "PseudoEditor 没有付费套餐，没有试用期，以后也不会推出收费的高级版。编译器、运行时、流程图模式、文档和练习题全都在免费版里，因为根本没有别的版本。",
+        ],
+      },
+      {
+        heading: "代码公开",
+        body: [
+          "源代码基于 Apache License 2.0 发布在 GitHub 上：github.com/The1UNeed/pseudoeditor.dev。你可以看看编译器是怎样检查程序的，自己运行一份，或者提交修复。",
+          "Apache 2.0 允许学校和其他项目在自己的工具里复用这些代码，只要保留许可证和版权声明即可。",
+        ],
+      },
+      {
+        heading: "为什么这对备考很重要",
+        body: [
+          "复习工具不应该在你考试前的那个学期突然收费。代码是公开的，所以无论这个网站以后怎样，任何人都能让 PseudoEditor 继续运行。",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "exam-board-pseudocode-syntax",
+    title: "按你的考试局的写法写伪代码",
+    description: "在设置里，编译器可以在剑桥 IGCSE、剑桥 A Level、IB、OCR 和 AQA 的记法之间切换。",
+    date: "2026-10-27",
+    readingTime: "4 分钟阅读",
+    tags: ["考试局", "语法", "编译器"],
+    sections: [
+      {
+        heading: "各个考试局的伪代码并不一样",
+        body: [
+          "剑桥用 DECLARE 声明变量，用 <- 赋值。IB 使用小写关键字和 =。OCR 的考试参考语言使用 print、= 和 ==，很像 Python。AQA 用 ENDFOR 和 ENDWHILE 结束循环。用错记法练习，考前还得再改掉。",
+        ],
+      },
+      {
+        heading: "在设置里选择你的考试局",
+        body: [
+          "打开设置，选择考试语法：剑桥 IGCSE（0478 和 0984）、剑桥 AS 和 A Level（9618）、IB 文凭课程、OCR GCSE（J277）或 AQA GCSE（8525）。",
+          "编译器、语法高亮和自动补全会一起切换，所以编辑器会按你要参加的那张试卷的记法检查程序。",
+        ],
+      },
+      {
+        heading: "同一个循环，五种写法",
+        body: [
+          "把 1 到 5 加起来，剑桥写作 FOR Number <- 1 TO 5 ... NEXT Number，IB 写作 loop COUNT from 1 to 5 ... end loop，OCR 写作 for number = 1 to 5 ... next number，AQA 写作 FOR number ← 1 TO 5 ... ENDFOR。每一种都能在对应的语法下编译和运行。",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "igcse-computer-science-course",
+    title: "文档现在是一门完整的 IGCSE 计算机科学课程",
+    description: "32 节图解课程按剑桥 0478 考纲覆盖两张试卷，从二进制讲到布尔逻辑，图示都可以动手操作。",
+    date: "2026-10-31",
+    readingTime: "4 分钟阅读",
+    tags: ["IGCSE", "课程", "复习"],
+    sections: [
+      {
+        heading: "两张试卷，按考纲顺序",
+        body: [
+          "文档以前只讲伪代码语法。现在它按剑桥 IGCSE 计算机科学（0478）考纲逐个主题展开。",
+          "试卷 1 包括数据表示、数据传输、硬件、软件、互联网和新兴技术。试卷 2 包括算法设计、编程、数据库和布尔逻辑。一共 32 节课，有中文和英文版本，另外还有 PseudoEditor 本身的使用指南。",
+        ],
+      },
+      {
+        heading: "可以动手改的图示",
+        body: [
+          "课程用可以操作的图示来讲解：支持移位和补码的二进制与十六进制探索器、带实时连线和真值表的逻辑门与电路、取指-译码-执行步进演示、冒泡排序和线性查找动画、像素编辑器、声音采样器、奇偶校验和 ISBN 校验位模拟器，以及会高亮所选行和列的 SQL 查询。",
+        ],
+      },
+      {
+        heading: "边学边自测",
+        body: [
+          "每节课最后都有关键术语和可以显示答案的小测验。所有伪代码示例都能用剑桥 IGCSE 语法编译，你可以把它复制到编辑器里直接运行。",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "flowchart-mode-out-of-beta",
+    title: "流程图模式结束测试，正式上线",
+    description: "任何程序都能画成流程图，可以在任一视图中编辑，运行后还能看着它一个组件一个组件地执行。",
+    date: "2026-10-31",
+    readingTime: "5 分钟阅读",
+    tags: ["流程图", "跟踪", "公告"],
+    sections: [
+      {
+        heading: "不再需要测试开关",
+        body: [
+          "流程图模式以前藏在设置里的测试版开关后面。现在开关去掉了：在台式机和笔记本电脑上，流程图按钮一直在工具栏里。",
+        ],
+      },
+      {
+        heading: "整个程序都能画出来",
+        body: [
+          "REPEAT ... UNTIL、CASE、过程和函数以前只能保留为文字。现在 REPEAT 会变成一个在“否”时回到循环开头的判断，CASE 会变成一串判断框，OTHERWISE 在最后，每个 PROCEDURE 或 FUNCTION 都会在主流程图旁边单独画成一张流程图。",
+          "五种考试语法都支持，包括 OCR 的 do ... until 和 switch，以及 IB 的 loop until。",
+        ],
+      },
+      {
+        heading: "在任一视图中编辑，代码不会坏",
+        body: [
+          "打开流程图永远不会改动你的代码。编辑流程图后，代码会保留你的关键字、注释、空行和缩进。新加的组件使用你所选考试局的关键字，重命名 FOR 计数变量会同时更新它的 NEXT，删除判断框以外的组件时，它前后的组件会连起来。",
+        ],
+      },
+      {
+        heading: "看着程序运行",
+        body: [
+          "在流程图打开时点击“运行”，流程图会回放这次运行。程序执行到哪个组件，哪个组件就会亮起，经过的箭头会被突出显示，流程图上方的控制条会显示每个判断走了哪条分支，例如 Count >= 3 → No。",
+          "你可以自动播放，也可以逐步查看，跟随 CALL 进入过程自己的流程图，出错的组件会以红色标出。文档中的“流程图模式”一课会逐一讲解每种形状。",
+        ],
+      },
+    ],
+  },
 ];
 
 export const faqZh: FaqItem[] = [

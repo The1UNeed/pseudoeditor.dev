@@ -175,6 +175,133 @@ export const posts: SeoPost[] = [
       },
     ],
   },
+  {
+    slug: "free-forever-and-open-source",
+    title: "PseudoEditor is open source, and free forever",
+    description:
+      "The code is on GitHub under the Apache License 2.0, and there is no paid plan coming later.",
+    date: "2026-10-27",
+    readingTime: "3 min read",
+    tags: ["Open source", "Free", "Announcement"],
+    sections: [
+      {
+        heading: "Free, with no catch",
+        body: [
+          "PseudoEditor has no paid plan, no trial, and no premium tier waiting down the road. The compiler, the runtime, flowchart mode, the docs, and the practice questions are all in the free version, because there is no other version.",
+        ],
+      },
+      {
+        heading: "The code is public",
+        body: [
+          "The source is on GitHub at github.com/The1UNeed/pseudoeditor.dev under the Apache License 2.0. You can read how the compiler checks your program, run your own copy, or send a fix.",
+          "Apache 2.0 lets schools and other projects reuse the code in their own tools, as long as they keep the license and copyright notice with it.",
+        ],
+      },
+      {
+        heading: "Why it matters before an exam",
+        body: [
+          "A revision tool should not disappear behind a paywall the term before your exam. Because the code is open, anyone can keep PseudoEditor running, whatever happens to this site.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "exam-board-pseudocode-syntax",
+    title: "Write pseudocode the way your exam board does",
+    description:
+      "Settings switches the compiler between Cambridge IGCSE, Cambridge A Level, IB, OCR, and AQA notation.",
+    date: "2026-10-27",
+    readingTime: "4 min read",
+    tags: ["Exam boards", "Syntax", "Compiler"],
+    sections: [
+      {
+        heading: "Exam boards don't agree on pseudocode",
+        body: [
+          "Cambridge declares variables with DECLARE and assigns with <-. IB uses lowercase keywords and =. OCR's exam reference language uses print, = and ==, much like Python. AQA closes its loops with ENDFOR and ENDWHILE. Practising in the wrong notation means unlearning it before the exam.",
+        ],
+      },
+      {
+        heading: "Pick yours in Settings",
+        body: [
+          "Open Settings and choose an exam syntax: Cambridge IGCSE (0478 and 0984), Cambridge AS and A Level (9618), IB Diploma Programme, OCR GCSE (J277), or AQA GCSE (8525).",
+          "The compiler, syntax highlighting, and autocomplete all switch together, so the editor checks your program against the notation of the paper you will sit.",
+        ],
+      },
+      {
+        heading: "One loop, five ways",
+        body: [
+          "Adding up 1 to 5 is FOR Number <- 1 TO 5 ... NEXT Number in Cambridge, loop COUNT from 1 to 5 ... end loop in IB, for number = 1 to 5 ... next number in OCR, and FOR number ← 1 TO 5 ... ENDFOR in AQA. Each one compiles and runs in its own syntax.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "igcse-computer-science-course",
+    title: "The docs are now a full IGCSE Computer Science course",
+    description:
+      "32 visual lessons follow the Cambridge 0478 syllabus across both papers, from binary to Boolean logic, with diagrams you can click.",
+    date: "2026-10-31",
+    readingTime: "4 min read",
+    tags: ["IGCSE", "Course", "Revision"],
+    sections: [
+      {
+        heading: "Both papers, in syllabus order",
+        body: [
+          "The docs used to cover pseudocode syntax only. They now follow the Cambridge IGCSE Computer Science (0478) syllabus topic by topic.",
+          "Paper 1 covers data representation, data transmission, hardware, software, the internet, and emerging technologies. Paper 2 covers algorithm design, programming, databases, and Boolean logic. That is 32 lessons in English and Chinese, plus the guides to PseudoEditor itself.",
+        ],
+      },
+      {
+        heading: "Diagrams you can change",
+        body: [
+          "Lessons explain ideas with visuals you can use: a binary and hex explorer with shifts and two's complement, logic gates and circuits with live wires and truth tables, a fetch-decode-execute stepper, bubble sort and linear search animations, a pixel editor, a sound sampler, parity and ISBN check-digit simulators, and SQL queries that highlight the rows and columns they pick.",
+        ],
+      },
+      {
+        heading: "Check yourself as you go",
+        body: [
+          "Every lesson ends with key terms and quiz questions whose answers you can reveal. Every pseudocode example compiles with the Cambridge IGCSE syntax, so you can copy it into the editor and run it.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "flowchart-mode-out-of-beta",
+    title: "Flowchart mode is out of beta",
+    description:
+      "Draw any program as a flowchart, edit it in either view, and watch a run move block by block.",
+    date: "2026-10-31",
+    readingTime: "5 min read",
+    tags: ["Flowcharts", "Tracing", "Announcement"],
+    sections: [
+      {
+        heading: "No more beta switch",
+        body: [
+          "Flowchart mode used to sit behind a beta switch in Settings. The switch is gone: the flowchart button is always in the toolbar on desktop and laptop screens.",
+        ],
+      },
+      {
+        heading: "The whole program is drawn",
+        body: [
+          "REPEAT ... UNTIL, CASE, procedures, and functions used to stay as plain text. Now REPEAT becomes a test that loops back on No, CASE becomes a chain of decisions with OTHERWISE last, and each PROCEDURE or FUNCTION gets a flowchart of its own beside the main one.",
+          "This works in all five exam syntaxes, including OCR's do ... until and switch, and IB's loop until.",
+        ],
+      },
+      {
+        heading: "Edit either view without breaking the code",
+        body: [
+          "Opening the flowchart never changes your code. Edit the chart and the code keeps your keywords, comments, blank lines, and indentation. Blocks you add use your exam board's keywords, renaming a FOR counter updates its NEXT, and deleting a block other than a decision joins the blocks on either side.",
+        ],
+      },
+      {
+        heading: "Watch your program run",
+        body: [
+          "Press Run with the flowchart open and the chart replays the run. Each block lights up as the program reaches it, the arrow it took is highlighted, and the bar above the chart shows which way each decision went, such as Count >= 3 → No.",
+          "Play the run or step through it, follow a CALL into the procedure's own chart, and see the block that failed outlined in red. The Flowchart mode lesson in the docs walks through every shape.",
+        ],
+      },
+    ],
+  },
 ];
 
 export type FaqItem = { question: string; answer: string };
@@ -225,8 +352,9 @@ export const faqItems: FaqItem[] = [
 const postsByLocale: Record<Locale, SeoPost[]> = { en: posts, zh: postsZh };
 const faqByLocale: Record<Locale, FaqItem[]> = { en: faqItems, zh: faqZh };
 
+/** Newest first; posts from the same day keep the newest-added one on top. */
 export function getPosts(locale: Locale): SeoPost[] {
-  return postsByLocale[locale];
+  return [...postsByLocale[locale]].reverse().sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function getFaq(locale: Locale): FaqItem[] {

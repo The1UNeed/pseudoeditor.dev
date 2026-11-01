@@ -18,10 +18,11 @@ const staticRoutes: Array<{ path: string; priority: number; changeFrequency: "we
 ];
 
 const siteUpdated = new Date("2026-09-19");
+const blogUpdated = new Date(posts.reduce((latest, post) => (post.date > latest ? post.date : latest), ""));
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: Array<{ path: string; lastModified: Date; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }> = [
-    ...staticRoutes.map((route) => ({ ...route, lastModified: siteUpdated })),
+    ...staticRoutes.map((route) => ({ ...route, lastModified: route.path === "/blog" ? blogUpdated : siteUpdated })),
     ...docs.map((doc) => ({
       path: `/docs/${doc.slug}`,
       lastModified: new Date(doc.updated),
