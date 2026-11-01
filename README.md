@@ -71,7 +71,7 @@ CI (`.github/workflows/ci.yml`) runs the same checks on every push and pull requ
 3. Run `npx convex dev` to link the Convex project (it writes `NEXT_PUBLIC_CONVEX_URL`).
 4. In the Convex dashboard set `CLERK_JWT_ISSUER_DOMAIN` to your Clerk Frontend API URL and
    `CLERK_WEBHOOK_SECRET` to the signing secret of a Clerk webhook that targets
-   `<your-convex-site-url>/clerk/webhook` for the `user.deleted` event.
+   `<your-convex-site-url>/clerk/webhook` for the `user.created` and `user.deleted` events.
 5. In Clerk, add a JWT template named `convex`.
 
 ### Rebuilding the WebAssembly runtime
@@ -97,6 +97,11 @@ Analytics and error tracking use PostHog US Cloud and are enabled only when `NEX
 the Production environment. In the PostHog project, turn on **Settings > Project > Web analytics > Enable
 cookieless tracking**, or PostHog drops every event the site sends. Keep session replay off, and set event
 retention to one year or less to match the privacy policy.
+
+Account counts come from Convex, not the browser. Set `POSTHOG_PROJECT_KEY` (the same project key) on the
+production Convex deployment only. The Clerk webhook then sends anonymous `account_created` and `account_deleted`
+events, and a daily cron (`convex/crons.ts`) sends `account_stats`: the number of synced accounts and how many
+saved their workspace in the last 1, 7, and 30 days. None of these events identify an account.
 
 ## Dependency overrides
 
