@@ -111,7 +111,10 @@ producing `55`, code-to-flowchart switching, replay through the final output, an
 backward seeking to the start. Unit/regression checks cover exact compiler output,
 immutable state, merge ordering, stale worker responses, compilation sharing, Monaco completion and Find, and interactive input output
 `Hello, Ada`. No browser console warnings or errors appeared during these checks.
-Final integration passes all 259 JavaScript/TypeScript tests and 18 Rust tests,
+Final integration passes all 260 JavaScript/TypeScript tests and 18 Rust tests,
 ESLint, clippy, formatting, strict checks with both TSRS and tsc, and production
 builds on Node 26 and Node 22. Node 22 web coverage also passes. The deliberately
 skipped tests are opt-in timing benchmarks. Review results are recorded with the PR.
+
+The [Sol review ledger](performance/review.md) records the independent findings
+and the production-only startup regression fix.

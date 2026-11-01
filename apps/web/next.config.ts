@@ -6,7 +6,6 @@ import { POSTHOG_HOST } from "./src/lib/posthogHost";
 
 const monorepoRoot = path.resolve(__dirname, "../..");
 const requireFromRoot = createRequire(path.join(monorepoRoot, "package.json"));
-const tsrsCli = path.join(path.dirname(requireFromRoot.resolve("tsrs/package.json")), "bin/tsrs");
 const isDev = process.env.NODE_ENV !== "production";
 
 const clerkOrigins = [
@@ -53,6 +52,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   compiler: {
     async runAfterProductionCompile({ projectDir }) {
+      const tsrsCli = path.join(path.dirname(requireFromRoot.resolve("tsrs/package.json")), "bin/tsrs");
       // Route validators exist after compilation. Fail the build on TSRS errors,
       // including when invoking `next build` directly instead of the pnpm script.
       console.log("Checking TypeScript with TSRS...");
