@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { BrandMark } from "@/app/components/BrandMark";
 import {
+  ComponentProps,
   DragEvent,
   FormEvent,
   KeyboardEvent as ReactKeyboardEvent,
@@ -20,6 +21,7 @@ import {
 import {
   BookOpen,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronUp,
   CircleAlert,
@@ -110,6 +112,21 @@ const PSEUDO_EXTENSION = ".pseudo";
 const EMPTY_DIAGNOSTICS: Diagnostic[] = [];
 const DIALOG_CARD_CLASS =
   "w-[calc(100%-2rem)] border border-[var(--separator)] bg-[var(--surface)] p-6 text-[var(--text)] shadow-[var(--shadow-modal)]";
+const SETTINGS_SELECT_CLASS =
+  "h-9 w-full cursor-pointer appearance-none truncate rounded-lg border border-[var(--separator)] bg-[var(--surface)] pl-3 pr-9 text-sm font-medium text-[var(--text)] outline-none transition hover:border-[var(--text3)] focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/30";
+
+function SettingsSelect({ className, ...props }: ComponentProps<"select">) {
+  return (
+    <span className={`relative inline-flex shrink-0 ${className ?? ""}`}>
+      <select {...props} className={SETTINGS_SELECT_CLASS} />
+      <ChevronDown
+        size={16}
+        aria-hidden
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text3)]"
+      />
+    </span>
+  );
+}
 
 type TouchTab = "editor" | "files" | "output" | "settings";
 type ManualSaveStatus = "idle" | "saving" | "saved" | "error";
@@ -920,18 +937,18 @@ export default function HomePage() {
       <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
         <label className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[var(--text)]">{t.settings.examSyntax}</span>
-          <select
+          <SettingsSelect
             value={currentSyntax.id}
             aria-label={t.settings.examSyntax}
             onChange={(event) => handleSyntaxChange(event.target.value as WorkspaceSyntaxId)}
-            className="h-9 max-w-[220px] rounded-lg border border-[var(--separator)] bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] outline-none focus:border-[var(--accent)] cursor-pointer"
+            className="w-[220px] max-w-[60%]"
           >
             {SYNTAX_OPTIONS.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
             ))}
-          </select>
+          </SettingsSelect>
         </label>
         <p className="mt-2 text-xs text-[var(--text3)]">
           {currentSyntax.board} {currentSyntax.syllabus}. {currentSyntax.description}
@@ -994,14 +1011,14 @@ export default function HomePage() {
       <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[var(--text)]">{t.settings.autosaveInterval}</span>
-          <select
+          <SettingsSelect
             value={autoSaveIntervalMinutes}
             aria-label={t.settings.autosaveIntervalMinutes}
             onChange={(event) => handleAutoSaveIntervalChange(Number(event.target.value))}
-            className="h-9 rounded-lg border border-[var(--separator)] bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] outline-none focus:border-[var(--accent)] cursor-pointer"
+            className="w-[220px] max-w-[60%]"
           >
             {[1, 2, 3, 5, 10, 15, 30, 60].map((minutes) => <option key={minutes} value={minutes}>{t.settings.minute(minutes)}</option>)}
-          </select>
+          </SettingsSelect>
         </div>
         <p className="mt-2 text-xs text-[var(--text3)]">
           {t.settings.autosaveEvery(autoSaveIntervalMinutes)}
@@ -2088,7 +2105,7 @@ export default function HomePage() {
               aria-label={t.toolbar.home}
             >
               <BrandMark size={20} />
-              <span className="text-xs font-semibold tracking-[0.12em] text-[var(--text2)]">
+              <span className="text-[13px] font-semibold text-[var(--text)]">
                 PseudoEditor
               </span>
             </Link>

@@ -285,12 +285,12 @@ body {
   font-family: var(--font-sans), "Inter", system-ui, sans-serif;
 }
 
+/* Tailwind's preflight already inherits font and color in its base layer; setting them here,
+   outside a layer, would override every text and color utility on these elements. */
 button,
 input,
 textarea,
 select {
-  font: inherit;
-  color: inherit;
   touch-action: manipulation;
 }
 
