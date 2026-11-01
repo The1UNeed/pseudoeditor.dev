@@ -31,4 +31,10 @@ describe("sitemap", () => {
       });
     }
   });
+
+  it("dates the blog index by its newest post", () => {
+    const blog = entries.find((entry) => entry.url === "https://www.pseudoeditor.dev/blog");
+    const newest = posts.map((post) => post.date).sort().at(-1);
+    expect(blog?.lastModified).toEqual(new Date(newest!));
+  });
 });
