@@ -1,4 +1,4 @@
-/* Shapes for the docs course. Lesson text is plain data so each locale can supply its own copy,
+/* Shared shapes for lessons and studio guides. Lesson text is plain data so each locale can supply its own copy,
    and every diagram is described by a `visual` that src/app/components/docs renders. */
 
 export type UnitId =

@@ -234,7 +234,7 @@ export default async function LandingPage({ params }: LocaleParams) {
             <p className="site-eyebrow">{t.learnEyebrow}</p>
             <h2 className="site-h2 mt-3">{t.learnTitle}</h2>
             <p className="site-lede mt-5 max-w-lg">{t.learnLede}</p>
-            <Link href={href("/manual")} className="site-btn mt-7">
+            <Link href={href("/lessons")} className="site-btn mt-7">
               {t.learnCta} <ScrollText size={16} />
             </Link>
           </div>
@@ -242,7 +242,7 @@ export default async function LandingPage({ params }: LocaleParams) {
             {docs.map((doc) => (
               <PublicListLink
                 key={doc.slug}
-                href={href(`/docs/${doc.slug}`)}
+                href={href(`/lessons/${doc.slug}`)}
                 meta={getUnit(locale, doc.unit).title}
                 title={doc.title}
                 description={doc.description}

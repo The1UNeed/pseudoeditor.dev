@@ -1,0 +1,30 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { ContentArticle } from "@/app/components/docs/ContentArticle";
+import { pageMetadata } from "@/i18n/config";
+import { getDictionary } from "@/i18n/messages";
+import { resolveLocale } from "@/i18n/server";
+import { docs, docPath, getDoc } from "@/lib/docs";
+
+type PageProps = { params: Promise<{ locale: string; slug: string }> };
+
+export function generateStaticParams() {
+  return docs.filter((doc) => doc.unit !== "pseudoeditor").map((doc) => ({ slug: doc.slug }));
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const locale = await resolveLocale(params);
+  const { slug } = await params;
+  const doc = getDoc(locale, slug);
+  if (!doc || doc.unit === "pseudoeditor") return {};
+  const base = pageMetadata(locale, docPath(doc), doc.title, doc.description, getDictionary(locale).meta.ogImageAlt);
+  return { ...base, openGraph: { ...base.openGraph, type: "article", modifiedTime: doc.updated } };
+}
+
+export default async function LessonPage({ params }: PageProps) {
+  const locale = await resolveLocale(params);
+  const { slug } = await params;
+  const doc = getDoc(locale, slug);
+  if (!doc || doc.unit === "pseudoeditor") notFound();
+  return <ContentArticle locale={locale} doc={doc} />;
+}

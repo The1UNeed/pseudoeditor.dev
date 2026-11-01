@@ -13,11 +13,23 @@ function inCourseOrder(list: Doc[]): Doc[] {
 
 const docsByLocale: Record<Locale, Doc[]> = { en: inCourseOrder(docsEn), zh: inCourseOrder(docsZh) };
 
-/** English lessons in course order. Slugs are shared by every locale. */
+/** English lessons and studio guides. Slugs are shared by every locale. */
 export const docs = docsByLocale.en;
 
 export function getDocs(locale: Locale): Doc[] {
   return docsByLocale[locale];
+}
+
+export function getLessons(locale: Locale): Doc[] {
+  return getDocs(locale).filter((doc) => doc.unit !== "pseudoeditor");
+}
+
+export function getGuides(locale: Locale): Doc[] {
+  return getUnitDocs(locale, "pseudoeditor");
+}
+
+export function docPath(doc: Doc): string {
+  return `${doc.unit === "pseudoeditor" ? "/docs" : "/lessons"}/${doc.slug}`;
 }
 
 export function getDoc(locale: Locale, slug: string): Doc | undefined {
@@ -28,9 +40,11 @@ export function getUnitDocs(locale: Locale, unit: UnitId): Doc[] {
   return getDocs(locale).filter((doc) => doc.unit === unit);
 }
 
-/** The lessons before and after `slug` across the whole course. */
+/** Neighbors within the course or the studio guides, without crossing sections. */
 export function getDocNeighbors(locale: Locale, slug: string): { previous?: Doc; next?: Doc } {
-  const list = getDocs(locale);
+  const doc = getDoc(locale, slug);
+  if (!doc) return {};
+  const list = doc.unit === "pseudoeditor" ? getGuides(locale) : getLessons(locale);
   const index = list.findIndex((doc) => doc.slug === slug);
   if (index === -1) return {};
   return { previous: list[index - 1], next: list[index + 1] };
