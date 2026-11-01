@@ -272,7 +272,7 @@ export const en = {
       sortSwap: "{a} > {b}, so swap them.",
       sortKeep: "{a} ≤ {b}, so leave them.",
       sortPassEnd: "End of pass {n}: {s} swaps. The largest unsorted item has bubbled to the end.",
-      sortDone: "No swaps were needed in pass {n}, so the list is sorted.",
+      sortDone: "Sorting completed after pass {n}.",
       searchStart: "Looking for {target}. Start at item 1.",
       searchMiss: "Item {i} is {v}. Not {target}, move on.",
       searchHit: "Item {i} is {v}. Found it!",

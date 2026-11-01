@@ -268,7 +268,7 @@ export const zh: Dictionary = {
       sortSwap: "{a} > {b}，交换它们。",
       sortKeep: "{a} ≤ {b}，保持不动。",
       sortPassEnd: "第 {n} 轮结束：交换 {s} 次。未排序部分中最大的数已经“冒泡”到末尾。",
-      sortDone: "第 {n} 轮没有发生交换，所以列表已经有序。",
+      sortDone: "第 {n} 轮后排序完成。",
       searchStart: "要查找 {target}。从第 1 项开始。",
       searchMiss: "第 {i} 项是 {v}，不是 {target}，继续。",
       searchHit: "第 {i} 项是 {v}，找到了！",
