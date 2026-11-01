@@ -269,7 +269,7 @@ export const posts: SeoPost[] = [
     slug: "flowchart-mode-out-of-beta",
     title: "Flowchart mode is out of beta",
     description:
-      "Draw any program as a flowchart, edit either view without losing a character, and watch a run move block by block.",
+      "Draw any program as a flowchart, edit it in either view, and watch a run move block by block.",
     date: "2026-10-31",
     readingTime: "5 min read",
     tags: ["Flowcharts", "Tracing", "Announcement"],
@@ -290,7 +290,7 @@ export const posts: SeoPost[] = [
       {
         heading: "Edit either view without breaking the code",
         body: [
-          "Opening the flowchart never changes your code. Edit the chart and the code keeps your keywords, comments, blank lines, and indentation. Blocks you add use your exam board's keywords, renaming a FOR counter updates its NEXT, and deleting a block joins the blocks on either side.",
+          "Opening the flowchart never changes your code. Edit the chart and the code keeps your keywords, comments, blank lines, and indentation. Blocks you add use your exam board's keywords, renaming a FOR counter updates its NEXT, and deleting a block other than a decision joins the blocks on either side.",
         ],
       },
       {
