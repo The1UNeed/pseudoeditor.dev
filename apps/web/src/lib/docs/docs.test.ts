@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { compilePseudocode } from "@pseudoeditor/compiler";
 import { locales } from "@/i18n/config";
-import { getDocNeighbors, getDocs, getUnitDocs, getUnits } from "./index";
+import { docPath, getDocNeighbors, getDocs, getGuides, getLessons, getUnitDocs, getUnits } from "./index";
+import { getLessonPracticeTopics, practiceLessonSlugs } from "../lesson-practice";
+import { getPracticeQuestions, practiceTopics } from "../practice-questions";
 
 describe("docs course", () => {
   it("has the same lessons, units, and visuals in every locale", () => {
@@ -22,6 +24,34 @@ describe("docs course", () => {
   it("gives every unit at least one lesson", () => {
     for (const unit of getUnits("en")) {
       expect(getUnitDocs("en", unit.id).length, unit.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("separates the complete course from studio guides in every locale", () => {
+    for (const locale of locales) {
+      const lessons = getLessons(locale);
+      const guides = getGuides(locale);
+      expect(lessons.length + guides.length).toBe(getDocs(locale).length);
+      expect(new Set(lessons.map((doc) => doc.unit)).size).toBe(10);
+      expect(lessons.every((doc) => doc.unit !== "pseudoeditor")).toBe(true);
+      expect(guides.every((doc) => doc.unit === "pseudoeditor")).toBe(true);
+      expect(lessons.every((doc) => docPath(doc).startsWith("/lessons/"))).toBe(true);
+      expect(guides.every((doc) => docPath(doc).startsWith("/docs/"))).toBe(true);
+      for (const list of [lessons, guides]) {
+        expect(getDocNeighbors(locale, list[0].slug).previous).toBeUndefined();
+        expect(getDocNeighbors(locale, list.at(-1)!.slug).next).toBeUndefined();
+      }
+    }
+  });
+
+  it("connects each practice skill to an existing lesson and matching questions", () => {
+    for (const locale of locales) {
+      for (const topic of practiceTopics) {
+        const slug = practiceLessonSlugs[topic];
+        expect(getLessons(locale).some((doc) => doc.slug === slug)).toBe(true);
+        expect(getLessonPracticeTopics(slug)).toContain(topic);
+        expect(getPracticeQuestions(locale).some((question) => question.topic === topic)).toBe(true);
+      }
     }
   });
 

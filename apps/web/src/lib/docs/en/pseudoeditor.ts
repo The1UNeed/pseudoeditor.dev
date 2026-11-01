@@ -4,26 +4,60 @@ export const pseudoeditorEn: Doc[] = [
   {
     slug: "getting-started",
     unit: "pseudoeditor",
-    title: "Getting started with PseudoEditor",
-    description:
-      "Open the browser editor, write your first pseudocode program, compile it, and run it directly in the browser.",
-    updated: "2026-05-04",
+    title: "Getting started with the studio editor",
+    description: "Create a file, run your first pseudocode program, enter input, and save your work.",
+    updated: "2026-11-01",
     sections: [
       {
-        heading: "Start in the browser",
+        heading: "Create your first file",
         body: [
-          "Open the app, create or select a pseudocode document, and type directly into the editor. PseudoEditor saves local work during development and supports cloud workspace sync on the deployed site when you sign in.",
-          "Use the Run button to compile the current file. Diagnostics appear with line and column details when the compiler finds syntax or semantic problems.",
+          "Open the studio editor and choose Create File in the Explorer. Give the file a name such as `hello.pseudo`, then choose Create & Open. On a phone, open the Files tab to find the Explorer.",
+          "Open Settings and set Exam syntax to the board you study. The example below uses Cambridge IGCSE. Return to the Editor and type or paste the program into your file.",
         ],
       },
       {
         heading: "First program",
-        body: [
-          "A simple program declares variables, assigns values with `<-`, and writes output with `OUTPUT`. Keep one statement per line when you are learning because diagnostics are easier to follow.",
-        ],
+        body: ["This program reads a name and prints a greeting. Keep one statement per line so errors are easy to find."],
         example: `DECLARE Name : STRING
 INPUT Name
 OUTPUT "Hello ", Name`,
+      },
+      {
+        heading: "Run and enter input",
+        body: [
+          "Choose Run in the toolbar. The editor compiles the active file and starts the program. When it reaches `INPUT Name`, type a name in Terminal input and press Enter or choose Send.",
+          "If you enter Mai, the program should print `Hello Mai`. Change the greeting and run again to see your edit take effect. On a phone, use the Output tab to see the result.",
+        ],
+      },
+      {
+        heading: "Save your work",
+        body: [
+          "Choose Save workspace before leaving. On the website, sign in to save your workspace to your account. Check that the status says Saved before you close the page.",
+          "You can write and run without an account. If you stay signed out, keep a copy of your code before refreshing or closing the tab.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "workspace-files",
+    unit: "pseudoeditor",
+    title: "Organise files in the studio",
+    description: "Create files and folders, switch between programs, and rename or move items in the Explorer.",
+    updated: "2026-11-01",
+    sections: [
+      {
+        heading: "Create and open files",
+        body: [
+          "Choose Create File in the Explorer, enter a file name, then choose Create & Open. Select a file in the Explorer to open it. The active tab is the program that Run will compile.",
+          "Closing a tab keeps the file in your workspace. You can open it again from the Explorer. On a phone, switch between the Files and Editor tabs.",
+        ],
+      },
+      {
+        heading: "Group programs in folders",
+        body: [
+          "Choose Create Folder to group related work, such as lessons or practice attempts. Open a folder's actions to create a file or another folder inside it.",
+          "Use an item's actions to rename it or change its position. Check the file name before choosing Delete and confirming the deletion.",
+        ],
       },
     ],
   },
@@ -70,12 +104,12 @@ OUTPUT Total`,
     title: "Debugging compiler errors",
     description:
       "Use diagnostics, line numbers, and generated output to fix pseudocode syntax and logic problems.",
-    updated: "2026-05-04",
+    updated: "2026-11-01",
     sections: [
       {
         heading: "Read the first error first",
         body: [
-          "Syntax problems often cascade. Fix the earliest error, run again, and then move to the next diagnostic.",
+          "Choose Run and read the diagnostics below the editor. Syntax problems often cascade. Fix the earliest error, run again, and then move to the next diagnostic.",
           "Line and column details point to where the compiler first noticed the problem, which may be slightly after the actual typo.",
         ],
       },
@@ -166,15 +200,22 @@ ENDCASE`,
   {
     slug: "saving-workspaces",
     unit: "pseudoeditor",
-    title: "Saving browser workspaces",
-    description: "Understand how local browser storage and signed-in cloud sync work in PseudoEditor.",
-    updated: "2026-05-04",
+    title: "Saving your workspace",
+    description: "Save your files to your account, set up autosave, and keep a copy of signed-out work.",
+    updated: "2026-11-01",
     sections: [
       {
-        heading: "Local and cloud modes",
+        heading: "Save to your account",
         body: [
-          "On localhost, PseudoEditor saves to browser storage. On pseudoeditor.dev, signed-in users can save workspaces through Clerk authentication and Convex cloud sync.",
-          "Signed-out production sessions can edit in memory, but signing in is required before cloud saving.",
+          "On the website, sign in and choose Save workspace. This saves the files and folders in your workspace to your account so you can return to them on another device.",
+          "Wait for Saved before closing the page. If saving fails, keep the tab open, check the message shown by the editor, and try again.",
+        ],
+      },
+      {
+        heading: "Autosave and signed-out work",
+        body: [
+          "Open Settings to set the Autosave interval. You can still choose Save workspace whenever you want to save immediately.",
+          "Signed-out editing on the website keeps work in the current session. Sign in to save, or copy your code somewhere safe before you refresh or close the tab. Local development uses browser storage on that device.",
         ],
       },
     ],

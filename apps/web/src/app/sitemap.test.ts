@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { practiceQuestions } from "@/lib/practice-questions";
-import { docs } from "@/lib/docs";
+import { docs, docPath, getGuides, getLessons } from "@/lib/docs";
 import { posts } from "@/lib/seo-content";
 import sitemap from "./sitemap";
 
@@ -9,15 +9,29 @@ describe("sitemap", () => {
   const urls = entries.map((entry) => entry.url);
 
   it("lists every page once per locale", () => {
-    expect(entries).toHaveLength((10 + docs.length + posts.length + practiceQuestions.length) * 2);
+    expect(entries).toHaveLength((11 + docs.length + posts.length + practiceQuestions.length) * 2);
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls).toContain("https://www.pseudoeditor.dev");
     expect(urls).toContain("https://www.pseudoeditor.dev/zh");
     expect(urls).toContain("https://www.pseudoeditor.dev/practice");
     expect(urls).toContain(`https://www.pseudoeditor.dev/practice/${practiceQuestions[0].id}`);
-    expect(urls).toContain(`https://www.pseudoeditor.dev/docs/${docs[0].slug}`);
+    expect(urls).toContain("https://www.pseudoeditor.dev/docs");
+    expect(urls).toContain("https://www.pseudoeditor.dev/lessons");
+    expect(urls).toContain(`https://www.pseudoeditor.dev${docPath(docs[0])}`);
     expect(urls).toContain(`https://www.pseudoeditor.dev/zh/blog/${posts[0].slug}`);
     expect(urls.some((url) => url.includes("/en/") || url.endsWith("/en"))).toBe(false);
+  });
+
+  it("publishes only canonical URLs for lessons and studio guides", () => {
+    for (const lesson of getLessons("en")) {
+      expect(urls).toContain(`https://www.pseudoeditor.dev/lessons/${lesson.slug}`);
+      expect(urls).toContain(`https://www.pseudoeditor.dev/zh/lessons/${lesson.slug}`);
+      expect(urls).not.toContain(`https://www.pseudoeditor.dev/docs/${lesson.slug}`);
+    }
+    for (const guide of getGuides("en")) {
+      expect(urls).toContain(`https://www.pseudoeditor.dev/docs/${guide.slug}`);
+      expect(urls).not.toContain(`https://www.pseudoeditor.dev/lessons/${guide.slug}`);
+    }
   });
 
   it("gives both locale rows the same hreflang set", () => {

@@ -13,6 +13,7 @@ import {
   practiceQuestions,
   relatedPracticeQuestions,
 } from "@/lib/practice-questions";
+import { practiceLessonSlugs } from "@/lib/lesson-practice";
 import { authorName } from "@/lib/seo-content";
 import CopyableCodeBlock from "../../manual/CopyableCodeBlock";
 import { RandomPracticeControls } from "../RandomPracticeButton";
@@ -138,6 +139,9 @@ export default async function PracticeQuestionPage({ params }: PageProps) {
         <div className="mt-10 flex flex-wrap items-center gap-3">
           <Link href={href(`/app?practice=${question.id}`)} className="site-btn site-btn-accent">
             {t.openEditor} <Play size={16} />
+          </Link>
+          <Link href={href(`/lessons/${practiceLessonSlugs[question.topic]}`)} className="site-btn site-btn-ghost">
+            {t.reviewLesson}
           </Link>
         </div>
         <div className="mt-6">

@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
 import { languageAlternates, locales, localeUrl } from "@/i18n/config";
 import { practiceQuestions } from "@/lib/practice-questions";
-import { docs } from "@/lib/docs";
+import { docs, docPath } from "@/lib/docs";
 import { posts } from "@/lib/seo-content";
 
 const staticRoutes: Array<{ path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }> = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/app", priority: 0.9, changeFrequency: "monthly" },
   { path: "/practice", priority: 0.9, changeFrequency: "weekly" },
+  { path: "/lessons", priority: 0.8, changeFrequency: "weekly" },
   { path: "/docs", priority: 0.8, changeFrequency: "weekly" },
   { path: "/manual", priority: 0.8, changeFrequency: "monthly" },
   { path: "/app/manual", priority: 0.5, changeFrequency: "monthly" },
@@ -17,14 +18,14 @@ const staticRoutes: Array<{ path: string; priority: number; changeFrequency: "we
   { path: "/security", priority: 0.2, changeFrequency: "yearly" },
 ];
 
-const siteUpdated = new Date("2026-09-19");
+const siteUpdated = new Date("2026-11-01");
 const blogUpdated = new Date(posts.reduce((latest, post) => (post.date > latest ? post.date : latest), ""));
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: Array<{ path: string; lastModified: Date; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }> = [
     ...staticRoutes.map((route) => ({ ...route, lastModified: route.path === "/blog" ? blogUpdated : siteUpdated })),
     ...docs.map((doc) => ({
-      path: `/docs/${doc.slug}`,
+      path: docPath(doc),
       lastModified: new Date(doc.updated),
       priority: 0.6,
       changeFrequency: "monthly" as const,

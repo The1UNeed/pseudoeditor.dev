@@ -20,15 +20,19 @@ export function RandomPracticeControls({
   questions,
   excludeId,
   compact = false,
+  initialTopic = "any",
+  onTopicChange,
 }: {
   locale: Locale;
   questions: PracticeQuestion[];
   excludeId?: string;
   compact?: boolean;
+  initialTopic?: TopicFilter;
+  onTopicChange?: (topic: TopicFilter) => void;
 }) {
   const router = useRouter();
   const t = getDictionary(locale).practice;
-  const [topic, setTopic] = useState<TopicFilter>("any");
+  const [topic, setTopic] = useState<TopicFilter>(initialTopic);
 
   const topicOptions = useMemo(
     () =>
@@ -59,7 +63,10 @@ export function RandomPracticeControls({
               key={option.value}
               type="button"
               aria-pressed={selected}
-              onClick={() => setTopic(option.value)}
+              onClick={() => {
+                setTopic(option.value);
+                onTopicChange?.(option.value);
+              }}
               className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
                 selected
                   ? "border-[var(--accent)] bg-[var(--selected)] text-[var(--text)]"
