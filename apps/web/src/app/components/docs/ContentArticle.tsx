@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Play } from "lucide-react";
+import { getLessonCourse } from "@/lib/lesson-syllabi";
+import { CourseReferences } from "./CourseReferences";
 import { PublicHeader } from "@/app/components/PublicHeader";
 import { DocSectionView } from "./DocSectionView";
 import { RichText } from "./DiagramBlocks";
@@ -176,6 +178,8 @@ export function ContentArticle({ locale, doc }: { locale: Locale; doc: Doc }) {
               </div>
             </section>
           ) : null}
+
+          {!isGuide ? <CourseReferences locale={locale} course={getLessonCourse(locale, "igcse")} /> : null}
 
           <nav className="mt-12 grid gap-3 sm:grid-cols-2" aria-label={`${t.previous} / ${t.next}`}>
             {previous ? (

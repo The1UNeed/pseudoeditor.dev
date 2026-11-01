@@ -108,7 +108,7 @@ export type DocSection = {
   /** Shown under the visual. */
   caption?: string;
   example?: string;
-  exampleLanguage?: "pseudocode" | "sql" | "text";
+  exampleLanguage?: "pseudocode" | "sql" | "text" | "java" | "python" | "ap-pseudocode";
   /** Show the example above the visual instead of below it. */
   exampleFirst?: boolean;
   callout?: { tone: "key" | "tip" | "warn"; text: string };
