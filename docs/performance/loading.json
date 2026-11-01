@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "initialPageJsBytes": 643418,
+    "initialPageGzipBytes": 186657,
+    "allEmittedJsBytes": 14583561,
+    "emittedJsFiles": 148
+  },
+  "optimized": {
+    "initialPageJsBytes": 558718,
+    "initialPageGzipBytes": 160601,
+    "allEmittedJsBytes": 6028835,
+    "emittedJsFiles": 47
+  }
+}

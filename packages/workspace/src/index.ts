@@ -710,7 +710,7 @@ export function updateDocumentSource(
   }
 
   const timestamp = now ?? new Date().toISOString();
-  const next = cloneState(state);
+  const next = { ...state, nodes: { ...state.nodes } };
   next.nodes[documentId] = {
     ...document,
     source,
@@ -732,7 +732,7 @@ export function setDocumentCompileSummary(
   }
 
   const timestamp = now ?? new Date().toISOString();
-  const next = cloneState(state);
+  const next = { ...state, nodes: { ...state.nodes } };
   next.nodes[documentId] = {
     ...document,
     lastCompileSummary: summary,
@@ -966,19 +966,20 @@ export function resizeSplit(
   state: WorkspaceState,
   splitId: string,
   sizes: number[],
-  now?: string,
+  _now?: string,
 ): WorkspaceState {
-  const next = cloneState(state);
-  next.layout = updateLayoutNode(next.layout, splitId, (node) => {
+  // Resizing changes no workspace relationships, so the existing normalized
+  // documents, panels, and files can be shared through every pointer move.
+  const layout = updateLayoutNode(state.layout, splitId, (node) => {
     if (!node || node.type !== "split") {
       return node;
     }
-    return {
-      ...node,
-      sizes: normalizeSplitSizes(sizes, node.children.length),
-    };
+    const normalized = normalizeSplitSizes(sizes, node.children.length);
+    return normalized.every((size, index) => size === node.sizes[index])
+      ? node
+      : { ...node, sizes: normalized };
   });
-  return normalizeWorkspace(next, now);
+  return layout === state.layout ? state : { ...state, layout };
 }
 
 export function resetWorkspaceLayout(state: WorkspaceState, now?: string): WorkspaceState {
@@ -1846,10 +1847,10 @@ function updateLayoutNode(
     return node;
   }
 
-  return {
-    ...node,
-    children: node.children.map((child) => updateLayoutNode(child, nodeId, updater)),
-  };
+  const children = node.children.map((child) => updateLayoutNode(child, nodeId, updater));
+  return children.every((child, index) => child === node.children[index])
+    ? node
+    : { ...node, children };
 }
 
 function setStackActivePanel(layout: WorkspaceLayoutNode, stackId: string | null, panelId: string): WorkspaceLayoutNode {

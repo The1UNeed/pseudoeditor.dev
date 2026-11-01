@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
 import "@/lib/monacoLocalLoader";
 import type * as Monaco from "monaco-editor";
@@ -149,7 +149,7 @@ if (typeof window !== "undefined") {
   void ensureMonacoNullCaretHitTestGuard();
 }
 
-export function MonacoPseudocodeEditor({
+export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   value,
   onChange,
   diagnostics,
@@ -651,4 +651,4 @@ export function MonacoPseudocodeEditor({
       loading={<EditorLoader />}
     />
   );
-}
+});

@@ -14,6 +14,13 @@ import {
 } from "./types";
 import { DEFAULT_SYNTAX_ID, resolveSyntax, type SyntaxDefinition } from "./syntax";
 
+type OpenFiles = Record<string, "READ" | "WRITE" | "APPEND" | undefined>;
+
+// Branches inherit the current modes and shadow only handles they change.
+function forkOpenFiles(parent: OpenFiles): OpenFiles {
+  return Object.create(parent) as OpenFiles;
+}
+
 interface SymbolEntry {
   name: string;
   kind: "variable" | "constant" | "param" | "procedure" | "function";
@@ -130,7 +137,7 @@ class Analyzer {
     const globalScope = new Scope(null);
 
     this.predeclareRoutines(program.body, globalScope);
-    this.analyzeStatements(program.body, globalScope, null, {} as Record<string, "READ" | "WRITE" | "APPEND">);
+    this.analyzeStatements(program.body, globalScope, null, {});
 
     return {
       diagnostics: this.diagnostics,
@@ -191,7 +198,7 @@ class Analyzer {
     statements: StatementNode[],
     scope: Scope,
     currentFunctionReturnType: StaticType | null,
-    openFiles: Record<string, "READ" | "WRITE" | "APPEND">,
+    openFiles: OpenFiles,
   ): boolean {
     let sawReturn = false;
 
@@ -245,8 +252,8 @@ class Analyzer {
           if (!isBoolean(condType)) {
             this.pushError(statement.condition.span, "SEM004", "IF condition must evaluate to BOOLEAN.");
           }
-          this.analyzeStatements(statement.thenBody, new Scope(scope), currentFunctionReturnType, { ...openFiles });
-          this.analyzeStatements(statement.elseBody, new Scope(scope), currentFunctionReturnType, { ...openFiles });
+          this.analyzeStatements(statement.thenBody, new Scope(scope), currentFunctionReturnType, forkOpenFiles(openFiles));
+          this.analyzeStatements(statement.elseBody, new Scope(scope), currentFunctionReturnType, forkOpenFiles(openFiles));
           break;
         }
 
@@ -256,7 +263,7 @@ class Analyzer {
             if (clause.value) {
               this.inferExpressionType(clause.value, scope);
             }
-            this.analyzeStatements([clause.statement], new Scope(scope), currentFunctionReturnType, { ...openFiles });
+            this.analyzeStatements([clause.statement], new Scope(scope), currentFunctionReturnType, forkOpenFiles(openFiles));
           }
           break;
         }
@@ -284,12 +291,12 @@ class Analyzer {
             }
           }
 
-          this.analyzeStatements(statement.body, new Scope(scope), currentFunctionReturnType, { ...openFiles });
+          this.analyzeStatements(statement.body, new Scope(scope), currentFunctionReturnType, forkOpenFiles(openFiles));
           break;
         }
 
         case "repeat": {
-          this.analyzeStatements(statement.body, new Scope(scope), currentFunctionReturnType, { ...openFiles });
+          this.analyzeStatements(statement.body, new Scope(scope), currentFunctionReturnType, forkOpenFiles(openFiles));
           const condType = this.inferExpressionType(statement.condition, scope);
           if (!isBoolean(condType)) {
             this.pushError(statement.condition.span, "SEM008", "UNTIL condition must evaluate to BOOLEAN.");
@@ -302,7 +309,7 @@ class Analyzer {
           if (!isBoolean(condType)) {
             this.pushError(statement.condition.span, "SEM009", "WHILE condition must evaluate to BOOLEAN.");
           }
-          this.analyzeStatements(statement.body, new Scope(scope), currentFunctionReturnType, { ...openFiles });
+          this.analyzeStatements(statement.body, new Scope(scope), currentFunctionReturnType, forkOpenFiles(openFiles));
           break;
         }
 
@@ -392,7 +399,8 @@ class Analyzer {
         case "closefile": {
           const fileName = this.literalFileName(statement.fileIdentifier, scope);
           if (fileName) {
-            delete openFiles[fileName];
+            // A tombstone also hides a mode inherited by this branch.
+            openFiles[fileName] = undefined;
           }
           this.inferExpressionType(statement.fileIdentifier, scope);
           break;

@@ -1,0 +1,33 @@
+{
+  "node": "v22.23.4",
+  "platform": "darwin arm64",
+  "processors": 14,
+  "versions": {
+    "tsc": "5.9.3",
+    "tsrs": "0.20.1-ts7.1.0-beta"
+  },
+  "projects": [
+    "packages/compiler",
+    "packages/workspace",
+    "apps/web",
+    "convex"
+  ],
+  "incremental": false,
+  "samplesMs": {
+    "tsc": [
+      2896.4767500000003,
+      2857.1930839999995,
+      2825.253666999999
+    ],
+    "tsrs": [
+      154.19916599999988,
+      156.45779200000015,
+      152.17224999999962
+    ]
+  },
+  "medianMs": {
+    "tsc": 2857.1930839999995,
+    "tsrs": 154.19916599999988
+  },
+  "reductionPercent": 94.60312406384084
+}

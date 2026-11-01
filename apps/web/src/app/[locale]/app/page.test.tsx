@@ -4,11 +4,12 @@ import { createContext, useState } from "react";
 import { createDefaultWorkspace, createDocument, createEmptyWorkspace, createFolder, getChildNodes, setActiveDocument, type WorkspaceState } from "@pseudoeditor/workspace";
 import type { WorkspacePersistenceMode } from "@/lib/platform";
 
-const { loadWorkspaceMock, saveWorkspaceMock, compilePseudocodeMock, runMock, authState } = vi.hoisted(() => ({
+const { loadWorkspaceMock, saveWorkspaceMock, compilePseudocodeMock, runMock, editorRenderMock, authState } = vi.hoisted(() => ({
   loadWorkspaceMock: vi.fn<(_sampleSource: string, options?: { mode?: WorkspacePersistenceMode }) => Promise<WorkspaceState>>(),
   saveWorkspaceMock: vi.fn<(state: WorkspaceState, options?: { mode?: WorkspacePersistenceMode }) => Promise<void>>(),
   compilePseudocodeMock: vi.fn(),
   runMock: vi.fn(),
+  editorRenderMock: vi.fn(),
   authState: {
     user: null as null | {
       id: string;
@@ -135,21 +136,27 @@ vi.mock("@/runtime/executeRuntime", () => ({
   },
 }));
 
-vi.mock("@/app/components/MonacoPseudocodeEditor", () => ({
-  MonacoPseudocodeEditor: ({
-    value,
-    onChange,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-  }) => (
-    <textarea
-      aria-label="Mock editor"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
-  ),
-}));
+vi.mock("@/app/components/MonacoPseudocodeEditor", async () => {
+  const { memo } = await import("react");
+  return {
+    MonacoPseudocodeEditor: memo(function MockEditor({
+      value,
+      onChange,
+    }: {
+      value: string;
+      onChange: (value: string) => void;
+    }) {
+      editorRenderMock();
+      return (
+        <textarea
+          aria-label="Mock editor"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      );
+    }),
+  };
+});
 
 vi.mock("@/app/components/flowchart/FlowchartEditor", () => ({
   default: ({
@@ -288,6 +295,7 @@ describe("HomePage workspace flow", () => {
     saveWorkspaceMock.mockResolvedValue();
     compilePseudocodeMock.mockReset();
     runMock.mockReset();
+    editorRenderMock.mockClear();
     authState.user = {
       id: "user_123",
       email: "alex@example.com",
@@ -353,7 +361,7 @@ describe("HomePage workspace flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Manual" }));
 
     const manualDialog = await screen.findByRole("dialog", { name: "Pseudocode manual" });
-    expect(within(manualDialog).getByText("Detailed Pseudocode Guidelines")).toBeInTheDocument();
+    expect(await within(manualDialog).findByText("Detailed Pseudocode Guidelines")).toBeInTheDocument();
 
     fireEvent.click(within(manualDialog).getByRole("button", { name: "Close" }));
 
@@ -727,14 +735,21 @@ describe("HomePage workspace flow", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    expect(compilePseudocodeMock).toHaveBeenLastCalledWith({
+    await waitFor(() => expect(compilePseudocodeMock).toHaveBeenLastCalledWith({
       source: 'OUTPUT "Helper"',
       filename: "Helper.pseudo",
       strict: true,
       syntaxId: "cambridge-igcse",
-    });
+    }));
 
     expect(await screen.findByLabelText("Terminal input")).toBeInTheDocument();
+    editorRenderMock.mockClear();
+    for (let index = 0; index < 100; index += 1) {
+      fireEvent.change(screen.getByLabelText("Terminal input"), {
+        target: { value: `answer ${index}` },
+      });
+    }
+    expect(editorRenderMock.mock.calls.length).toBe(0);
 
     fireEvent.click(getExplorerButton("main.pseudo"));
     await waitFor(() => {

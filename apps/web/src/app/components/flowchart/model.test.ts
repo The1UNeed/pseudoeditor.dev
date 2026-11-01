@@ -91,6 +91,28 @@ describe("flowchart model helpers", () => {
     );
   });
 
+  it("keeps branch-order tie breaking when merge candidates share a position and distance", () => {
+    const nodes: Node[] = ["d", "t", "f", "c", "e", "a", "b"].map((id, index) => ({
+      id,
+      position: { x: 0, y: id === "a" || id === "b" ? 50 : index },
+      data: createFlowchartNodeData(["d", "t", "f"].includes(id) ? "decision" : "inputOutput", {
+        content: id.toUpperCase(), ioType: "output",
+      }),
+    }));
+    const edges: Edge[] = [
+      ["d", "t", "true"], ["d", "f", "false"],
+      ["t", "a", "true"], ["t", "c", "false"], ["c", "b"],
+      ["f", "b", "true"], ["f", "e", "false"], ["e", "a"],
+    ].map(([source, target, sourceHandle], index) => ({ id: String(index), source, target, sourceHandle }));
+    // A is reached first from the true branch; its shortest distance from the false
+    // branch ties B's from the true branch. Their canvas positions also tie.
+    expect(generatePseudocodeFromFlowchart(nodes, edges)).toBe([
+      "IF D THEN", "    IF T THEN", "    ELSE", "        OUTPUT C", "        OUTPUT B", "    ENDIF",
+      "ELSE", "    IF F THEN", "        OUTPUT B", "    ELSE", "        OUTPUT E", "    ENDIF",
+      "ENDIF", "OUTPUT A",
+    ].join("\n"));
+  });
+
   it("uses configured branch labels for decision connections", () => {
     const label = getDecisionEdgeLabel(
       { sourceHandle: "true" },

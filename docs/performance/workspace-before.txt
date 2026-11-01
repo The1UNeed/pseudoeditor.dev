@@ -1,0 +1,15 @@
+
+ RUN  v4.1.5 <repo>/packages/workspace
+
+stdout | src/performance.test.ts > workspace hot-path benchmark > measures editing, compile badges, and split resizing on a persistable workspace
+{"operation":"typing","medianMs":0.022490395499999975,"samplesMs":[0.02182318749999999,0.021915250000000015,0.022326208500000007,0.022449646,0.022490395499999975,0.022562166500000005,0.022635228999999982,0.022713750000000005,0.023129271000000003],"documents":240,"virtualFiles":80,"fileLines":2400,"workspaceBytes":293892}
+{"operation":"compileSummary","medianMs":0.022537604499999985,"samplesMs":[0.021662333000000047,0.02227237500000001,0.022482208500000014,0.022521749999999997,0.022537604499999985,0.022762396000000025,0.022819271000000016,0.02303495849999996,0.024385917000000007],"documents":240,"virtualFiles":80,"fileLines":2400,"workspaceBytes":293892}
+{"operation":"resize","medianMs":0.06048749999999996,"samplesMs":[0.05807785450000006,0.05949420799999996,0.05961397899999997,0.060400604000000045,0.06048749999999996,0.060773062499999926,0.061007083500000024,0.061496083,0.061791875],"documents":240,"virtualFiles":80,"fileLines":2400,"workspaceBytes":293892}
+
+ ✓ src/performance.test.ts > workspace hot-path benchmark > measures editing, compile badges, and split resizing on a persistable workspace 1988ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  19:11:21
+   Duration  2.10s (transform 42ms, setup 0ms, import 35ms, tests 1.99s, environment 0ms)
+

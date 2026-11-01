@@ -170,4 +170,30 @@ ENDIF`;
       "aqa-gcse",
     ]);
   });
+  it("isolates file modes changed or closed inside branches", () => {
+    const result = compilePseudocode({
+      source: `DECLARE Line : STRING
+OPENFILE "data.txt" FOR WRITE
+IF TRUE THEN
+    CLOSEFILE "data.txt"
+    READFILE "data.txt", Line
+    OPENFILE "data.txt" FOR READ
+    IF TRUE THEN
+        WRITEFILE "data.txt", "wrong mode"
+    ENDIF
+ELSE
+    READFILE "data.txt", Line
+ENDIF
+WRITEFILE "data.txt", "parent still writable"
+READFILE "data.txt", Line`,
+      filename: "files.pseudo",
+      strict: true,
+    });
+    expect(result.diagnostics.map(({ code, line }) => ({ code, line }))).toEqual([
+      { code: "SEM016", line: 8 },
+      { code: "SEM015", line: 11 },
+      { code: "SEM015", line: 14 },
+    ]);
+  });
+
 });

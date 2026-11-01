@@ -4,7 +4,7 @@ import {
   resolveSyntax,
   type SyntaxDefinition,
   type SyntaxId,
-} from "@pseudoeditor/compiler";
+} from "@pseudoeditor/compiler/syntax";
 
 export function languageIdForSyntax(syntaxId: SyntaxId | string): string {
   return `pseudo-${resolveSyntax(syntaxId).id}`;

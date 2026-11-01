@@ -48,12 +48,18 @@ pnpm install
 pnpm dev             # http://localhost:3000
 pnpm test            # vitest in every package + cargo tests for the runtime
 pnpm test:coverage   # vitest with a coverage report
-pnpm typecheck       # packages, web app and convex/
+pnpm typecheck       # strict TSRS checks: packages, web app and convex/
 pnpm lint            # eslint, zero warnings allowed
 pnpm build
 ```
 
 On localhost the editor saves to browser storage and no account is required.
+
+Type checking uses the pinned Rust-based TSRS compiler. Production builds run the
+same checker against generated Next.js route types; type errors still stop the
+build. `pnpm typecheck:tsc` keeps the TypeScript checker available for comparison.
+See [performance measurements](docs/performance.md) for before/after results and
+repeatable benchmarks.
 
 CI (`.github/workflows/ci.yml`) runs the same checks on every push and pull request, plus
 `cargo clippy -D warnings` and a rebuild of the WebAssembly runtime whose JS bindings must match the committed files.

@@ -1,0 +1,6 @@
+array sum (2000 elements): 87.061 -> 0.808 ms, 99.07% reduction (alternating A/B, median of 21 across 3 sessions)
+traced array sum (2000 elements): 87.915 -> 0.971 ms, 98.90% reduction (alternating A/B, median of 21 across 3 sessions)
+file scan (2000 lines): 68.532 -> 0.561 ms, 99.18% reduction (alternating A/B, median of 21 across 3 sessions)
+arithmetic sum (50000 iterations): 17.604 -> 1.653 ms, 90.61% reduction (alternating A/B, median of 21 across 3 sessions)
+traced arithmetic sum (50000 iterations): 17.848 -> 1.846 ms, 89.66% reduction (alternating A/B, median of 21 across 3 sessions)
+5000 function calls with 500 globals: 9.064 -> 2.799 ms, 69.12% reduction (alternating A/B, median of 21 across 3 sessions)

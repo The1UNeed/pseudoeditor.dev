@@ -51,7 +51,6 @@ import { Dialog } from "@/app/components/Dialog";
 import { EditorLoader } from "@/app/components/EditorLoader";
 import { PracticeQuestionBanner } from "@/app/components/PracticeQuestionBanner";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
-import ManualContent from "@/app/[locale]/(public)/manual/ManualContent";
 import { usePracticeQuestion } from "@/app/hooks/usePracticeQuestion";
 import { useWorkspaceSession } from "@/app/hooks/useWorkspaceSession";
 import {
@@ -123,6 +122,10 @@ function FlowchartLoadingFallback() {
   return <EditorLoader label={useDictionary().editor.loading.flowchart} />;
 }
 
+function ManualLoadingFallback() {
+  return <EditorLoader label={useDictionary().editor.manual.title} />;
+}
+
 const MonacoPseudocodeEditor = dynamic(
   () =>
     import("@/app/components/MonacoPseudocodeEditor").then(
@@ -132,6 +135,11 @@ const MonacoPseudocodeEditor = dynamic(
     ssr: false,
     loading: () => <EditorLoadingFallback />,
   },
+);
+
+const ManualContent = dynamic(
+  () => import("@/app/[locale]/(public)/manual/ManualContent"),
+  { loading: () => <ManualLoadingFallback /> },
 );
 
 const loadFlowchartEditor = () => import("@/app/components/flowchart/FlowchartEditor");
@@ -440,6 +448,14 @@ export default function HomePage() {
     return node?.type === "document" ? node : null;
   }, [workspace, editorPanel]);
   const currentDocument = editorActiveDoc ?? activeDocument;
+  const currentDocumentId = currentDocument?.id;
+  const editorDocumentId = editorActiveDoc?.id;
+  const handleCurrentSourceChange = useCallback((value: string) => {
+    if (currentDocumentId) handleDocumentSourceChange(currentDocumentId, value);
+  }, [currentDocumentId, handleDocumentSourceChange]);
+  const handleEditorSourceChange = useCallback((value: string) => {
+    if (editorDocumentId) handleDocumentSourceChange(editorDocumentId, value);
+  }, [editorDocumentId, handleDocumentSourceChange]);
   const { currentQuestion, openRandomQuestion } = usePracticeQuestion(
     workspace,
     currentDocument?.name,
@@ -1855,7 +1871,7 @@ export default function HomePage() {
                       <MonacoPseudocodeEditor
                         documentKey={currentDocument.id}
                         value={currentDocument.source}
-                        onChange={(value) => handleDocumentSourceChange(currentDocument.id, value)}
+                        onChange={handleCurrentSourceChange}
                         diagnostics={
                           activeDocument?.id === currentDocument.id ? compileDiagnostics : EMPTY_DIAGNOSTICS
                         }
@@ -1957,7 +1973,7 @@ export default function HomePage() {
                       <MonacoPseudocodeEditor
                         documentKey={currentDocument.id}
                         value={currentDocument.source}
-                        onChange={(value) => handleDocumentSourceChange(currentDocument.id, value)}
+                        onChange={handleCurrentSourceChange}
                         diagnostics={
                           activeDocument?.id === currentDocument.id ? compileDiagnostics : EMPTY_DIAGNOSTICS
                         }
@@ -2312,7 +2328,7 @@ export default function HomePage() {
                   <MonacoPseudocodeEditor
                     documentKey={editorActiveDoc.id}
                     value={editorActiveDoc.source}
-                    onChange={(value) => handleDocumentSourceChange(editorActiveDoc.id, value)}
+                    onChange={handleEditorSourceChange}
                     diagnostics={
                       activeDocument?.id === editorActiveDoc.id ? compileDiagnostics : EMPTY_DIAGNOSTICS
                     }

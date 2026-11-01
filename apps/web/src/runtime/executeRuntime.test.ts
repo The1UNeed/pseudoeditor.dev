@@ -85,4 +85,17 @@ describe("PseudocodeRuntimeRunner", () => {
     await expect(run).resolves.toMatchObject({ success: true, stdout: "ok" });
     expect(runner.getStatus()).toBe("ready");
   });
+
+  it("handles a worker crash without leaving a rejected timer-cleanup promise", async () => {
+    const runner = new PseudocodeRuntimeRunner();
+    const run = runner.run({ astJson: "{}", stdinLines: [], virtualFiles: {} });
+    MockWorker.instances[0].onerror?.({ message: "Worker crashed" } as ErrorEvent);
+
+    await expect(run).resolves.toMatchObject({
+      success: false,
+      stderr: "Worker crashed",
+      diagnostics: [{ code: "RUN500" }],
+    });
+    expect(runner.getStatus()).toBe("error");
+  });
 });
