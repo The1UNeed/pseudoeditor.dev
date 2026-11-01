@@ -8,9 +8,7 @@ export default defineSchema({
     firstName: v.union(v.string(), v.null()),
     lastName: v.union(v.string(), v.null()),
     updatedAt: v.number(),
-  })
-    .index("by_clerk_user", ["clerkUserId"])
-    .index("by_updated_at", ["updatedAt"]),
+  }).index("by_clerk_user", ["clerkUserId"]),
   workspaces: defineTable({
     clerkUserId: v.string(),
     workspaceJson: v.optional(v.string()),

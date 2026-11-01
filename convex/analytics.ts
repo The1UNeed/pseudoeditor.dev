@@ -10,6 +10,8 @@ const SERVER_DISTINCT_ID = "pseudoeditor-server";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_WINDOWS = { active_accounts_1d: 1, active_accounts_7d: 7, active_accounts_30d: 30 } as const;
 const ACCOUNTS_PAGE_SIZE = 1000;
+// Retries 30 s, 2 min, 8 min, and 32 min after a failed send.
+const CAPTURE_RETRIES = 4;
 
 type AccountStats = { accounts_total: number } & Record<keyof typeof ACTIVE_WINDOWS, number>;
 
@@ -62,9 +64,22 @@ export const captureAccountEvent = internalAction({
     event: v.union(v.literal("account_created"), v.literal("account_deleted")),
     uuid: v.string(),
     timestamp: v.number(),
+    attempt: v.optional(v.number()),
   },
-  handler: async (_ctx, { event, uuid, timestamp }) => {
-    await capture(event, {}, { uuid, timestamp });
+  handler: async (ctx, args) => {
+    try {
+      await capture(args.event, {}, { uuid: args.uuid, timestamp: args.timestamp });
+    } catch (error) {
+      // Clerk already got its 200, so retry here. The stable UUID keeps a retry from double counting.
+      const attempt = args.attempt ?? 0;
+      if (attempt >= CAPTURE_RETRIES) {
+        throw error;
+      }
+      await ctx.scheduler.runAfter(30_000 * 4 ** attempt, internal.analytics.captureAccountEvent, {
+        ...args,
+        attempt: attempt + 1,
+      });
+    }
     return null;
   },
 });
@@ -76,7 +91,8 @@ export const captureAccountEvent = internalAction({
 export const countAccountsPage = internalQuery({
   args: { now: v.number(), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { now, paginationOpts }) => {
-    const result = await ctx.db.query("users").withIndex("by_updated_at").order("desc").paginate(paginationOpts);
+    // Creation order never changes, so a save during the scan cannot move a row past the cursor.
+    const result = await ctx.db.query("users").paginate(paginationOpts);
     const counts: AccountStats = { accounts_total: 0, active_accounts_1d: 0, active_accounts_7d: 0, active_accounts_30d: 0 };
     for (const user of result.page) {
       counts.accounts_total += 1;
