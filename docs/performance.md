@@ -13,7 +13,7 @@ Time reduction means `1 - after / before`.
 | Operation and fixture | Before | After | Reduction |
 | --- | ---: | ---: | ---: |
 | Strict checking of all four TypeScript projects, no incremental cache | 2,573.38 ms | 167.61 ms | 93.49% |
-| Cold production build including strict checking and all 220 static pages | 11.74 s | 6.03 s | 48.64% |
+| Cold production build including strict checking, 220 to 222 static pages | 11.74 s | 6.50 s | 44.63% |
 | WASM array sum, 2,000 elements | 87.061 ms | 0.808 ms | 99.07% |
 | WASM traced array sum, same input | 87.915 ms | 0.971 ms | 98.90% |
 | WASM virtual-file scan, 2,000 lines | 68.532 ms | 0.561 ms | 99.18% |
@@ -30,9 +30,9 @@ Time reduction means `1 - after / before`.
 | Strict pseudocode compile, 147,803-byte arithmetic/branch program | 9.873 ms | 7.224 ms | 26.83% |
 | Strict pseudocode compile, 200 file handles and 1,000 branches | 12.615 ms | 2.471 ms | 80.41% |
 | File-mode semantic analysis alone, same program | 9.228 ms | 0.252 ms | 97.27% |
-| Initial page JavaScript, raw emitted bytes | 643,418 B | 558,718 B | 13.16% |
-| Initial page JavaScript, gzip bytes | 186,657 B | 160,601 B | 13.96% |
-| All emitted JavaScript, including deferred chunks | 14,583,561 B | 6,028,835 B | 58.66% |
+| Editor route entry JavaScript, raw bytes | 668,708 B | 584,826 B | 12.54% |
+| Editor route entry JavaScript, gzip bytes | 195,043 B | 169,291 B | 13.21% |
+| All emitted JavaScript, including deferred chunks | 14,583,561 B | 6,054,552 B | 58.48% |
 | Extra editor renders during 100 terminal input changes | 100 | 0 | 100% |
 
 These measurements establish over 90% less compute in specific bottlenecks.
@@ -40,8 +40,10 @@ The accepted target is 90% less compute in the major bottlenecks, with every
 end-to-end result reported separately. These measurements do **not** establish
 90% lower total build time, full compiler time, network loading latency, or every
 user interaction.
-Initial page bytes and total emitted bytes are distinct; neither is a loading-time
-measurement. A count of avoided renders is not an end-to-end latency measurement.
+Route entry bytes are the unique `entryJSFiles` in the editor's client-reference
+manifest. They exclude framework bootstrap files and deferred editor/worker
+assets. Route entry bytes and total emitted bytes are distinct; neither is a
+loading-time measurement. A count of avoided renders is not an end-to-end latency measurement.
 
 ## What changed
 
@@ -71,6 +73,7 @@ measurement. A count of avoided renders is not an end-to-end latency measurement
 pnpm install --frozen-lockfile
 pnpm benchmark:typecheck
 pnpm typecheck:tsc
+node scripts/measure-client-bundles.mjs /path/to/baseline/.next
 COMPILER_BENCHMARK=1 pnpm --filter @pseudoeditor/compiler exec vitest run src/performance.test.ts --reporter verbose
 WORKSPACE_BENCHMARK=1 pnpm --filter @pseudoeditor/workspace exec vitest run src/performance.test.ts --reporter verbose
 FLOWCHART_BENCHMARK=1 pnpm --filter @pseudoeditor/web exec vitest run src/app/components/flowchart/performance.test.ts --reporter verbose
@@ -90,7 +93,11 @@ alternating baseline/current pairs across three sessions after per-session warmu
 including the request/response JSON boundary and stdout correctness assertions.
 The original-WASM parity script checks 2,656 complete observable results. Build timing currently has
 one cold sample per version, with `.next` and TypeScript incremental caches absent,
-so it should be interpreted with less confidence than repeated medians.
+so it should be interpreted with less confidence than repeated medians. The final
+branch also incorporates upstream PRs #15 and #16 after the baseline, increasing
+the static page count from 220 to 222; the final build result includes that work.
+The earlier 6.03-second result was before those upstream changes. An additional
+build with concurrent checks was excluded from the timing comparison.
 
 For a historical source comparison, extract the relevant files from `2523ca1`
 into a temporary directory with `git show`; optional compiler/workspace benchmark
@@ -104,4 +111,7 @@ producing `55`, code-to-flowchart switching, replay through the final output, an
 backward seeking to the start. Unit/regression checks cover exact compiler output,
 immutable state, merge ordering, stale worker responses, compilation sharing, Monaco completion and Find, and interactive input output
 `Hello, Ada`. No browser console warnings or errors appeared during these checks.
-Final integration and review results are recorded with the PR.
+Final integration passes all 259 JavaScript/TypeScript tests and 18 Rust tests,
+ESLint, clippy, formatting, strict checks with both TSRS and tsc, and production
+builds on Node 26 and Node 22. Node 22 web coverage also passes. The deliberately
+skipped tests are opt-in timing benchmarks. Review results are recorded with the PR.
