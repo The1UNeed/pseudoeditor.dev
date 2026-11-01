@@ -18,8 +18,8 @@ import {
   FileCode,
   File,
   FileText,
+  FilePlus,
   FolderPlus,
-  Plus,
 } from "lucide-react";
 import {
   flattenVisibleNodes,
@@ -882,7 +882,7 @@ export function WorkspaceSidebar({
             title={t.files.createFile}
             onClick={() => onCreateDocument(createTargetParentId)}
           >
-            <Plus size={16} />
+            <FilePlus size={16} />
             <span className="text-[11px] font-medium">{t.files.file}</span>
           </button>
           <button
