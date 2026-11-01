@@ -50,6 +50,7 @@ import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import { Dialog } from "@/app/components/Dialog";
 import { EditorLoader } from "@/app/components/EditorLoader";
 import { PracticeQuestionBanner } from "@/app/components/PracticeQuestionBanner";
+import { SettingsSelect } from "@/app/components/SettingsSelect";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
 import { usePracticeQuestion } from "@/app/hooks/usePracticeQuestion";
 import { useWorkspaceSession } from "@/app/hooks/useWorkspaceSession";
@@ -920,18 +921,18 @@ export default function HomePage() {
       <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
         <label className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[var(--text)]">{t.settings.examSyntax}</span>
-          <select
+          <SettingsSelect
             value={currentSyntax.id}
             aria-label={t.settings.examSyntax}
             onChange={(event) => handleSyntaxChange(event.target.value as WorkspaceSyntaxId)}
-            className="h-9 max-w-[220px] rounded-lg border border-[var(--separator)] bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] outline-none focus:border-[var(--accent)] cursor-pointer"
+            className="w-[220px] max-w-[60%]"
           >
             {SYNTAX_OPTIONS.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
             ))}
-          </select>
+          </SettingsSelect>
         </label>
         <p className="mt-2 text-xs text-[var(--text3)]">
           {currentSyntax.board} {currentSyntax.syllabus}. {currentSyntax.description}
@@ -994,14 +995,14 @@ export default function HomePage() {
       <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[var(--text)]">{t.settings.autosaveInterval}</span>
-          <select
+          <SettingsSelect
             value={autoSaveIntervalMinutes}
             aria-label={t.settings.autosaveIntervalMinutes}
             onChange={(event) => handleAutoSaveIntervalChange(Number(event.target.value))}
-            className="h-9 rounded-lg border border-[var(--separator)] bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] outline-none focus:border-[var(--accent)] cursor-pointer"
+            className="w-[220px] max-w-[60%]"
           >
             {[1, 2, 3, 5, 10, 15, 30, 60].map((minutes) => <option key={minutes} value={minutes}>{t.settings.minute(minutes)}</option>)}
-          </select>
+          </SettingsSelect>
         </div>
         <p className="mt-2 text-xs text-[var(--text3)]">
           {t.settings.autosaveEvery(autoSaveIntervalMinutes)}
