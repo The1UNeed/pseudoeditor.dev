@@ -18,8 +18,27 @@ export {
 
 export const MAX_SOURCE_BYTES = 256 * 1024;
 
+/** UTF-8 encoded size of a string, so byte limits are not bypassed with non-ASCII text. */
+export function getUtf8ByteLength(value: string) {
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const codePoint = value.charCodeAt(index);
+    if (codePoint < 0x80) {
+      bytes += 1;
+    } else if (codePoint < 0x800) {
+      bytes += 2;
+    } else if (codePoint >= 0xd800 && codePoint <= 0xdbff && index + 1 < value.length) {
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
+
 export function compilePseudocode(request: CompileRequest): CompileResult {
-  if (request.source.length > MAX_SOURCE_BYTES) {
+  if (getUtf8ByteLength(request.source) > MAX_SOURCE_BYTES) {
     return {
       success: false,
       diagnostics: [

@@ -104,7 +104,8 @@ retention to one year or less to match the privacy policy.
 
 | Override | Why |
 | --- | --- |
-| `dompurify` `^3.4.14` | `monaco-editor` 0.55 pins `dompurify` 3.2.7, which has XSS advisories fixed in 3.4.14 (for example GHSA-55q2-fjhq-7xh7). Remove it once Monaco ships a patched version. |
+| `dompurify` `^3.4.17` | `monaco-editor` 0.55 pins `dompurify` 3.2.7, which has XSS advisories fixed in 3.4.14 and later (for example GHSA-55q2-fjhq-7xh7; 3.4.17 closes later bypasses). Remove it once Monaco ships a patched version. |
+| `source-map-js` `^1.2.2` | `next` 16.4.3 still resolves `postcss`'s `source-map-js` 1.2.1, which allows event-loop denial of service (GHSA-68fv-2mgg-jv7q), fixed in 1.2.2. Remove it once Next ships a `postcss` with the patched range. |
 
 Check with `pnpm audit` before adding or removing an override.
 

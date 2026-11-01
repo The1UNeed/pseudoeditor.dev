@@ -28,14 +28,15 @@
   "devDependencies": {
     "@types/node": "^20.19.43",
     "convex": "^1.45.0",
-    "next": "16.3.4",
+    "next": "16.4.3",
     "tsrs": "0.20.1-ts7.1.0-beta",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },
   "pnpm": {
     "overrides": {
-      "dompurify": "^3.4.14"
+      "dompurify": "^3.4.17",
+      "source-map-js": "^1.2.2"
     },
     "onlyBuiltDependencies": [
       "dtrace-provider",

@@ -866,6 +866,15 @@ class Parser {
   }
 
   private parseUnary(): ExpressionNode {
+    this.enterNesting();
+    try {
+      return this.parseUnaryInner();
+    } finally {
+      this.depth -= 1;
+    }
+  }
+
+  private parseUnaryInner(): ExpressionNode {
     if (this.matchType("MINUS")) {
       const operatorToken = this.previous();
       const operand = this.parseUnary();
