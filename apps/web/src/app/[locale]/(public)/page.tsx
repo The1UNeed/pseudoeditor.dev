@@ -109,8 +109,9 @@ export default async function LandingPage({ params }: LocaleParams) {
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#software`,
       name: productName,
-      alternateName: ["PseudoEditor editor", "Pseudocode editor", "Pseudocode compiler", "伪代码编辑器"],
+      sameAs: githubUrl,
       applicationCategory: "EducationalApplication",
       applicationSubCategory: "Pseudocode editor and compiler",
       operatingSystem: "Web",
@@ -136,6 +137,7 @@ export default async function LandingPage({ params }: LocaleParams) {
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
       name: productName,
       url: siteUrl,
       inLanguage: Object.values(localeTags),
@@ -182,6 +184,9 @@ export default async function LandingPage({ params }: LocaleParams) {
             </Link>
           </div>
           <p className="mt-6 text-sm text-[var(--ink-3)]">{t.noAccount}</p>
+          <Link href={href("/docs/pseudocode-compiler")} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--accent)]">
+            {t.compilerGuide} <ArrowRight size={14} />
+          </Link>
         </div>
         <HeroWindow workspace={t.windowWorkspace} compiled={t.windowCompiled} terminal={t.windowTerminal} />
       </section>

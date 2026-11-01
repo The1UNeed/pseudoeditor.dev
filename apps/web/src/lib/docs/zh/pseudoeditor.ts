@@ -2,6 +2,57 @@ import type { Doc } from "../types";
 
 export const pseudoeditorZh: Doc[] = [
   {
+    slug: "pseudocode-compiler",
+    unit: "pseudoeditor",
+    title: "如何在线编译和运行伪代码",
+    description: "使用 PseudoEditor 的免费在线伪代码编译器与运行器。选择考试语法，运行循环，检查输出并修复编译错误。",
+    updated: "2026-11-01",
+    sections: [
+      {
+        heading: "伪代码编译器接受什么？",
+        body: [
+          "伪代码编译器有时简称 pseudocompiler，它会检查使用特定伪代码记法编写的程序。伪代码没有统一的可执行语法，因此用自然语言描述的算法可能需要改写后才能运行。",
+          "PseudoEditor 支持剑桥 IGCSE、剑桥 AS 和 A Level、IB 文凭课程、OCR GCSE 和 AQA GCSE 记法。运行程序前，请在设置中选择考试语法。编译器、语法高亮和自动补全会跟随你的选择。",
+        ],
+      },
+      {
+        heading: "编译器、运行器与 pseudo emulator",
+        body: [
+          "编译器会对代码分词、解析结构，并检查未声明变量和类型不兼容等错误。检查通过后，会生成抽象语法树，即 AST。",
+          "运行器使用编译为 WebAssembly 的 Rust 运行时，在浏览器中执行 AST，处理赋值、条件、循环、输入和输出。运行器有时也被称为伪代码解释器或 pseudo emulator。它执行支持的伪代码指令，并不模拟计算机硬件。",
+        ],
+      },
+      {
+        heading: "运行程序并检查结果",
+        body: [
+          "打开编辑器，创建名为 `total.pseudo` 的文件，并在设置中选择剑桥 IGCSE。粘贴下面的程序并点击运行。终端应输出 `Total = 15`。",
+          "循环将 1、2、3、4、5 相加。把上限从 5 改为 3 后再次运行，预期输出为 `Total = 6`。把 Total 初始化为零，可以明确它的起始值。",
+        ],
+        example: `DECLARE Number : INTEGER
+DECLARE Total : INTEGER
+Total <- 0
+FOR Number <- 1 TO 5
+    Total <- Total + Number
+NEXT Number
+OUTPUT "Total = ", Total`,
+      },
+      {
+        heading: "无需安装 Visual Studio Code，直接使用浏览器",
+        body: [
+          "PseudoEditor 是独立的伪代码编辑器，自带编译器与运行器。你可以在现代浏览器中使用，无需安装 Visual Studio Code 或扩展。无需账号即可编写和运行代码；需要云端保存工作区时再登录。",
+          "程序执行到 INPUT 时，在终端输入一个值并提交即可继续。在手机上，请打开输出标签页查看终端。在台式机或笔记本上，流程图模式可以逐块回放已记录的运行过程。",
+        ],
+      },
+      {
+        heading: "修复错误后，继续测试算法",
+        body: [
+          "编译失败时，先阅读第一条诊断并检查对应的行和列。常见原因包括变量拼写错误、缺少代码块结束关键字，或使用了其他考试局的语法。修复后重新运行，再处理后续诊断。",
+          "编译成功只说明通过了语法和类型检查，并不证明算法解决了题目。请将输出与手算结果对照，测试边界输入，并跟踪分支和循环。语法参考与调试指南介绍了支持的语句和常见错误。",
+        ],
+      },
+    ],
+  },
+  {
     slug: "getting-started",
     unit: "pseudoeditor",
     title: "工作室编辑器入门",

@@ -2,6 +2,57 @@ import type { Doc } from "../types";
 
 export const pseudoeditorEn: Doc[] = [
   {
+    slug: "pseudocode-compiler",
+    unit: "pseudoeditor",
+    title: "How to compile and run pseudocode online",
+    description: "Use PseudoEditor's free online pseudocode compiler and runner. Choose an exam syntax, run a loop, check its output, and fix compiler errors.",
+    updated: "2026-11-01",
+    sections: [
+      {
+        heading: "What does a pseudocode compiler accept?",
+        body: [
+          "A pseudocode compiler, sometimes shortened to pseudocompiler, checks programs written in a defined pseudocode notation. Pseudocode has no universal executable syntax, so an informal algorithm written in English may need to be rewritten before it can run.",
+          "PseudoEditor supports Cambridge IGCSE, Cambridge AS and A Level, IB Diploma Programme, OCR GCSE, and AQA GCSE notation. Open Settings and choose your exam syntax before running a program. The compiler, syntax highlighting, and autocomplete follow that choice.",
+        ],
+      },
+      {
+        heading: "Compiler, runner, and pseudo emulator",
+        body: [
+          "The compiler tokenizes your code, parses its structure, and checks for errors such as undeclared variables and incompatible types. If the checks pass, it produces an abstract syntax tree, or AST.",
+          "The runner executes that AST using a Rust runtime compiled to WebAssembly in your browser. It handles assignments, conditions, loops, input, and output. A runner is sometimes called a pseudocode interpreter or pseudo emulator. It executes the supported pseudocode instructions rather than emulating computer hardware.",
+        ],
+      },
+      {
+        heading: "Run a program and check the result",
+        body: [
+          "Open the editor, create a file called `total.pseudo`, and select Cambridge IGCSE in Settings. Paste this program and choose Run. The terminal should print `Total = 15`.",
+          "The loop adds 1, 2, 3, 4, and 5. Change the upper bound from 5 to 3 and run again: the expected output is `Total = 6`. Initializing Total to zero makes the starting value explicit.",
+        ],
+        example: `DECLARE Number : INTEGER
+DECLARE Total : INTEGER
+Total <- 0
+FOR Number <- 1 TO 5
+    Total <- Total + Number
+NEXT Number
+OUTPUT "Total = ", Total`,
+      },
+      {
+        heading: "Use a browser without installing Visual Studio Code",
+        body: [
+          "PseudoEditor is a standalone pseudocode editor with a built-in compiler and runner. You can use it in a modern browser without installing Visual Studio Code or an extension. Write and run code without an account; sign in if you want cloud workspace saving.",
+          "When a program reaches INPUT, enter a value in the terminal and submit it to continue. On a phone, open the Output tab to see the terminal. On a desktop or laptop, flowchart mode lets you follow the recorded run block by block.",
+        ],
+      },
+      {
+        heading: "Fix errors, then test your algorithm",
+        body: [
+          "If compilation fails, read the first diagnostic and check its line and column. Common causes are a misspelled variable, a missing block ending, or syntax from a different exam board. Fix that error and run again before working through later diagnostics.",
+          "A successful compilation checks syntax and types; it does not prove that the algorithm solves the problem. Compare output with results you worked out by hand, test boundary inputs, and trace branches and loops. The syntax reference and debugging guides explain the supported statements and common errors.",
+        ],
+      },
+    ],
+  },
+  {
     slug: "getting-started",
     unit: "pseudoeditor",
     title: "Getting started with the studio editor",
