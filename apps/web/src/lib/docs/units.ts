@@ -14,6 +14,7 @@ const unitShape: Array<Pick<Unit, "id" | "number" | "paper">> = [
   { id: "databases", number: 9, paper: 2 },
   { id: "boolean-logic", number: 10, paper: 2 },
   { id: "pseudoeditor", number: null, paper: null },
+  { id: "pseudocode-reference", number: null, paper: null },
 ];
 
 const unitText: Record<Locale, Record<UnitId, { title: string; summary: string }>> = {
@@ -62,6 +63,10 @@ const unitText: Record<Locale, Record<UnitId, { title: string; summary: string }
       title: "Using PseudoEditor",
       summary: "Write, run, debug, and save your programs in the browser editor.",
     },
+    "pseudocode-reference": {
+      title: "Pseudocode reference",
+      summary: "Syntax, loops, worked programs, trace tables, and files, following the Cambridge 0478 conventions.",
+    },
   },
   zh: {
     "data-representation": {
@@ -108,10 +113,21 @@ const unitText: Record<Locale, Record<UnitId, { title: string; summary: string }
       title: "使用 PseudoEditor",
       summary: "在浏览器编辑器中编写、运行、调试和保存程序。",
     },
+    "pseudocode-reference": {
+      title: "伪代码参考",
+      summary: "语法、循环、完整示例程序、跟踪表和文件处理，遵循 Cambridge 0478 规范。",
+    },
   },
 };
 
 export const unitIds = unitShape.map((unit) => unit.id);
+
+/** Units published under /docs instead of /lessons, in display order. */
+export const guideUnitIds: readonly UnitId[] = ["pseudoeditor", "pseudocode-reference"];
+
+export function isGuideUnit(id: UnitId): boolean {
+  return guideUnitIds.includes(id);
+}
 
 export function getUnits(locale: Locale): Unit[] {
   return unitShape.map((unit) => ({ ...unit, ...unitText[locale][unit.id] }));

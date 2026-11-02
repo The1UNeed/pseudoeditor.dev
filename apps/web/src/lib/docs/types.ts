@@ -12,7 +12,8 @@ export type UnitId =
   | "programming"
   | "databases"
   | "boolean-logic"
-  | "pseudoeditor";
+  | "pseudoeditor"
+  | "pseudocode-reference";
 
 export type GateName = "NOT" | "AND" | "OR" | "NAND" | "NOR" | "XOR";
 
@@ -129,7 +130,7 @@ export type Doc = {
 
 export type Unit = {
   id: UnitId;
-  /** Syllabus topic number, or null for the PseudoEditor guides. */
+  /** Syllabus topic number, or null for the guide units under /docs. */
   number: number | null;
   paper: 1 | 2 | null;
   title: string;

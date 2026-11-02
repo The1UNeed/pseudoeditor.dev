@@ -113,43 +113,6 @@ OUTPUT "Hello ", Name`,
     ],
   },
   {
-    slug: "syntax",
-    unit: "pseudoeditor",
-    title: "Pseudocode syntax reference",
-    description:
-      "Reference the core pseudocode syntax supported by the browser compiler, including assignment, conditions, loops, arrays, and output.",
-    updated: "2026-10-31",
-    sections: [
-      {
-        heading: "Core statements",
-        body: [
-          "Use `DECLARE` for variables, `<-` for assignment, `INPUT` for user input, and `OUTPUT` for displayed values.",
-          "Pick Cambridge IGCSE, Cambridge A Level, IB, OCR, or AQA in Settings so the compiler follows that board's notation.",
-        ],
-        example: `DECLARE Total : INTEGER
-Total <- 0
-OUTPUT Total`,
-      },
-      {
-        heading: "Cheat sheet",
-        body: ["Every block has a matching closing keyword. Matching block endings makes programs easier to trace and debug."],
-        visual: {
-          kind: "table",
-          columns: ["Structure", "Opens with", "Closes with"],
-          rows: [
-            ["Selection", "`IF ... THEN`", "`ENDIF`"],
-            ["Multi-way selection", "`CASE OF ...`", "`ENDCASE`"],
-            ["Count-controlled loop", "`FOR ... TO ...`", "`NEXT ...`"],
-            ["Pre-condition loop", "`WHILE ... DO`", "`ENDWHILE`"],
-            ["Post-condition loop", "`REPEAT`", "`UNTIL ...`"],
-            ["Procedure", "`PROCEDURE ...`", "`ENDPROCEDURE`"],
-            ["Function", "`FUNCTION ... RETURNS ...`", "`ENDFUNCTION`"],
-          ],
-        },
-      },
-    ],
-  },
-  {
     slug: "debugging-errors",
     unit: "pseudoeditor",
     title: "Debugging compiler errors",

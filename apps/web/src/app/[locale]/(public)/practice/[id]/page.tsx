@@ -15,7 +15,7 @@ import {
 } from "@/lib/practice-questions";
 import { practiceLessonSlugs } from "@/lib/lesson-practice";
 import { authorName } from "@/lib/seo-content";
-import CopyableCodeBlock from "../../manual/CopyableCodeBlock";
+import CopyableCodeBlock from "@/app/components/docs/CopyableCodeBlock";
 import { RandomPracticeControls } from "../RandomPracticeButton";
 
 type PageProps = {

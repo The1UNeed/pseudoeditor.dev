@@ -8,6 +8,7 @@ import { emergingTechZh } from "./emerging-tech";
 import { hardwareZh } from "./hardware";
 import { internetZh } from "./internet";
 import { programmingZh } from "./programming";
+import { pseudocodeReferenceZh } from "./pseudocode-reference";
 import { pseudoeditorZh } from "./pseudoeditor";
 import { softwareZh } from "./software";
 
@@ -23,4 +24,5 @@ export const docsZh: Doc[] = [
   ...databasesZh,
   ...booleanLogicZh,
   ...pseudoeditorZh,
+  ...pseudocodeReferenceZh,
 ];

@@ -1,4 +1,4 @@
-import { Binary, Bot, Cable, CircuitBoard, Code, Cpu, Database, Globe, Layers, SquareTerminal, Workflow, type LucideIcon } from "lucide-react";
+import { Binary, BookOpen, Bot, Cable, CircuitBoard, Code, Cpu, Database, Globe, Layers, SquareTerminal, Workflow, type LucideIcon } from "lucide-react";
 import type { UnitId } from "@/lib/docs/types";
 
 export const unitIcons: Record<UnitId, LucideIcon> = {
@@ -13,4 +13,5 @@ export const unitIcons: Record<UnitId, LucideIcon> = {
   databases: Database,
   "boolean-logic": CircuitBoard,
   pseudoeditor: SquareTerminal,
+  "pseudocode-reference": BookOpen,
 };

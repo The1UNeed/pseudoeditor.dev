@@ -3,7 +3,7 @@
 export const editorEn = {
   common: { cancel: "Cancel", close: "Close", delete: "Delete", dismiss: "Dismiss" },
   toolbar: {
-    editor: "Editor", run: "Run", running: "Running", manual: "Manual", openManual: "Open Manual",
+    editor: "Editor", run: "Run", running: "Running", docs: "Docs", openDocs: "Open docs",
     practice: "Practice", openPractice: "Practice a random question",
     settings: "Settings", openSettings: "Open settings", hideSidebar: "Hide sidebar", showSidebar: "Show sidebar",
     openFiles: "Open files", backToEditor: "Back to editor", switchToCode: "Switch to code view",
@@ -20,7 +20,7 @@ export const editorEn = {
     activeAppearance: "Active appearance:", saving: "SAVING", autosave: "Autosave", autosaveInterval: "Autosave interval",
     autosaveIntervalMinutes: "Autosave interval minutes", minute: (count: number) => `${count} minute${count !== 1 ? "s" : ""}`,
     autosaveEvery: (count: number) => `Automatically save your workspace every ${count} minute${count !== 1 ? "s" : ""}.`,
-    general: "General", heading: "SETTINGS", touchDescription: "Open the manual, review the language guide, and keep the workspace controls one tap away.",
+    general: "General", heading: "SETTINGS", touchDescription: "Open the docs, review the language guide, and keep the workspace controls one tap away.",
   },
   files: {
     explorer: "Explorer", file: "File", folder: "Folder", createFile: "Create File", createFolder: "Create Folder",
@@ -82,7 +82,7 @@ export const editorEn = {
     leaveWarning: "Save or export your work before leaving or refreshing this page.",
   },
   empty: { welcome: "Welcome to PseudoEditor", description: "This workspace starts empty on purpose. Add a pseudocode file from the explorer, then write, compile, and run from there." },
-  manual: { title: "Pseudocode manual" },
+  docs: { title: "Docs" },
   breadcrumbs: { documentPath: "Document path" },
   legal: { userAgreement: "User agreement", privacy: "Privacy", security: "Security", github: "GitHub", notice: (year: number) => `© ${year} Alex Xin LIU. Licensed under the Apache License 2.0.` },
   touchTabs: { editor: "EDITOR", files: "FILES", output: "OUTPUT", settings: "SETTINGS" },

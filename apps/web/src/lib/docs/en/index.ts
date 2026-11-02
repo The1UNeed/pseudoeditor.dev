@@ -8,6 +8,7 @@ import { emergingTechEn } from "./emerging-tech";
 import { hardwareEn } from "./hardware";
 import { internetEn } from "./internet";
 import { programmingEn } from "./programming";
+import { pseudocodeReferenceEn } from "./pseudocode-reference";
 import { pseudoeditorEn } from "./pseudoeditor";
 import { softwareEn } from "./software";
 
@@ -23,4 +24,5 @@ export const docsEn: Doc[] = [
   ...databasesEn,
   ...booleanLogicEn,
   ...pseudoeditorEn,
+  ...pseudocodeReferenceEn,
 ];

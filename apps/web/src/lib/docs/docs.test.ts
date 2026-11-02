@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compilePseudocode } from "@pseudoeditor/compiler";
 import { locales } from "@/i18n/config";
-import { docPath, getDocNeighbors, getDocs, getGuides, getLessons, getUnitDocs, getUnits } from "./index";
+import { docPath, getDocNeighbors, getDocs, getGuides, getLessons, getUnitDocs, getUnits, guideUnitIds, isGuide } from "./index";
 import { getLessonPracticeTopics, practiceLessonSlugs } from "../lesson-practice";
 import { getPracticeQuestions, practiceTopics } from "../practice-questions";
 
@@ -33,8 +33,10 @@ describe("docs course", () => {
       const guides = getGuides(locale);
       expect(lessons.length + guides.length).toBe(getDocs(locale).length);
       expect(new Set(lessons.map((doc) => doc.unit)).size).toBe(10);
-      expect(lessons.every((doc) => doc.unit !== "pseudoeditor")).toBe(true);
-      expect(guides.every((doc) => doc.unit === "pseudoeditor")).toBe(true);
+      expect(lessons.some(isGuide)).toBe(false);
+      expect(guides.every(isGuide)).toBe(true);
+      expect(guides.map((doc) => doc.slug)).toEqual(getDocs(locale).filter(isGuide).map((doc) => doc.slug));
+      expect([...new Set(guides.map((doc) => doc.unit))]).toEqual(guideUnitIds);
       expect(lessons.every((doc) => docPath(doc).startsWith("/lessons/"))).toBe(true);
       expect(guides.every((doc) => docPath(doc).startsWith("/docs/"))).toBe(true);
       for (const list of [lessons, guides]) {

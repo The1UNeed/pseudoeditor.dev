@@ -6,7 +6,7 @@ import { getDictionary } from "@/i18n/messages";
 import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
 import { productName } from "@/lib/seo-content";
 
-export type PublicNavKey = "docs" | "lessons" | "practice" | "blog" | "manual" | "legal";
+export type PublicNavKey = "docs" | "lessons" | "practice" | "blog" | "legal";
 
 type PublicHeaderProps = {
   locale: Locale;
@@ -20,7 +20,6 @@ export function PublicHeader({ locale, active }: PublicHeaderProps) {
     { href: "/docs", label: t.docs, key: "docs" },
     { href: "/lessons", label: t.lessons, key: "lessons" },
     { href: "/practice", label: t.practice, key: "practice" },
-    { href: "/manual", label: t.manual, key: "manual" },
     { href: "/blog", label: t.blog, key: "blog" },
   ] as const;
 

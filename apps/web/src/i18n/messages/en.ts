@@ -48,23 +48,18 @@ export const en = {
     editorTitle: "Online pseudocode compiler and runner",
     editorDescription:
       "Open the PseudoEditor editor to write, compile, run, and debug pseudocode with multi-file workspaces.",
-    docsTitle: "Studio editor documentation",
-    docsDescription: "Learn how to use the PseudoEditor studio: create files, run pseudocode, fix errors, use flowcharts, and save your workspace.",
+    docsTitle: "PseudoEditor docs and pseudocode reference",
+    docsDescription:
+      "Learn the PseudoEditor studio and look up pseudocode: syntax, loops, worked programs, trace tables, and file handling for IGCSE and A Level Computer Science.",
     lessonsTitle: "Computer science lessons for Cambridge, AP, and IB",
     lessonsDescription:
       "Learn IGCSE 0478, O Level 2210, AS & A Level 9618, AP CSP, AP Cybersecurity, AP CSA, and IB HL or SL through course lessons, worked examples, diagrams, and self-checks.",
     blogTitle: "Blog",
     blogDescription:
       "Notes from PseudoEditor on pseudocode tracing, loops, compiler errors, and browser-based exam practice.",
-    manualTitle: "Pseudocode manual",
-    manualDescription:
-      "The PseudoEditor pseudocode manual: syntax rules, control flow, arrays, trace tables, and exam-style practice for IGCSE and A Level Computer Science.",
     practiceTitle: "Random IGCSE and A Level pseudocode practice questions",
     practiceDescription:
       "Practise Cambridge-style pseudocode with random exam questions. Filter by topic, open a starter file in the browser editor, compile it, and run it.",
-    appManualTitle: "Workspace manual",
-    appManualDescription:
-      "Use the PseudoEditor manual inside the editor for pseudocode syntax, control flow, tracing, and examples.",
     privacyTitle: "Privacy policy",
     privacyDescription: "What PseudoEditor collects, why, where it is stored, and how to delete it.",
     termsTitle: "User agreement",
@@ -82,7 +77,6 @@ export const en = {
     docs: "Docs",
     lessons: "Lesson",
     practice: "Practice",
-    manual: "Manual",
     blog: "Blog",
     github: "GitHub",
     openEditor: "Open editor",
@@ -221,18 +215,16 @@ export const en = {
     practiceBody: "Use what you learned in a question, then run your answer in the studio editor.",
   },
   docs: {
-    eyebrow: "Studio documentation",
-    title: "Learn to use the studio editor.",
-    lede: "Create a file, write and run pseudocode, read compiler errors, and follow your program in flowchart mode. These guides explain how to use PseudoEditor.",
+    eyebrow: "Documentation",
+    title: "Learn the studio and the pseudocode it runs.",
+    lede: "Studio guides show you how to create files, run programs, read compiler errors, and follow a run in flowchart mode. The pseudocode reference covers syntax, loops, worked programs, trace tables, and files.",
     back: "Docs",
     updated: "updated",
     tryIt: "Open the studio editor",
-    openManual: "Open manual",
     breadcrumbHome: "Home",
     startHere: "Your first program",
     startHereBody: "New to the studio? Create a file and run a short program with input and output.",
     startHereCta: "Get started",
-    guidesTitle: "Studio guides",
     lessonsTitle: "Learn computer science",
     lessonsBody: "Explore computer science lessons with interactive diagrams, syllabus references, and questions to check your understanding.",
     lessonsCta: "Open Lesson",
@@ -242,6 +234,16 @@ export const en = {
     showAnswer: "Show answer",
     previous: "Previous",
     next: "Next",
+    openInNewTab: "Open in a new tab",
+    contents: "Contents",
+    code: {
+      label: "Pseudocode",
+      copy: "Copy",
+      copied: "Copied",
+      copyAria: "Copy code to clipboard",
+      copiedAria: "Code copied to clipboard",
+      unavailable: "Clipboard access is unavailable here.",
+    },
     visual: {
       interactive: "Interactive",
       back: "Back",
@@ -326,52 +328,6 @@ export const en = {
     tryIt: "Try it in the editor",
     moreDocs: "Browse the docs",
   },
-  manual: {
-    eyebrow: "manual",
-    title: "The working reference.",
-    lede: "Syntax, control flow, and tracing habits in one place. Keep it open beside the editor while you build.",
-    openEditor: "Open editor",
-    browseDocs: "Browse docs",
-    sections: [
-      {
-        title: "Core syntax",
-        body: "Use DECLARE, assignment, INPUT, OUTPUT, comments, constants, and typed values in a consistent exam-style format.",
-        bullets: ["Assignment uses <-", "Variables use explicit types", "Comments start with //"],
-      },
-      {
-        title: "Selection and loops",
-        body: "Pick IF, CASE, FOR, WHILE, or REPEAT UNTIL based on when the condition is known and when it should be tested.",
-        bullets: ["FOR for known counts", "WHILE can run zero times", "REPEAT UNTIL runs first"],
-      },
-      {
-        title: "Arrays and records",
-        body: "Represent list-style data with indexed arrays, then process values through counted loops and clear bounds.",
-        bullets: ["Indexes are explicit", "Bounds are part of declaration", "Nested loops cover tables"],
-      },
-      {
-        title: "Tracing and debugging",
-        body: "Use trace tables, line-by-line state changes, and compiler diagnostics to catch logic and syntax errors earlier.",
-        bullets: ["Track changed variables", "Check block endings", "Test edge cases"],
-      },
-    ],
-    examplesEyebrow: "examples",
-    examplesTitle: "Small patterns you can run.",
-    examples: [
-      { title: "Counted total" },
-      { title: "Input validation" },
-    ],
-    checklistEyebrow: "before you submit",
-    checklistTitle: "A compact checking routine.",
-    checklistLede:
-      "Treat the manual as a working checklist, not a long rules page. Write the algorithm, run it, then trace the parts that change state.",
-    checklist: [
-      "Declare every variable and array before use.",
-      "Initialize totals, counters, and flags before loops.",
-      "Use the loop type that matches the question.",
-      "Close every IF, CASE, and loop block clearly.",
-      "Trace the program with at least one normal input and one edge case.",
-    ],
-  },
   practice: {
     eyebrow: "practice",
     title: "Practise your pseudocode skills.",
@@ -437,7 +393,7 @@ export const en = {
   },
   notFound: {
     title: "This page does not exist.",
-    body: "The link may be out of date. The editor, docs, and manual are one click away.",
+    body: "The link may be out of date. The editor and the docs are one click away.",
     home: "Go home",
     editor: "Open editor",
   },

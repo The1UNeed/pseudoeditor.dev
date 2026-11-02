@@ -1,7 +1,7 @@
 import { Info, Lightbulb, TriangleAlert } from "lucide-react";
 import type { Dictionary } from "@/i18n/messages";
 import type { DocSection, DocVisual } from "@/lib/docs/types";
-import CopyableCodeBlock from "@/app/[locale]/(public)/manual/CopyableCodeBlock";
+import CopyableCodeBlock from "./CopyableCodeBlock";
 import { SearchStepper, SortStepper } from "./AlgorithmSteppers";
 import { BinaryExplorer } from "./BinaryExplorer";
 import { CpuCycle } from "./CpuCycle";

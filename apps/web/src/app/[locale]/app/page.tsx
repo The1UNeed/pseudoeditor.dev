@@ -123,8 +123,8 @@ function FlowchartLoadingFallback() {
   return <EditorLoader label={useDictionary().editor.loading.flowchart} />;
 }
 
-function ManualLoadingFallback() {
-  return <EditorLoader label={useDictionary().editor.manual.title} />;
+function DocsLoadingFallback() {
+  return <EditorLoader label={useDictionary().editor.docs.title} />;
 }
 
 const MonacoPseudocodeEditor = dynamic(
@@ -138,9 +138,9 @@ const MonacoPseudocodeEditor = dynamic(
   },
 );
 
-const ManualContent = dynamic(
-  () => import("@/app/[locale]/(public)/manual/ManualContent"),
-  { loading: () => <ManualLoadingFallback /> },
+const DocsPanel = dynamic(
+  () => import("@/app/components/docs/DocsPanel"),
+  { loading: () => <DocsLoadingFallback /> },
 );
 
 const loadFlowchartEditor = () => import("@/app/components/flowchart/FlowchartEditor");
@@ -360,7 +360,9 @@ export default function HomePage() {
   const [touchSidebarVisible, setTouchSidebarVisible] = useState(true);
   const [touchOutputVisible, setTouchOutputVisible] = useState(true);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [showManualPanel, setShowManualPanel] = useState(false);
+  const [showDocsPanel, setShowDocsPanel] = useState(false);
+  // Kept outside the panel so reopening it returns to the last guide.
+  const [docsSlug, setDocsSlug] = useState("syntax");
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [showFlowchart, setShowFlowchart] = useState(false);
   // The flowchart editor loads React Flow, so it mounts the first time it opens and then stays mounted.
@@ -1151,8 +1153,8 @@ export default function HomePage() {
     );
   };
 
-  const openManualPage = () => {
-    setShowManualPanel(true);
+  const openDocsPanel = () => {
+    setShowDocsPanel(true);
   };
 
   const closeFlowchartPrompt = () => {
@@ -1160,17 +1162,19 @@ export default function HomePage() {
     setFlowchartFileName("");
   };
 
-  const renderManualDialog = () =>
-    showManualPanel ? (
+  const renderDocsDialog = () =>
+    showDocsPanel ? (
       <Dialog
-        labelledBy="workspace-manual-title"
-        onClose={() => setShowManualPanel(false)}
-        className="h-full max-h-none w-full max-w-6xl overflow-auto border-0 bg-[var(--bg)] p-0 shadow-[var(--shadow-modal)] md:h-[calc(100%-2.5rem)] md:w-[calc(100%-2.5rem)] md:rounded-[24px] md:border md:border-[var(--separator)]"
+        labelledBy="workspace-docs-title"
+        onClose={() => setShowDocsPanel(false)}
+        className="h-full max-h-none w-full max-w-6xl overflow-hidden border-0 bg-[var(--bg)] p-0 shadow-[var(--shadow-modal)] md:h-[calc(100%-2.5rem)] md:w-[calc(100%-2.5rem)] md:rounded-[24px] md:border md:border-[var(--separator)]"
       >
-        <h2 id="workspace-manual-title" className="sr-only">
-          {t.manual.title}
-        </h2>
-        <ManualContent isModal locale={locale} onClose={() => setShowManualPanel(false)} />
+        <DocsPanel
+          titleId="workspace-docs-title"
+          slug={docsSlug}
+          onSlugChange={setDocsSlug}
+          onClose={() => setShowDocsPanel(false)}
+        />
       </Dialog>
     ) : null;
 
@@ -1945,8 +1949,8 @@ export default function HomePage() {
                 <button
                   type="button"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--accent)] transition hover:bg-[var(--hover)]"
-            aria-label={t.toolbar.openManual}
-            onClick={openManualPage}
+            aria-label={t.toolbar.openDocs}
+            onClick={openDocsPanel}
           >
             <Ellipsis size={22} />
           </button>
@@ -2019,9 +2023,9 @@ export default function HomePage() {
                       <button
                         type="button"
                         className="mt-6 inline-flex h-10 items-center justify-center self-start rounded-2xl bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--on-accent)] transition hover:brightness-110"
-                        onClick={openManualPage}
+                        onClick={openDocsPanel}
                       >
-                        {t.toolbar.openManual}
+                        {t.toolbar.openDocs}
                       </button>
                     </div>
                   ) : null}
@@ -2066,7 +2070,7 @@ export default function HomePage() {
           {renderSignInPromptDialog()}
           {renderCreateFileDialog()}
           {renderFlowchartPromptDialog()}
-          {renderManualDialog()}
+          {renderDocsDialog()}
         </div>
       </main>
     );
@@ -2114,8 +2118,8 @@ export default function HomePage() {
           <button
             type="button"
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:text-[var(--text2)]"
-            aria-label={t.toolbar.manual}
-            onClick={openManualPage}
+            aria-label={t.toolbar.docs}
+            onClick={openDocsPanel}
           >
             <BookOpen size={18} />
           </button>
@@ -2467,7 +2471,7 @@ export default function HomePage() {
       {renderSignInPromptDialog()}
       {renderCreateFileDialog()}
       {renderFlowchartPromptDialog()}
-      {renderManualDialog()}
+      {renderDocsDialog()}
     </main>
   );
 }

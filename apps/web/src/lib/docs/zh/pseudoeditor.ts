@@ -113,42 +113,6 @@ OUTPUT "Hello ", Name`,
     ],
   },
   {
-    slug: "syntax",
-    unit: "pseudoeditor",
-    title: "伪代码语法参考（剑桥 IGCSE 风格）",
-    description: "查阅浏览器编译器支持的核心伪代码语法，包括赋值、条件、循环、数组和输出。",
-    updated: "2026-10-31",
-    sections: [
-      {
-        heading: "核心语句",
-        body: [
-          "用 `DECLARE` 声明变量，用 `<-` 赋值，用 `INPUT` 读取用户输入，用 `OUTPUT` 显示值。",
-          "在设置中选择剑桥 IGCSE、剑桥 A Level、IB、OCR 或 AQA，编译器就会按照该考试局的写法检查程序。",
-        ],
-        example: `DECLARE Total : INTEGER
-Total <- 0
-OUTPUT Total`,
-      },
-      {
-        heading: "速查表",
-        body: ["每个代码块都有对应的结束关键字。块的开头和结尾一一对应，程序就更容易追踪和调试。"],
-        visual: {
-          kind: "table",
-          columns: ["结构", "开始", "结束"],
-          rows: [
-            ["选择", "`IF ... THEN`", "`ENDIF`"],
-            ["多路选择", "`CASE OF ...`", "`ENDCASE`"],
-            ["计数控制循环", "`FOR ... TO ...`", "`NEXT ...`"],
-            ["前置条件循环", "`WHILE ... DO`", "`ENDWHILE`"],
-            ["后置条件循环", "`REPEAT`", "`UNTIL ...`"],
-            ["过程", "`PROCEDURE ...`", "`ENDPROCEDURE`"],
-            ["函数", "`FUNCTION ... RETURNS ...`", "`ENDFUNCTION`"],
-          ],
-        },
-      },
-    ],
-  },
-  {
     slug: "debugging-errors",
     unit: "pseudoeditor",
     title: "调试伪代码编译错误",
