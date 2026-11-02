@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PublicHeader } from "@/app/components/PublicHeader";
+import { TableOfContents } from "@/app/components/TableOfContents";
 import { formatDate, localePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 
@@ -47,13 +48,7 @@ export function LegalPage({ locale, document, effectiveDate }: LegalPageProps) {
       <section className="site-wrap grid gap-10 pb-20 lg:grid-cols-[220px_1fr]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-3)]">{t.onThisPage}</p>
-          <nav className="site-toc mt-3">
-            {document.sections.map((section) => (
-              <a key={section.id} href={`#${section.id}`}>
-                {section.title}
-              </a>
-            ))}
-          </nav>
+          <TableOfContents className="mt-3" items={document.sections.map((section) => ({ id: section.id, label: section.title }))} />
           <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-3)]">{t.related}</p>
           <nav className="site-toc mt-3">
             {legalLinks.map((link) => (
@@ -66,7 +61,7 @@ export function LegalPage({ locale, document, effectiveDate }: LegalPageProps) {
 
         <article className="site-card site-prose max-w-3xl p-6 md:p-10">
           {document.sections.map((section) => (
-            <section key={section.id} id={section.id}>
+            <section key={section.id} id={section.id} className="scroll-mt-24">
               <h2>{section.title}</h2>
               {section.content}
             </section>
