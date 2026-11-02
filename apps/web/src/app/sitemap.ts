@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { languageAlternates, locales, localeUrl } from "@/i18n/config";
 import { practiceQuestions } from "@/lib/practice-questions";
 import { docs, docPath } from "@/lib/docs";
+import { courseLessonPath, getCourseLessons, getLessonCatalog } from "@/lib/lesson-syllabi";
 import { posts } from "@/lib/seo-content";
 
 const staticRoutes: Array<{ path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }> = [
@@ -30,6 +31,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.6,
       changeFrequency: "monthly" as const,
     })),
+    ...getLessonCatalog("en").filter((course) => course.id !== "igcse").flatMap((course) =>
+      getCourseLessons("en", course.id).map((lesson) => ({
+        path: courseLessonPath(course.id, lesson.slug),
+        lastModified: new Date(lesson.updated), priority: 0.6, changeFrequency: "monthly" as const,
+      })),
+    ),
     ...posts.map((post) => ({
       path: `/blog/${post.slug}`,
       lastModified: new Date(post.date),

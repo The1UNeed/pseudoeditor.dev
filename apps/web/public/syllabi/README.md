@@ -18,5 +18,14 @@ and its four pages checked against the official IB PDF. This is the public brief
 not the full subject guide. The brief directs readers to their school's Programme
 Resource Centre or the IB store for the full guide.
 
-The AP and IB selections link to existing shared foundation lessons. They do not
-claim complete syllabus coverage or add Java/Python execution to the editor.
+The Lesson page offers separate course paths for IGCSE 0478, O Level 2210,
+AS & A Level 9618, AP CSP, AP Cybersecurity, AP CSA, IB HL, and IB SL.
+PDFs and official sources appear after the teaching content as references used
+when writing the lessons. O Level reuses shared Cambridge concepts; AP and IB
+have their own teaching content and language examples. HL includes extra lessons.
+
+O Level 2210, exams 2026–2028, references the
+[official PDF](https://www.cambridgeinternational.org/Images/697287-2026-2028-syllabus.pdf).
+AS & A Level 9618, exams 2027–2029, references the
+[official PDF](https://www.cambridgeinternational.org/Images/721397-2027-2029-syllabus.pdf).
+These PDFs are linked at their publisher rather than mirrored here.

@@ -18,8 +18,8 @@ import {
   FileCode,
   File,
   FileText,
+  FilePlus,
   FolderPlus,
-  Plus,
 } from "lucide-react";
 import {
   flattenVisibleNodes,
@@ -869,12 +869,12 @@ export function WorkspaceSidebar({
       onClick={() => setContextMenu(null)}
     >
       {/* Sidebar Header */}
-      <div className="flex h-10 items-center gap-2 px-4">
+      <div className="@container flex h-10 items-center gap-2 px-4">
         <div className="flex min-w-0 flex-col items-start">
-          <span className="text-[11px] font-semibold tracking-[0.8px] text-[var(--text2)]">{t.files.explorer}</span>
+          <span className="max-w-full truncate text-[11px] font-semibold tracking-[0.8px] text-[var(--text2)]">{t.files.explorer}</span>
         </div>
         <div className="flex-1" />
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-lg px-2 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
@@ -882,8 +882,8 @@ export function WorkspaceSidebar({
             title={t.files.createFile}
             onClick={() => onCreateDocument(createTargetParentId)}
           >
-            <Plus size={16} />
-            <span className="text-[11px] font-medium">{t.files.file}</span>
+            <FilePlus size={16} />
+            <span className="text-[11px] font-medium @max-[12rem]:hidden">{t.files.file}</span>
           </button>
           <button
             type="button"
@@ -893,7 +893,7 @@ export function WorkspaceSidebar({
             onClick={() => onCreateFolder(createTargetParentId)}
           >
             <FolderPlus size={16} />
-            <span className="text-[11px] font-medium">{t.files.folder}</span>
+            <span className="text-[11px] font-medium @max-[12rem]:hidden">{t.files.folder}</span>
           </button>
         </div>
       </div>

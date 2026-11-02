@@ -3,11 +3,10 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PublicHeader } from "@/app/components/PublicHeader";
 import { SyllabusCatalog } from "@/app/components/docs/SyllabusCatalog";
-import { localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
+import { localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
-import { getLessons } from "@/lib/docs";
-import { getLessonCatalog } from "@/lib/lesson-syllabi";
+import { getLessonCatalog, getCourseLessons, courseLessonPath, isCourseId, type CourseId } from "@/lib/lesson-syllabi";
 
 export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
   const locale = await resolveLocale(params);
@@ -15,11 +14,15 @@ export async function generateMetadata({ params }: LocaleParams): Promise<Metada
   return pageMetadata(locale, "/lessons", t.lessonsTitle, t.lessonsDescription, t.ogImageAlt);
 }
 
-export default async function LessonsIndexPage({ params }: LocaleParams) {
+export default async function LessonsIndexPage({ params, searchParams }: LocaleParams & {
+  searchParams: Promise<{ course?: string | string[] }>;
+}) {
   const locale = await resolveLocale(params);
   const t = getDictionary(locale).lessons;
-  const docs = getLessons(locale);
-  const href = (path: string) => localePath(locale, path);
+  const courses = getLessonCatalog(locale);
+  const lessons = courses.flatMap((course) => getCourseLessons(locale, course.id).map((lesson) => ({ ...lesson, href: courseLessonPath(course.id, lesson.slug) })));
+  const selected = (await searchParams).course;
+  const initialCourse: CourseId = typeof selected === "string" && isCourseId(selected) ? selected : "igcse";
 
   const structuredData = [
     {
@@ -34,11 +37,11 @@ export default async function LessonsIndexPage({ params }: LocaleParams) {
       "@context": "https://schema.org",
       "@type": "ItemList",
       inLanguage: localeTags[locale],
-      itemListElement: docs.map((doc, index) => ({
+      itemListElement: lessons.map((doc, index) => ({
         "@type": "ListItem",
         position: index + 1,
         name: doc.title,
-        url: localeUrl(locale, `/lessons/${doc.slug}`),
+        url: localeUrl(locale, doc.href),
       })),
     },
   ];
@@ -56,13 +59,13 @@ export default async function LessonsIndexPage({ params }: LocaleParams) {
         <div className="site-card p-5">
           <p className="text-sm font-semibold">{t.startHere}</p>
           <p className="mt-2 text-sm leading-6 text-[var(--text2)]">{t.startHereBody}</p>
-          <Link href={href(`/lessons/${docs[0].slug}`)} className="site-btn site-btn-accent mt-4">
+          <Link href="#course-selector" className="site-btn site-btn-accent mt-4">
             {t.startHereCta} <ArrowRight size={16} />
           </Link>
         </div>
       </section>
 
-      <SyllabusCatalog locale={locale} courses={getLessonCatalog(locale)} />
+      <SyllabusCatalog key={initialCourse} locale={locale} courses={courses} initialCourse={initialCourse} />
 
     </main>
   );
