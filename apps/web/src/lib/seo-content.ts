@@ -147,7 +147,7 @@ export const posts: SeoPost[] = [
       {
         heading: "Keep learning material nearby",
         body: [
-          "Docs, examples, and the manual should sit beside the editor so reference material supports practice instead of interrupting it.",
+          "Docs and examples should sit beside the editor so reference material supports practice instead of interrupting it.",
         ],
       },
     ],
@@ -310,7 +310,7 @@ export const faqItems: FaqItem[] = [
   {
     question: "What is PseudoEditor?",
     answer:
-      "PseudoEditor is a free and open-source pseudo code editor and compiler. The editor, compiler, runner, flowchart view, manual, and workspace tools all run in the browser app.",
+      "PseudoEditor is a free and open-source pseudo code editor and compiler. The editor, compiler, runner, flowchart view, docs, and workspace tools all run in the browser app.",
   },
   {
     question: "Can I run pseudocode in the browser?",

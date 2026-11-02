@@ -19,7 +19,6 @@ export function Footer({ locale }: { locale: Locale }) {
         { href: localePath(locale, "/practice"), label: t.practice },
         { href: localePath(locale, "/docs"), label: dict.nav.docs },
         { href: localePath(locale, "/lessons"), label: dict.nav.lessons },
-        { href: localePath(locale, "/manual"), label: dict.nav.manual },
         { href: localePath(locale, "/blog"), label: dict.nav.blog },
       ],
     },

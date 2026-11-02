@@ -353,21 +353,28 @@ describe("HomePage workspace flow", () => {
     });
   });
 
-  it("opens the manual inside the workspace", async () => {
+  it("opens the docs inside the workspace and remembers the last guide", async () => {
     mockLoadedWorkspace(createWorkspaceFixture());
     render(<HomePage />);
 
     const editor = await screen.findByRole("textbox", { name: "Mock editor" });
-    fireEvent.click(screen.getByRole("button", { name: "Manual" }));
+    fireEvent.click(screen.getByRole("button", { name: "Docs" }));
 
-    const manualDialog = await screen.findByRole("dialog", { name: "Pseudocode manual" });
-    expect(await within(manualDialog).findByText("Detailed Pseudocode Guidelines")).toBeInTheDocument();
+    let docsDialog = await screen.findByRole("dialog", { name: "Docs" });
+    expect(await within(docsDialog).findByRole("heading", { level: 1, name: "Pseudocode syntax reference" })).toBeInTheDocument();
 
-    fireEvent.click(within(manualDialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(docsDialog).getByRole("button", { name: "Choosing a loop" }));
+    expect(within(docsDialog).getByRole("heading", { level: 1, name: "Choosing a loop" })).toBeInTheDocument();
+    expect(within(docsDialog).getByRole("link", { name: "Open in a new tab" })).toHaveAttribute("href", "/docs/choosing-a-loop");
 
+    fireEvent.click(within(docsDialog).getByRole("button", { name: "Close" }));
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Pseudocode manual" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Docs" })).not.toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Docs" }));
+    docsDialog = await screen.findByRole("dialog", { name: "Docs" });
+    expect(await within(docsDialog).findByRole("heading", { level: 1, name: "Choosing a loop" })).toBeInTheDocument();
     expect(editor).toHaveValue('OUTPUT "Main"');
   });
 

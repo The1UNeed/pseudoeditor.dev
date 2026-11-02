@@ -72,6 +72,13 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   poweredByHeader: false,
+  async redirects() {
+    // The manual's content now lives in the docs as the pseudocode reference.
+    return ["/manual", "/app/manual"].flatMap((source) => [
+      { source, destination: "/docs", permanent: true },
+      { source: `/:locale(en|zh)${source}`, destination: "/:locale/docs", permanent: true },
+    ]);
+  },
   async headers() {
     const immutableAssetHeaders = [
       {

@@ -11,7 +11,7 @@ describe("sitemap", () => {
 
   it("lists every page once per locale", () => {
     const coursePages = getLessonCatalog("en").filter((course) => course.id !== "igcse").flatMap((course) => getCourseLessons("en", course.id));
-    expect(entries).toHaveLength((11 + docs.length + coursePages.length + posts.length + practiceQuestions.length) * 2);
+    expect(entries).toHaveLength((9 + docs.length + coursePages.length + posts.length + practiceQuestions.length) * 2);
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls).toContain("https://www.pseudoeditor.dev");
     expect(urls).toContain("https://www.pseudoeditor.dev/zh");
@@ -19,6 +19,7 @@ describe("sitemap", () => {
     expect(urls).toContain(`https://www.pseudoeditor.dev/practice/${practiceQuestions[0].id}`);
     expect(urls).toContain("https://www.pseudoeditor.dev/docs");
     expect(urls).toContain("https://www.pseudoeditor.dev/lessons");
+    expect(urls.some((url) => url.endsWith("/manual"))).toBe(false);
     expect(urls).toContain(`https://www.pseudoeditor.dev${docPath(docs[0])}`);
     expect(urls).toContain(`https://www.pseudoeditor.dev/zh/blog/${posts[0].slug}`);
     expect(urls.some((url) => url.includes("/en/") || url.endsWith("/en"))).toBe(false);

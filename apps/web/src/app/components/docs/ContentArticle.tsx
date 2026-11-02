@@ -8,7 +8,7 @@ import { DocSectionView } from "./DocSectionView";
 import { RichText } from "./DiagramBlocks";
 import { formatDate, localePath, localeTags, localeUrl, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
-import { docPath, getDocNeighbors, getUnit, getUnitDocs, getUnits, type Doc } from "@/lib/docs";
+import { docPath, getDocNeighbors, getUnit, getUnitDocs, getUnits, isGuide as isGuideDoc, isGuideUnit, type Doc } from "@/lib/docs";
 import { getLessonPracticeTopics } from "@/lib/lesson-practice";
 import { authorName } from "@/lib/seo-content";
 
@@ -20,7 +20,7 @@ const sectionId = (index: number) => `s${index + 1}`;
 export function ContentArticle({ locale, doc }: { locale: Locale; doc: Doc }) {
   const dict = getDictionary(locale);
   const t = dict.docs;
-  const isGuide = doc.unit === "pseudoeditor";
+  const isGuide = isGuideDoc(doc);
   const sectionPath = isGuide ? "/docs" : "/lessons";
   const sectionLabel = isGuide ? dict.nav.docs : dict.nav.lessons;
   const practiceTopics = getLessonPracticeTopics(doc.slug);
@@ -69,7 +69,7 @@ export function ContentArticle({ locale, doc }: { locale: Locale; doc: Doc }) {
               <ArrowLeft size={15} /> {sectionLabel}
             </Link>
             <ol className="mt-5 space-y-0.5">
-              {getUnits(locale).filter((item) => (item.id === "pseudoeditor") === isGuide).map((item) => {
+              {getUnits(locale).filter((item) => isGuideUnit(item.id) === isGuide).map((item) => {
                 const lessons = getUnitDocs(locale, item.id);
                 if (!lessons.length) return null;
                 const open = item.id === doc.unit;
@@ -209,9 +209,6 @@ export function ContentArticle({ locale, doc }: { locale: Locale; doc: Doc }) {
             </Link>
             <Link href={href("/practice")} className="site-btn site-btn-ghost">
               {dict.nav.practice}
-            </Link>
-            <Link href={href("/manual")} className="site-btn site-btn-ghost">
-              {t.openManual}
             </Link>
           </div>
         </article>

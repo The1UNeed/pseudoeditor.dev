@@ -4,7 +4,7 @@ import { ContentArticle } from "@/app/components/docs/ContentArticle";
 import { localePath, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale } from "@/i18n/server";
-import { docs, docPath, getDoc } from "@/lib/docs";
+import { docs, docPath, getDoc, isGuide } from "@/lib/docs";
 
 type PageProps = { params: Promise<{ locale: string; slug: string }> };
 
@@ -26,6 +26,6 @@ export default async function DocPage({ params }: PageProps) {
   const { slug } = await params;
   const doc = getDoc(locale, slug);
   if (!doc) notFound();
-  if (doc.unit !== "pseudoeditor") permanentRedirect(localePath(locale, docPath(doc)));
+  if (!isGuide(doc)) permanentRedirect(localePath(locale, docPath(doc)));
   return <ContentArticle locale={locale} doc={doc} />;
 }

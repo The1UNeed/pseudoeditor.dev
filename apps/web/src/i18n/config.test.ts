@@ -16,10 +16,10 @@ describe("locale paths", () => {
   });
 
   it("emits hreflang alternates with x-default pointing at English", () => {
-    expect(languageAlternates("/manual")).toEqual({
-      en: "https://www.pseudoeditor.dev/manual",
-      "zh-CN": "https://www.pseudoeditor.dev/zh/manual",
-      "x-default": "https://www.pseudoeditor.dev/manual",
+    expect(languageAlternates("/docs")).toEqual({
+      en: "https://www.pseudoeditor.dev/docs",
+      "zh-CN": "https://www.pseudoeditor.dev/zh/docs",
+      "x-default": "https://www.pseudoeditor.dev/docs",
     });
   });
 

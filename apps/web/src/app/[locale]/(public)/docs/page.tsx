@@ -6,7 +6,7 @@ import { PublicListLink, publicListClassName } from "@/app/components/PublicUi";
 import { localePath, localeTags, localeUrl, pageMetadata } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { resolveLocale, type LocaleParams } from "@/i18n/server";
-import { docPath, getGuides } from "@/lib/docs";
+import { docPath, getGuides, getUnit, guideUnitIds } from "@/lib/docs";
 
 export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
   const locale = await resolveLocale(params);
@@ -60,14 +60,20 @@ export default async function DocsIndexPage({ params }: LocaleParams) {
         </div>
       </section>
 
-      <section className="site-wrap pb-16">
-        <h2 className="site-h2">{t.guidesTitle}</h2>
-        <div className={`mt-6 ${publicListClassName}`}>
-          {guides.map((doc) => (
-            <PublicListLink key={doc.slug} href={href(docPath(doc))} title={doc.title} description={doc.description} />
-          ))}
-        </div>
-      </section>
+      {guideUnitIds.map((id) => {
+        const unit = getUnit(locale, id);
+        return (
+          <section key={id} id={id} className="site-wrap scroll-mt-20 pb-16">
+            <h2 className="site-h2">{unit.title}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text2)]">{unit.summary}</p>
+            <div className={`mt-6 ${publicListClassName}`}>
+              {guides.filter((doc) => doc.unit === id).map((doc) => (
+                <PublicListLink key={doc.slug} href={href(docPath(doc))} title={doc.title} description={doc.description} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
 
       <section className="site-wrap pb-20">
         <div className="border-t border-[var(--separator)] pt-8">

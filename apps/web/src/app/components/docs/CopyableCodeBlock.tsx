@@ -2,9 +2,7 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import type { Locale } from "@/i18n/config";
-import { useLocale } from "@/i18n/context";
-import { manualText } from "./manualText";
+import { useDictionary } from "@/i18n/context";
 
 type CopyState = "idle" | "copied" | "error";
 type TokenType =
@@ -111,7 +109,7 @@ function renderPseudocodeLine(line: string, lineIndex: number) {
     }
 
     parts.push(
-      <span key={`${lineIndex}-${index}`} className={`manual-token-${getTokenType(token)}`}>
+      <span key={`${lineIndex}-${index}`} className={`code-token-${getTokenType(token)}`}>
         {token}
       </span>,
     );
@@ -131,7 +129,7 @@ function HighlightedPseudocode({ code }: { code: string }) {
   return (
     <>
       {lines.map((line, index) => (
-        <span key={index} className="manual-code-line">
+        <span key={index} className="code-line">
           {renderPseudocodeLine(line, index)}
           {index < lines.length - 1 ? "\n" : null}
         </span>
@@ -166,18 +164,8 @@ async function copyToClipboard(text: string) {
   fallbackCopy(text);
 }
 
-export default function CopyableCodeBlock({
-  code,
-  className = "",
-  locale,
-}: {
-  code: string;
-  className?: string;
-  /** Defaults to the page locale from LocaleProvider. */
-  locale?: Locale;
-}) {
-  const contextLocale = useLocale();
-  const t = manualText(locale ?? contextLocale);
+export default function CopyableCodeBlock({ code, className = "" }: { code: string; className?: string }) {
+  const t = useDictionary().docs.code;
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -206,17 +194,17 @@ export default function CopyableCodeBlock({
     }, 1600);
   }
 
-  const buttonLabel = t(copyState === "copied" ? "Copied" : "Copy");
+  const buttonLabel = copyState === "copied" ? t.copied : t.copy;
 
   return (
-    <div className={`manual-code-block ${className}`.trim()}>
+    <div className={`code-block ${className}`.trim()}>
       <div className="flex items-center justify-between gap-3 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-2">
-        <span className="text-xs font-medium text-[var(--text3)]">{t("Pseudocode")}</span>
+        <span className="text-xs font-medium text-[var(--text3)]">{t.label}</span>
         <button
           type="button"
           onClick={handleCopy}
           className="group rounded-lg px-2 py-1 transition hover:bg-[var(--hover)]"
-          aria-label={t(copyState === "copied" ? "Code copied to clipboard" : "Copy code to clipboard")}
+          aria-label={copyState === "copied" ? t.copiedAria : t.copyAria}
         >
           <span className="text-xs font-medium text-[var(--text2)] transition group-hover:text-[var(--text)]">
             {buttonLabel}
@@ -229,7 +217,7 @@ export default function CopyableCodeBlock({
         </code>
       </pre>
       {copyState === "error" ? (
-        <p className="px-4 pb-3 text-[11px] text-[var(--red)]">{t("Clipboard access is unavailable here.")}</p>
+        <p className="px-4 pb-3 text-[11px] text-[var(--red)]">{t.unavailable}</p>
       ) : null}
     </div>
   );
