@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Play } from "lucide-react";
 import { getLessonCourse } from "@/lib/lesson-syllabi";
 import { CourseReferences } from "./CourseReferences";
 import { PublicHeader } from "@/app/components/PublicHeader";
+import { TableOfContents } from "@/app/components/TableOfContents";
 import { DocSectionView } from "./DocSectionView";
 import { RichText } from "./DiagramBlocks";
 import { formatDate, localePath, localeTags, localeUrl, type Locale } from "@/i18n/config";
@@ -218,15 +219,14 @@ export function ContentArticle({ locale, doc }: { locale: Locale; doc: Doc }) {
         <aside className="max-xl:hidden">
           <div className="sticky top-20">
             <p className="px-2 text-xs font-semibold text-[var(--text3)]">{t.onThisPage}</p>
-            <nav className="site-toc mt-2">
-              {doc.sections.map((section, index) => (
-                <a key={section.heading} href={`#${sectionId(index)}`}>
-                  {section.heading}
-                </a>
-              ))}
-              {doc.keyTerms?.length ? <a href="#key-terms">{t.keyTerms}</a> : null}
-              {doc.quiz?.length ? <a href="#check-yourself">{t.checkYourself}</a> : null}
-            </nav>
+            <TableOfContents
+              className="mt-2"
+              items={[
+                ...doc.sections.map((section, index) => ({ id: sectionId(index), label: section.heading })),
+                ...(doc.keyTerms?.length ? [{ id: "key-terms", label: t.keyTerms }] : []),
+                ...(doc.quiz?.length ? [{ id: "check-yourself", label: t.checkYourself }] : []),
+              ]}
+            />
           </div>
         </aside>
       </div>
