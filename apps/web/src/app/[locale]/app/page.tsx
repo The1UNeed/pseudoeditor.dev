@@ -2089,7 +2089,7 @@ export default function HomePage() {
               aria-label={t.toolbar.home}
             >
               <BrandMark size={20} />
-              <span className="text-xs font-semibold tracking-[0.12em] text-[var(--text2)]">
+              <span className="text-[13px] font-semibold text-[var(--text)]">
                 PseudoEditor
               </span>
             </Link>
