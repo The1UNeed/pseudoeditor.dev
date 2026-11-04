@@ -5,7 +5,6 @@ import {
   isSyntaxColorSchemeId,
   loadSyntaxColorScheme,
   monacoThemeName,
-  resolveSyntaxColorScheme,
   saveSyntaxColorScheme,
 } from "@/lib/syntaxColorSchemes";
 
@@ -72,10 +71,9 @@ describe("syntax colour schemes", () => {
     },
   );
 
-  it("falls back to the default for unknown ids", () => {
+  it("recognises only known scheme ids", () => {
     expect(isSyntaxColorSchemeId("ocean")).toBe(true);
     expect(isSyntaxColorSchemeId("neon")).toBe(false);
-    expect(resolveSyntaxColorScheme("neon").id).toBe(DEFAULT_SYNTAX_COLOR_SCHEME);
   });
 
   it("names a Monaco theme per scheme and appearance", () => {

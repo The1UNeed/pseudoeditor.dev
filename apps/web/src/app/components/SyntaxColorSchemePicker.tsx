@@ -65,7 +65,7 @@ export function SyntaxColorSchemePicker({ value, theme, label, names, onChange }
         return (
           <label
             key={scheme.id}
-            className={`group cursor-pointer rounded-xl border p-1.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[color-mix(in_srgb,var(--accent)_30%,transparent)] ${
+            className={`group relative cursor-pointer rounded-xl border p-1.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[color-mix(in_srgb,var(--accent)_30%,transparent)] ${
               selected
                 ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface2))]"
                 : "border-[var(--separator)] bg-[var(--surface2)] hover:border-[color-mix(in_srgb,var(--text3)_45%,var(--separator))]"

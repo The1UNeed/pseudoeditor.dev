@@ -179,10 +179,6 @@ export function isSyntaxColorSchemeId(value: unknown): value is SyntaxColorSchem
   return SYNTAX_COLOR_SCHEMES.some((scheme) => scheme.id === value);
 }
 
-export function resolveSyntaxColorScheme(id: string): SyntaxColorScheme {
-  return SYNTAX_COLOR_SCHEMES.find((scheme) => scheme.id === id) ?? SYNTAX_COLOR_SCHEMES[0];
-}
-
 export function monacoThemeName(id: SyntaxColorSchemeId, theme: ResolvedTheme): string {
   return `pseudo-${id}-${theme}`;
 }

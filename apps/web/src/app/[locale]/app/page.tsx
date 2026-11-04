@@ -2048,7 +2048,7 @@ export default function HomePage() {
                   {touchTab === "output" ? renderTouchOutputSurface(t.terminal.output) : null}
 
                   {touchTab === "settings" ? (
-                    <div className="flex h-full min-h-0 flex-col bg-[var(--bg)] px-6 py-8">
+                    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[var(--bg)] px-6 py-8">
                       <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
                         {t.settings.heading}
                       </p>
