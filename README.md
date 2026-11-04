@@ -98,8 +98,9 @@ the Production environment. In the PostHog project, turn on **Settings > Project
 cookieless tracking**, or PostHog drops every event the site sends. Keep session replay off, and set event
 retention to one year or less to match the privacy policy.
 
-Account counts come from Convex, not the browser. Set `POSTHOG_PROJECT_KEY` (the same project key) on the
-production Convex deployment only. The Clerk webhook then sends anonymous `account_created` and `account_deleted`
+Account counts come from Convex, not the browser. Each production build copies `NEXT_PUBLIC_POSTHOG_KEY` to
+the production Convex deployment as `POSTHOG_PROJECT_KEY`, and copies `CLERK_WEBHOOK_SECRET` when it is set in
+Vercel, so set both in Vercel's Production environment rather than on Convex. The Clerk webhook then sends anonymous `account_created` and `account_deleted`
 events, and a daily cron (`convex/crons.ts`) sends `account_stats`: the number of synced accounts and how many
 saved their workspace in the last 1, 7, and 30 days. None of these events identify an account.
 
