@@ -142,14 +142,17 @@ vi.mock("@/app/components/MonacoPseudocodeEditor", async () => {
     MonacoPseudocodeEditor: memo(function MockEditor({
       value,
       onChange,
+      colorScheme,
     }: {
       value: string;
       onChange: (value: string) => void;
+      colorScheme?: string;
     }) {
       editorRenderMock();
       return (
         <textarea
           aria-label="Mock editor"
+          data-color-scheme={colorScheme}
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
@@ -519,6 +522,32 @@ describe("HomePage workspace flow", () => {
     await waitFor(() => {
       expect(lastLocallySavedWorkspace().syntaxId).toBe("ib-dp");
     });
+  });
+
+  it("lets the user pick syntax colours from settings and remembers them", async () => {
+    mockLoadedWorkspace(createWorkspaceFixture());
+    const { unmount } = render(<HomePage />);
+    const editor = await screen.findByRole("textbox", { name: "Mock editor" });
+    expect(editor).toHaveAttribute("data-color-scheme", "classic");
+
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    const dialog = await screen.findByRole("dialog", { name: "Settings" });
+    const picker = within(dialog).getByRole("radiogroup", { name: "Syntax colours" });
+    expect(within(picker).getAllByRole("radio")).toHaveLength(6);
+    expect(within(picker).getByRole("radio", { name: "Classic" })).toBeChecked();
+
+    fireEvent.click(within(picker).getByRole("radio", { name: "Ocean" }));
+
+    expect(within(picker).getByRole("radio", { name: "Ocean" })).toBeChecked();
+    expect(editor).toHaveAttribute("data-color-scheme", "ocean");
+    expect(localStore.get("pseudoeditor-syntax-color-scheme")).toBe("ocean");
+
+    unmount();
+    render(<HomePage />);
+    expect(await screen.findByRole("textbox", { name: "Mock editor" })).toHaveAttribute(
+      "data-color-scheme",
+      "ocean",
+    );
   });
 
   it("reorders documents through workspace controls", async () => {

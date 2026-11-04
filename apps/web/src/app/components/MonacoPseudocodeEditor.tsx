@@ -18,6 +18,12 @@ import {
   syntaxKeywords,
   type SyntaxId,
 } from "@/lib/pseudocodeLanguages";
+import {
+  DEFAULT_SYNTAX_COLOR_SCHEME,
+  SYNTAX_COLOR_SCHEMES,
+  monacoThemeName,
+  type SyntaxColorSchemeId,
+} from "@/lib/syntaxColorSchemes";
 import type { ResolvedTheme } from "@/lib/theme";
 import { useDictionary } from "@/i18n/context";
 import { editorEn } from "@/i18n/messages/editor.en";
@@ -29,6 +35,7 @@ interface MonacoPseudocodeEditorProps {
   theme: ResolvedTheme;
   documentKey?: string;
   syntaxId?: SyntaxId | string;
+  colorScheme?: SyntaxColorSchemeId;
 }
 
 const TYPE_KEYWORDS = [
@@ -149,6 +156,65 @@ if (typeof window !== "undefined") {
   void ensureMonacoNullCaretHitTestGuard();
 }
 
+const EDITOR_SURFACE_COLORS = {
+  dark: {
+    "editor.background": "#1C1C1E",
+    "editor.foreground": "#E5E5EA",
+    "editorLineNumber.foreground": "#48484A",
+    "editorLineNumber.activeForeground": "#98989D",
+    "editor.lineHighlightBackground": "#2C2C2E",
+    "editorCursor.foreground": "#E5E5EA",
+    "editor.selectionBackground": "#0A84FF30",
+    "editor.inactiveSelectionBackground": "#38383A",
+    "editorIndentGuide.background1": "#38383A",
+    "editorIndentGuide.activeBackground1": "#48484A",
+    "editorWidget.background": "#2C2C2E",
+    "editorSuggestWidget.background": "#2C2C2E",
+    "editorSuggestWidget.selectedBackground": "#0A84FF30",
+  },
+  light: {
+    "editor.background": "#FFFFFF",
+    "editor.foreground": "#111111",
+    "editorLineNumber.foreground": "#CFCFCF",
+    "editorLineNumber.activeForeground": "#6B7280",
+    "editor.lineHighlightBackground": "#F5F5F5",
+    "editorCursor.foreground": "#111111",
+    "editor.selectionBackground": "#0B6E4F2A",
+    "editor.inactiveSelectionBackground": "#E5E5E5",
+    "editorIndentGuide.background1": "#E5E5E5",
+    "editorIndentGuide.activeBackground1": "#D1D5DB",
+    "editorWidget.background": "#FFFFFF",
+    "editorSuggestWidget.background": "#FFFFFF",
+    "editorSuggestWidget.selectedBackground": "#0B6E4F1F",
+  },
+} as const;
+
+// Defines a light and a dark Monaco theme for every syntax colour scheme.
+function defineSyntaxThemes(monaco: typeof import("monaco-editor")) {
+  const hex = (color: string) => color.replace("#", "");
+  for (const scheme of SYNTAX_COLOR_SCHEMES) {
+    for (const mode of ["dark", "light"] as const) {
+      const colors = scheme[mode];
+      monaco.editor.defineTheme(monacoThemeName(scheme.id, mode), {
+        base: mode === "dark" ? "vs-dark" : "vs",
+        inherit: true,
+        rules: [
+          { token: "keyword", foreground: hex(colors.keyword), fontStyle: scheme.boldKeywords ? "bold" : "" },
+          { token: "type", foreground: hex(colors.type) },
+          { token: "predefined", foreground: hex(colors.routine) },
+          { token: "string", foreground: hex(colors.string) },
+          { token: "comment", foreground: hex(colors.comment), fontStyle: "italic" },
+          { token: "number", foreground: hex(colors.number) },
+          { token: "operator", foreground: hex(colors.operator) },
+          { token: "identifier", foreground: hex(colors.identifier) },
+          { token: "delimiter", foreground: hex(colors.operator) },
+        ],
+        colors: EDITOR_SURFACE_COLORS[mode],
+      });
+    }
+  }
+}
+
 export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   value,
   onChange,
@@ -156,6 +222,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   theme,
   documentKey,
   syntaxId = "cambridge-igcse",
+  colorScheme = DEFAULT_SYNTAX_COLOR_SCHEME,
 }: MonacoPseudocodeEditorProps) {
   const autocomplete = useDictionary().editor.autocomplete;
   useEffect(() => {
@@ -509,69 +576,8 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
       isProgrammaticEdit = false;
     });
 
-    monaco.editor.defineTheme("examLabThemeDark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "FC5FA3" },
-        { token: "type", foreground: "5DD8FF" },
-        { token: "predefined", foreground: "A167E6" },
-        { token: "string", foreground: "FC6A5D" },
-        { token: "comment", foreground: "6C7986", fontStyle: "italic" },
-        { token: "number", foreground: "D0BF69" },
-        { token: "operator", foreground: "E5E5EA" },
-        { token: "identifier", foreground: "67B7A4" },
-        { token: "delimiter", foreground: "E5E5EA" },
-      ],
-      colors: {
-        "editor.background": "#1C1C1E",
-        "editor.foreground": "#E5E5EA",
-        "editorLineNumber.foreground": "#48484A",
-        "editorLineNumber.activeForeground": "#98989D",
-        "editor.lineHighlightBackground": "#2C2C2E",
-        "editorCursor.foreground": "#E5E5EA",
-        "editor.selectionBackground": "#0A84FF30",
-        "editor.inactiveSelectionBackground": "#38383A",
-        "editorIndentGuide.background1": "#38383A",
-        "editorIndentGuide.activeBackground1": "#48484A",
-        "editorWidget.background": "#2C2C2E",
-        "editorSuggestWidget.background": "#2C2C2E",
-        "editorSuggestWidget.selectedBackground": "#0A84FF30",
-      },
-    });
-
-    monaco.editor.defineTheme("examLabThemeLight", {
-      base: "vs",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "9B2D63" },
-        { token: "type", foreground: "0F7A94" },
-        { token: "predefined", foreground: "7856B3" },
-        { token: "string", foreground: "B45438" },
-        { token: "comment", foreground: "8C7B6A", fontStyle: "italic" },
-        { token: "number", foreground: "8D6A12" },
-        { token: "operator", foreground: "2A241F" },
-        { token: "identifier", foreground: "2D7A6D" },
-        { token: "delimiter", foreground: "2A241F" },
-      ],
-      colors: {
-        "editor.background": "#FFFFFF",
-        "editor.foreground": "#111111",
-        "editorLineNumber.foreground": "#CFCFCF",
-        "editorLineNumber.activeForeground": "#6B7280",
-        "editor.lineHighlightBackground": "#F5F5F5",
-        "editorCursor.foreground": "#111111",
-        "editor.selectionBackground": "#0B6E4F2A",
-        "editor.inactiveSelectionBackground": "#E5E5E5",
-        "editorIndentGuide.background1": "#E5E5E5",
-        "editorIndentGuide.activeBackground1": "#D1D5DB",
-        "editorWidget.background": "#FFFFFF",
-        "editorSuggestWidget.background": "#FFFFFF",
-        "editorSuggestWidget.selectedBackground": "#0B6E4F1F",
-      },
-    });
-
-    monaco.editor.setTheme(theme === "dark" ? "examLabThemeDark" : "examLabThemeLight");
+    defineSyntaxThemes(monaco);
+    monaco.editor.setTheme(monacoThemeName(colorScheme, theme));
 
     if (appleTouchDevice) {
       const editorElement = editor.getDomNode();
@@ -621,8 +627,8 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
       return;
     }
 
-    monacoRef.current.editor.setTheme(theme === "dark" ? "examLabThemeDark" : "examLabThemeLight");
-  }, [theme]);
+    monacoRef.current.editor.setTheme(monacoThemeName(colorScheme, theme));
+  }, [colorScheme, theme]);
 
   useEffect(() => {
     keywordLookupRef.current = keywordLookup;
