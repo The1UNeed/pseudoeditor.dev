@@ -150,8 +150,8 @@ function mergeCheckpointAsCopies(
 }
 
 /**
- * Identifies an account snapshot by everything a student can change in it (files, folders, names, text, syntax), so
- * a deletion or settings change made elsewhere counts as a new version even when no surviving file got newer.
+ * Identifies an account snapshot by everything a student can change in it (files, folders, names, text, runtime data
+ * files, syntax), so a deletion or settings change made elsewhere counts as a new version even when no file got newer.
  */
 function accountFingerprint(state: WorkspaceState): number {
   const parts = Object.values(state.nodes)
@@ -160,6 +160,9 @@ function accountFingerprint(state: WorkspaceState): number {
         .join("\u0000"),
     )
     .sort();
+  for (const [fileName, lines] of Object.entries(state.virtualFiles ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) {
+    parts.push(`file:${JSON.stringify([fileName, lines])}`);
+  }
   parts.push(`syntax:${state.syntaxId}`);
   // FNV-1a over the sorted parts.
   let hash = 0x811c9dc5;
@@ -172,16 +175,6 @@ function accountFingerprint(state: WorkspaceState): number {
     hash = Math.imul(hash, 0x01000193);
   }
   return hash >>> 0;
-}
-
-/** The newest edit time in a workspace, from its nodes' timestamps. */
-function latestEditTime(state: WorkspaceState): number {
-  let latest = 0;
-  for (const node of Object.values(state.nodes)) {
-    const time = Date.parse(node.updatedAt);
-    if (Number.isFinite(time) && time > latest) latest = time;
-  }
-  return latest;
 }
 
 /** Records edits that have not reached the account yet, on this device only. */
@@ -318,11 +311,7 @@ export async function loadWorkspace(
           });
         }
       };
-      if (
-        checkpoint &&
-        checkpoint.baseVersion === accountVersion &&
-        checkpoint.editedAt > latestEditTime(cloudWorkspace)
-      ) {
+      if (checkpoint && checkpoint.baseVersion === accountVersion) {
         // The account hasn't changed since these edits began: they are simply its next version.
         keepRestoredBase(checkpoint);
         return restoreCheckpoint(checkpoint);

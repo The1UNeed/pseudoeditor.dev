@@ -4,6 +4,7 @@ import {
   createEmptyWorkspace,
   getActiveDocument,
   updateDocumentSource,
+  updateVirtualFiles,
 } from "@pseudoeditor/workspace";
 
 const dbStore = new Map<string, unknown>();
@@ -499,6 +500,61 @@ describe("workspace storage", () => {
     expect(sources).toContain('OUTPUT "v1"');
     expect(sources).toContain('OUTPUT "v1 plus edits here"');
     expect(storage.takeRecoveredCopies("user_a")).toBe(true);
+  });
+
+  it.each([
+    { before: ["old"], after: ["new from home"] },
+    { before: [], after: [""] },
+  ])("never replays a checkpoint over runtime data files changed elsewhere ($before → $after)", async ({ before, after }) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T00:10:00.000Z"));
+    onTestFinished(() => { vi.useRealTimers(); });
+    const doc = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "main", id: "doc-main", source: 'OUTPUT "v1"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const atLoad = updateVirtualFiles(doc, { "data.txt": before }, "2026-03-15T00:00:00.000Z");
+    const changedElsewhere = updateVirtualFiles(doc, { "data.txt": after }, "2026-03-15T00:00:00.000Z");
+    const deviceEdit = updateVirtualFiles(
+      createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+        name: "main", id: "doc-main", source: 'OUTPUT "v1 plus edits here"', now: "2026-03-15T00:30:00.000Z",
+      }),
+      { "data.txt": before },
+      "2026-03-15T00:30:00.000Z",
+    );
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: atLoad }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: changedElsewhere }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await storage.saveDeviceCheckpoint(deviceEdit, "user_a", Date.parse("2026-03-15T00:30:00.000Z"));
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    expect(loaded.virtualFiles["data.txt"]).toEqual(after);
+    const sources = Object.values(loaded.nodes).flatMap((node) => (node.type === "document" ? [node.source] : []));
+    expect(sources).toContain('OUTPUT "v1 plus edits here"');
+  });
+
+  it("replays a checkpoint on the unchanged account even when another device's clock ran ahead", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T00:10:00.000Z"));
+    onTestFinished(() => { vi.useRealTimers(); });
+    // Saved by a device whose clock was a year fast.
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "future", id: "doc-future", source: 'OUTPUT "future"', now: "2027-03-15T00:00:00.000Z",
+    });
+    const afterLocalDelete = createEmptyWorkspace("2026-03-15T00:00:00.000Z");
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await storage.saveDeviceCheckpoint(afterLocalDelete, "user_a", Date.parse("2026-03-15T00:20:00.000Z"));
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    expect(Object.values(loaded.nodes).some((node) => node.type === "document")).toBe(false);
+    expect(storage.takeAccountSyncPending("user_a")).toBe(true);
   });
 
   it("keeps work from another device when this device's older checkpoint differs", async () => {
