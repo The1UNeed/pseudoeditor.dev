@@ -122,6 +122,16 @@
     U+FFFD;
 }
 
+/* Arial scaled to Inter's metrics, shown until Inter loads, so the swap does not move text. */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial"), local("ArialMT"), local("Helvetica");
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+  size-adjust: 107.12%;
+}
+
 /*
  * PseudoEditor palette. One green brand accent in both themes (forest green in light, sea green in dark). Running
  * code, success and program output use a brighter, separate green so "interactive" and "execute" stay distinct.
@@ -130,7 +140,7 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --font-sans: "Inter";
+  --font-sans: "Inter", "Inter Fallback";
   --font-mono: "Fira Code";
   --bg: #16171B;
   --sidebar: #1B1C21;
@@ -300,7 +310,7 @@ html {
 :root:lang(zh),
 :root[data-theme]:lang(zh) {
   /* Inter has no CJK glyphs; name the platform Chinese fonts before the generic fallback. */
-  --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC";
+  --font-sans: "Inter", "Inter Fallback", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC";
 }
 
 body {

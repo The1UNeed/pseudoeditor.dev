@@ -2,11 +2,12 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
-import "@/lib/monacoLocalLoader";
+import { initializeMonaco } from "@/lib/monacoLocalLoader";
 import type * as Monaco from "monaco-editor";
 import { EditorLoader } from "@/app/components/EditorLoader";
 import { Diagnostic } from "@/compiler/types";
 import { autoCorrectPseudocodeLine } from "@/app/components/pseudocodeAutocorrect";
+import { afterNextPaint } from "@/lib/afterNextPaint";
 import { isAppleTouchDevice } from "@/lib/appleTouch";
 import { ensureMonacoNullCaretHitTestGuard } from "@/lib/monacoNullCaretHitTestGuard";
 import { getPseudocodeEditorOptions } from "@/lib/pseudocodeEditorOptions";
@@ -171,7 +172,6 @@ let pseudocodeLanguageRegistered = false;
 let pseudocodeCompletionProviderRegistered = false;
 
 if (typeof window !== "undefined") {
-  void ensureMonacoNullCaretHitTestGuard();
   // Switching models cancels Monaco's in-flight work (hover, occurrences) with a `Canceled` rejection by design.
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason as { name?: unknown; message?: unknown } | null;
@@ -380,6 +380,18 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
     () => getPseudocodeEditorOptions(appleTouchDevice, touchScreen),
     [appleTouchDevice, touchScreen],
   );
+
+  // Monaco loads in small steps (monacoLocalLoader) so that taps during loading stay responsive.
+  const [monacoReady, setMonacoReady] = useState(false);
+  const [loadingError, setLoadingError] = useState<unknown>(null);
+  useEffect(() => {
+    let active = true;
+    void initializeMonaco(editorOptions).then(
+      () => { if (active) setMonacoReady(true); },
+      (error: unknown) => { if (active) setLoadingError(error); },
+    );
+    return () => { active = false; };
+  }, [editorOptions]);
 
   const handleBeforeMount: BeforeMount = () => {
     void ensureMonacoNullCaretHitTestGuard();
@@ -851,6 +863,16 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
     }
     monaco.editor.setModelLanguage(model, languageId);
   }, [languageId, documentKey]);
+
+  // Creating a Monaco editor takes about 100 ms on a tablet. A tap that opens a file would wait for
+  // it before painting, so the editor for a document is created after the next paint instead.
+  const [readyDocumentKey, setReadyDocumentKey] = useState<string | undefined | null>(null);
+  useEffect(() => afterNextPaint(() => setReadyDocumentKey(documentKey)), [documentKey]);
+
+  if (loadingError) throw loadingError;
+  if (!monacoReady || readyDocumentKey !== documentKey) {
+    return <EditorLoader />;
+  }
 
   return (
     <Editor

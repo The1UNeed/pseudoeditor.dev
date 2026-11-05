@@ -18,6 +18,8 @@ const { loadWorkspaceMock, saveWorkspaceMock, compilePseudocodeMock, runMock, ed
       lastName?: string | null;
     },
     loading: false,
+    // Whether the browser holds a Clerk session cookie (see mayHaveClerkSession).
+    sessionHint: true,
   },
 }));
 const localStore = new Map<string, string>();
@@ -41,6 +43,7 @@ vi.mock("@/lib/auth-components", () => ({
       : null;
   },
   isCloudAuthConfigured: () => true,
+  mayHaveClerkSession: () => authState.sessionHint,
   SignInButton: ({ children }: { children: React.ReactNode }) => children,
   SignUpButton: ({ children }: { children: React.ReactNode }) => children,
   UserButton: Object.assign(
@@ -310,6 +313,7 @@ describe("HomePage workspace flow", () => {
       lastName: null,
     };
     authState.loading = false;
+    authState.sessionHint = true;
     Object.defineProperty(window as Window & { electron?: { isDesktop?: boolean } }, "electron", {
       configurable: true,
       value: undefined,
@@ -493,6 +497,49 @@ describe("HomePage workspace flow", () => {
       expect(screen.getByLabelText("Mock flowchart source")).toBeInTheDocument();
       expect(screen.getByText(/Hello from flowchart/)).toBeInTheDocument();
     });
+  });
+
+  it("runs the source typed just before Run is tapped", async () => {
+    mockLoadedWorkspace(createWorkspaceFixture());
+    compilePseudocodeMock.mockReturnValue({ success: true, diagnostics: [], astJson: "{}" });
+    runMock.mockResolvedValue({ success: true, stdout: "done", stderr: "", diagnostics: [], virtualFiles: {} });
+    render(<HomePage />);
+    const editor = await screen.findByRole("textbox", { name: "Mock editor" });
+
+    fireEvent.change(editor, { target: { value: 'OUTPUT "Typed just now"' } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    // Run starts after the next paint, with the latest source.
+    await waitFor(() => {
+      expect(compilePseudocodeMock).toHaveBeenCalledWith(expect.objectContaining({ source: 'OUTPUT "Typed just now"' }));
+    });
+  });
+
+  it("waits for Clerk before loading the workspace when a session cookie is present", async () => {
+    authState.user = null;
+    authState.loading = true;
+    mockLoadedWorkspace(createWorkspaceFixture());
+    render(<HomePage />);
+
+    expect(screen.getByRole("status", { name: "Loading workspace…" })).toBeInTheDocument();
+    expect(screen.getByText("PseudoEditor")).toBeInTheDocument();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(loadWorkspaceMock).not.toHaveBeenCalled();
+  });
+
+  it("opens the in-memory workspace without waiting for Clerk when nobody is signed in", async () => {
+    authState.user = null;
+    authState.loading = true;
+    authState.sessionHint = false;
+    mockLoadedWorkspace(createWorkspaceFixture());
+    render(<HomePage />);
+
+    await screen.findByRole("textbox", { name: "Mock editor" });
+    expect(loadWorkspaceMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mode: "memory" }));
+    // The account control stays a placeholder until Clerk has loaded.
+    expect(screen.getByRole("button", { name: "Checking sign-in status" })).toBeDisabled();
   });
 
   it("offers the flowchart from the toolbar without a beta setting, loading it on first open", async () => {

@@ -68,16 +68,42 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_POSTHOG_ENABLED: analyticsEnabled ? "1" : "",
   },
+  experimental: {
+    // Inline the stylesheet (about 15 KB compressed) into the HTML, so first paint does not wait for
+    // a separate render-blocking CSS request. Client-side navigations still load it as a file.
+    inlineCss: true,
+  },
   images: {
     unoptimized: true,
   },
   poweredByHeader: false,
   async redirects() {
     // The manual's content now lives in the docs as the pseudocode reference.
-    return ["/manual", "/app/manual"].flatMap((source) => [
+    const manual = ["/manual", "/app/manual"].flatMap((source) => [
       { source, destination: "/docs", permanent: true },
       { source: `/:locale(en|zh)${source}`, destination: "/:locale/docs", permanent: true },
     ]);
+    // English is served at the bare path, so `/en/...` redirects there and every page has one URL.
+    const englishPrefix = [
+      { source: "/en", destination: "/", permanent: true },
+      { source: "/en/:path*", destination: "/:path*", permanent: true },
+    ];
+    return [...manual, ...englishPrefix];
+  },
+  async rewrites() {
+    // English pages live under app/[locale] as `/en/...`; the bare path is rewritten there. These run
+    // in Vercel's routing layer, so cached pages are served from the CDN without invoking the proxy
+    // (middleware). `afterFiles` runs after public files and static routes (robots.txt, icons,
+    // /api, /_next) but before dynamic routes, so `/docs` reaches `/en/docs` rather than
+    // `[locale]` = "docs".
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        { source: "/", destination: "/en" },
+        { source: "/:path((?!(?:en|zh|api|_next)(?:/|$)).+)", destination: "/en/:path" },
+      ],
+      fallback: [],
+    };
   },
   async headers() {
     const immutableAssetHeaders = [
