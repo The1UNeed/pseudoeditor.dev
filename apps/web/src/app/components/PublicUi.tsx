@@ -10,7 +10,7 @@ export const publicListClassName =
   "divide-y divide-[var(--separator)] border-y border-[var(--separator)]";
 
 export const publicPrimaryButtonClassName =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-white transition hover:brightness-110";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-strong)]";
 
 export const publicSecondaryButtonClassName =
   "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-5 text-sm font-medium text-[var(--text2)] transition hover:bg-[var(--surface3)] hover:text-[var(--text)]";

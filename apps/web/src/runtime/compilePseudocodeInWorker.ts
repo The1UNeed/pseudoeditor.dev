@@ -112,9 +112,18 @@ class CompilerRunner {
     }
   }
 
-  async compile(request: CompileRequest, cacheKey: string | null = null): Promise<CompilerRunResult> {
+  /**
+   * `background` compiles (live diagnostics while typing) never mark a foreground compile, such as Run,
+   * as stale; their own callers check freshness against the current source instead.
+   */
+  async compile(
+    request: CompileRequest,
+    cacheKey: string | null = null,
+    options: { background?: boolean } = {},
+  ): Promise<CompilerRunResult> {
     const id = this.nextId++;
-    this.latestRequestId = id;
+    const background = options.background === true;
+    if (!background) this.latestRequestId = id;
     // The caller's key is a namespace, not proof that two sources are identical.
     const identity = cacheKey === null ? null : JSON.stringify([
       cacheKey, request.source, request.filename, request.syntaxId, request.strict,
@@ -146,7 +155,7 @@ class CompilerRunner {
     } catch (error) {
       result = compilerErrorResult(error instanceof Error ? error.message : "Unknown compiler error");
     }
-    return { result, requestId: id, stale: id !== this.latestRequestId, cached: false };
+    return { result, requestId: id, stale: !background && id !== this.latestRequestId, cached: false };
   }
 
   private async execute(request: CompileRequest, id: number): Promise<CompileResult> {
@@ -196,8 +205,9 @@ export const pseudocodeCompilerRunner = new CompilerRunner();
 export function compilePseudocodeInWorker(
   request: CompileRequest,
   cacheKey?: string | null,
+  options?: { background?: boolean },
 ): Promise<CompilerRunResult> {
-  return pseudocodeCompilerRunner.compile(request, cacheKey ?? null);
+  return pseudocodeCompilerRunner.compile(request, cacheKey ?? null, options);
 }
 
 export function preloadPseudocodeCompiler(): void {

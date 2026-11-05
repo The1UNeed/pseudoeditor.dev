@@ -57,7 +57,7 @@ export const TerminatorNode = memo((props: NodeProps) => {
   return (
     <BaseNode selected={selected}>
       <div
-        className="flex items-center justify-center px-8 py-3"
+        className="flowchart-shape flex items-center justify-center px-8 py-3"
         style={{
           background: 'var(--flowchart-terminator)',
           border: '2px solid var(--flowchart-terminator)',
@@ -83,39 +83,40 @@ export const ProcessNode = memo((props: NodeProps) => {
   return (
     <BaseNode selected={selected}>
       <div
-        className="min-w-[220px] max-w-[300px] px-5 py-4"
+        className="flowchart-shape min-w-[220px] max-w-[300px] px-5 py-4"
+        // A tinted surface with a coloured outline: the block's colour identifies it without shouting.
         style={{
-          background: 'var(--flowchart-process)',
-          border: '2px solid var(--flowchart-process)',
+          background: 'color-mix(in srgb, var(--flowchart-process) 10%, var(--surface))',
+          border: '1px solid var(--flowchart-process)',
           borderRadius: 'var(--radius-lg)',
-          color: 'var(--bg)',
+          color: 'var(--text)',
           minHeight: '100px',
         }}
       >
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bg)]">
+            <span className="text-[11px] font-semibold text-[var(--flowchart-process)]">
               {t.flowchart.process}
             </span>
             {nodeData.label ? (
-              <span className="text-xs font-medium text-[var(--bg)]">{nodeData.label}</span>
+              <span className="text-xs font-medium text-[var(--text2)]">{nodeData.label}</span>
             ) : null}
           </div>
 
           {statements.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {statements.map((statement, index) => (
                 <div
                   key={`${statement}-${index}`}
-                  className="rounded-lg border border-[var(--bg)] bg-transparent px-3 py-2 text-left"
+                  className="rounded-[var(--radius-control)] border border-[var(--separator-strong)] bg-[var(--bg)] px-3 py-1.5 text-left"
                 >
-                  <span className="block text-xs leading-5 text-[var(--bg)]">{statement}</span>
+                  <span className="block font-mono text-xs leading-5 text-[var(--text)]">{statement}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--bg)] px-3 py-4 text-center">
-              <span className="block text-xs leading-5 text-[var(--bg)]">
+            <div className="rounded-[var(--radius-control)] border border-dashed border-[var(--separator-strong)] px-3 py-4 text-center">
+              <span className="block text-xs leading-5 text-[var(--text3)]">
                 {t.flowchart.processEmpty}
               </span>
             </div>
@@ -175,7 +176,7 @@ export const DecisionNode = memo((props: NodeProps) => {
           width="140"
           height="140"
           viewBox="0 0 140 140"
-          className="absolute inset-0"
+          className="flowchart-shape absolute inset-0"
         >
           <polygon
             points="70,5 135,70 70,135 5,70"
@@ -249,21 +250,24 @@ export const InputOutputNode = memo((props: NodeProps) => {
 
   return (
     <BaseNode selected={selected}>
-      <div
-        className="relative flex flex-col items-center justify-center gap-2 px-5 py-3 text-center"
-        style={{
-          width: 220,
-          minHeight: 88,
-          background: 'var(--flowchart-io)',
-          clipPath: 'polygon(20px 0, 100% 0, calc(100% - 20px) 100%, 0 100%)',
-        }}
-      >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bg)]">
-          {isInput ? 'Input' : 'Output'}
-        </span>
-        <span className="font-medium text-sm leading-5" style={{ color: 'var(--bg)' }}>
-          {content}
-        </span>
+      {/* The glow sits on this unclipped wrapper; the clip-path below would cut it off. */}
+      <div className="flowchart-shape">
+        <div
+          className="relative flex flex-col items-center justify-center gap-2 px-5 py-3 text-center"
+          style={{
+            width: 220,
+            minHeight: 88,
+            background: 'var(--flowchart-io)',
+            clipPath: 'polygon(20px 0, 100% 0, calc(100% - 20px) 100%, 0 100%)',
+          }}
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bg)]">
+            {isInput ? 'Input' : 'Output'}
+          </span>
+          <span className="font-medium text-sm leading-5" style={{ color: 'var(--bg)' }}>
+            {content}
+          </span>
+        </div>
       </div>
     </BaseNode>
   );
@@ -278,7 +282,7 @@ export const SubroutineNode = memo((props: NodeProps) => {
   
   return (
     <BaseNode selected={selected}>
-      <div className="relative" style={{ width: 180, height: 80 }}>
+      <div className="flowchart-shape relative" style={{ width: 180, height: 80 }}>
         {/* Main rectangle */}
         <div
           className="absolute inset-0 flex items-center justify-center"

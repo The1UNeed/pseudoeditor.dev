@@ -71,8 +71,15 @@ export const posthogConfig: Partial<PostHogConfig> = {
   disable_web_experiments: true,
   disable_external_dependency_loading: true,
   advanced_disable_flags: true,
-  before_send: scrubUrls,
+  before_send: (event) => (isBenignEditorCancellation(event) ? null : scrubUrls(event)),
 };
+
+/** Monaco rejects in-flight work with `Canceled` when the editor switches models; that is not an app error. */
+function isBenignEditorCancellation(event: Parameters<typeof scrubUrls>[0]): boolean {
+  if (!event || event.event !== "$exception") return false;
+  const list = (event.properties?.$exception_list ?? []) as Array<{ type?: string; value?: string }>;
+  return list.length > 0 && list.every((entry) => entry.type === "Canceled" || entry.value === "Canceled");
+}
 
 /**
  * Do Not Track and Global Privacy Control turn analytics off entirely. PostHog's own

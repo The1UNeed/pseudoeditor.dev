@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
 import "@/lib/monacoLocalLoader";
 import type * as Monaco from "monaco-editor";
@@ -26,7 +26,20 @@ import {
 } from "@/lib/syntaxColorSchemes";
 import type { ResolvedTheme } from "@/lib/theme";
 import { useDictionary } from "@/i18n/context";
+import { setEditorCursor } from "@/lib/editorCursorStore";
+import { toMonacoKeybinding, type WorkspaceCommand } from "@/lib/shortcuts";
+import { modelPathForDocument, registerLoadedMonaco } from "@/lib/editorModels";
 import { editorEn } from "@/i18n/messages/editor.en";
+
+/** What the workspace can ask of the mounted editor (focus, reveal a problem, open the command palette). */
+export interface PseudocodeEditorApi {
+  focus: () => void;
+  revealPosition: (line: number, column: number) => void;
+  /** The document whose model the editor is showing right now. */
+  showsDocument: (documentKey: string) => boolean;
+  openCommandPalette: () => void;
+  goToLine: () => void;
+}
 
 interface MonacoPseudocodeEditorProps {
   value: string;
@@ -36,7 +49,12 @@ interface MonacoPseudocodeEditorProps {
   documentKey?: string;
   syntaxId?: SyntaxId | string;
   colorScheme?: SyntaxColorSchemeId;
+  /** Workspace actions to list in the editor's command palette with their keybindings. */
+  commands?: WorkspaceCommand[];
+  apiRef?: MutableRefObject<PseudocodeEditorApi | null>;
 }
+
+const DATA_TYPE_NAMES = new Set(["INTEGER", "REAL", "CHAR", "STRING", "BOOLEAN", "DATE"]);
 
 const TYPE_KEYWORDS = [
   "INTEGER",
@@ -154,38 +172,146 @@ let pseudocodeCompletionProviderRegistered = false;
 
 if (typeof window !== "undefined") {
   void ensureMonacoNullCaretHitTestGuard();
+  // Switching models cancels Monaco's in-flight work (hover, occurrences) with a `Canceled` rejection by design.
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason as { name?: unknown; message?: unknown } | null;
+    if (reason?.name === "Canceled" && reason.message === "Canceled") event.preventDefault();
+  });
 }
 
+// Editor surface, gutter, selection and widget colours follow the app theme (see globals.css), so every syntax
+// scheme sits on the same workbench. Selected text keeps full contrast whatever its token colour.
 const EDITOR_SURFACE_COLORS = {
   dark: {
-    "editor.background": "#1C1C1E",
-    "editor.foreground": "#E5E5EA",
-    "editorLineNumber.foreground": "#48484A",
-    "editorLineNumber.activeForeground": "#98989D",
-    "editor.lineHighlightBackground": "#2C2C2E",
-    "editorCursor.foreground": "#E5E5EA",
-    "editor.selectionBackground": "#0A84FF30",
-    "editor.inactiveSelectionBackground": "#38383A",
-    "editorIndentGuide.background1": "#38383A",
-    "editorIndentGuide.activeBackground1": "#48484A",
-    "editorWidget.background": "#2C2C2E",
-    "editorSuggestWidget.background": "#2C2C2E",
-    "editorSuggestWidget.selectedBackground": "#0A84FF30",
+    "editor.background": "#16171B",
+    "editor.foreground": "#E3E5EC",
+    "editorLineNumber.foreground": "#7D8293",
+    "editorLineNumber.activeForeground": "#ECEDF2",
+    "editor.lineHighlightBackground": "#1D1E24",
+    "editor.lineHighlightBorder": "#00000000",
+    "editorCursor.foreground": "#7FD6B0",
+    "editor.selectionBackground": "#5BC49A3D",
+    // Selected text keeps full contrast whatever its token colour (comments would otherwise drop below 4.5:1).
+    "editor.selectionForeground": "#E3E5EC",
+    "editor.inactiveSelectionBackground": "#5BC49A22",
+    "editor.selectionHighlightBackground": "#5BC49A1F",
+    "editor.wordHighlightBackground": "#5BC49A1A",
+    "editor.findMatchBackground": "#F2B45A55",
+    "editor.findMatchHighlightBackground": "#F2B45A2A",
+    "editorBracketMatch.background": "#5BC49A2A",
+    "editorBracketMatch.border": "#5BC49A80",
+    "editorIndentGuide.background1": "#2B2D35",
+    "editorIndentGuide.activeBackground1": "#3A3D48",
+    "editorWhitespace.foreground": "#3A3D48",
+    "editorError.foreground": "#FF6B63",
+    "editorWarning.foreground": "#F2B45A",
+    "editorInfo.foreground": "#5BC49A",
+    "editorOverviewRuler.border": "#00000000",
+    "scrollbarSlider.background": "#3537424D",
+    "scrollbarSlider.hoverBackground": "#353742AA",
+    "scrollbarSlider.activeBackground": "#3A3D48",
+    "editorWidget.background": "#202128",
+    "editorWidget.border": "#3A3D48",
+    "editorHoverWidget.background": "#202128",
+    "editorHoverWidget.border": "#3A3D48",
+    "editorSuggestWidget.background": "#202128",
+    "editorSuggestWidget.border": "#3A3D48",
+    "editorSuggestWidget.selectedBackground": "#5BC49A2E",
+    "editorSuggestWidget.highlightForeground": "#7FD6B0",
+    "list.hoverBackground": "#292B33",
+    "quickInput.background": "#202128",
+    "quickInputList.focusBackground": "#5BC49A2E",
+    "quickInputList.focusForeground": "#ECEDF2",
+    "editorSuggestWidget.selectedForeground": "#ECEDF2",
+    "list.highlightForeground": "#7FD6B0",
+    "list.focusHighlightForeground": "#7FD6B0",
+    "editorBracketHighlight.foreground1": "#9DA2B3",
+    "editorBracketHighlight.foreground2": "#9DA2B3",
+    "editorBracketHighlight.foreground3": "#9DA2B3",
+    "editorBracketHighlight.foreground4": "#9DA2B3",
+    "editorBracketHighlight.foreground5": "#9DA2B3",
+    "editorBracketHighlight.foreground6": "#9DA2B3",
+    "input.background": "#16171B",
+    "input.border": "#3A3D48",
+    "focusBorder": "#5BC49A",
+    "widget.shadow": "#00000066",
+    "foreground": "#ECEDF2",
+    "descriptionForeground": "#8A8FA0",
+    "editor.rangeHighlightBackground": "#5BC49A12",
+    "textLink.foreground": "#5BC49A",
+    "textLink.activeForeground": "#7FD6B0",
+    "editorHoverWidget.statusBarBackground": "#1B1C21",
+    "keybindingLabel.background": "#292B33",
+    "keybindingLabel.border": "#3A3D48",
+    "keybindingLabel.bottomBorder": "#3A3D48",
+    "keybindingLabel.foreground": "#A9ADBB",
+    "pickerGroup.foreground": "#5BC49A",
+    "pickerGroup.border": "#2B2D35",
   },
   light: {
     "editor.background": "#FFFFFF",
-    "editor.foreground": "#111111",
-    "editorLineNumber.foreground": "#CFCFCF",
-    "editorLineNumber.activeForeground": "#6B7280",
-    "editor.lineHighlightBackground": "#F5F5F5",
-    "editorCursor.foreground": "#111111",
-    "editor.selectionBackground": "#0B6E4F2A",
-    "editor.inactiveSelectionBackground": "#E5E5E5",
-    "editorIndentGuide.background1": "#E5E5E5",
-    "editorIndentGuide.activeBackground1": "#D1D5DB",
+    "editor.foreground": "#1C1F26",
+    "editorLineNumber.foreground": "#6E7383",
+    "editorLineNumber.activeForeground": "#15171C",
+    "editor.lineHighlightBackground": "#F5F6F9",
+    "editor.lineHighlightBorder": "#00000000",
+    "editorCursor.foreground": "#085A40",
+    "editor.selectionBackground": "#0B6E4F2E",
+    "editor.selectionForeground": "#1C1F26",
+    "editor.inactiveSelectionBackground": "#0B6E4F1A",
+    "editor.selectionHighlightBackground": "#0B6E4F1A",
+    "editor.wordHighlightBackground": "#0B6E4F14",
+    "editor.findMatchBackground": "#E0A73A66",
+    "editor.findMatchHighlightBackground": "#E0A73A33",
+    "editorBracketMatch.background": "#0B6E4F1F",
+    "editorBracketMatch.border": "#0B6E4F66",
+    "editorIndentGuide.background1": "#E3E6EC",
+    "editorIndentGuide.activeBackground1": "#C9CED8",
+    "editorWhitespace.foreground": "#D2D6DF",
+    "editorError.foreground": "#C2362F",
+    "editorWarning.foreground": "#9A5800",
+    "editorInfo.foreground": "#0B6E4F",
+    "editorOverviewRuler.border": "#00000000",
+    "scrollbarSlider.background": "#9AA1B040",
+    "scrollbarSlider.hoverBackground": "#9AA1B080",
+    "scrollbarSlider.activeBackground": "#9AA1B0AA",
     "editorWidget.background": "#FFFFFF",
+    "editorWidget.border": "#D2D6DF",
+    "editorHoverWidget.background": "#FFFFFF",
+    "editorHoverWidget.border": "#D2D6DF",
     "editorSuggestWidget.background": "#FFFFFF",
-    "editorSuggestWidget.selectedBackground": "#0B6E4F1F",
+    "editorSuggestWidget.border": "#D2D6DF",
+    "editorSuggestWidget.selectedBackground": "#0B6E4F1C",
+    "editorSuggestWidget.highlightForeground": "#085A40",
+    "list.hoverBackground": "#EEF0F4",
+    "quickInput.background": "#FFFFFF",
+    "quickInputList.focusBackground": "#0B6E4F1C",
+    "quickInputList.focusForeground": "#15171C",
+    "editorSuggestWidget.selectedForeground": "#15171C",
+    "list.highlightForeground": "#085A40",
+    "list.focusHighlightForeground": "#085A40",
+    "editorBracketHighlight.foreground1": "#5A6070",
+    "editorBracketHighlight.foreground2": "#5A6070",
+    "editorBracketHighlight.foreground3": "#5A6070",
+    "editorBracketHighlight.foreground4": "#5A6070",
+    "editorBracketHighlight.foreground5": "#5A6070",
+    "editorBracketHighlight.foreground6": "#5A6070",
+    "input.background": "#FFFFFF",
+    "input.border": "#D2D6DF",
+    "focusBorder": "#0B6E4F",
+    "widget.shadow": "#15171C26",
+    "foreground": "#15171C",
+    "descriptionForeground": "#626979",
+    "editor.rangeHighlightBackground": "#0B6E4F0D",
+    "textLink.foreground": "#0B6E4F",
+    "textLink.activeForeground": "#085A40",
+    "editorHoverWidget.statusBarBackground": "#F7F8FA",
+    "keybindingLabel.background": "#EEF0F4",
+    "keybindingLabel.border": "#D2D6DF",
+    "keybindingLabel.bottomBorder": "#D2D6DF",
+    "keybindingLabel.foreground": "#4A5060",
+    "pickerGroup.foreground": "#0B6E4F",
+    "pickerGroup.border": "#E3E6EC",
   },
 } as const;
 
@@ -199,12 +325,14 @@ function defineSyntaxThemes(monaco: typeof import("monaco-editor")) {
         base: mode === "dark" ? "vs-dark" : "vs",
         inherit: true,
         rules: [
+          { token: "", foreground: hex(colors.identifier) },
           { token: "keyword", foreground: hex(colors.keyword), fontStyle: scheme.boldKeywords ? "bold" : "" },
           { token: "type", foreground: hex(colors.type) },
           { token: "predefined", foreground: hex(colors.routine) },
           { token: "string", foreground: hex(colors.string) },
           { token: "comment", foreground: hex(colors.comment), fontStyle: "italic" },
           { token: "number", foreground: hex(colors.number) },
+          { token: "number.float", foreground: hex(colors.number) },
           { token: "operator", foreground: hex(colors.operator) },
           { token: "identifier", foreground: hex(colors.identifier) },
           { token: "delimiter", foreground: hex(colors.operator) },
@@ -223,7 +351,13 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   documentKey,
   syntaxId = "cambridge-igcse",
   colorScheme = DEFAULT_SYNTAX_COLOR_SCHEME,
+  commands,
+  apiRef,
 }: MonacoPseudocodeEditorProps) {
+  const commandsRef = useRef(commands);
+  useEffect(() => {
+    commandsRef.current = commands;
+  }, [commands]);
   const autocomplete = useDictionary().editor.autocomplete;
   useEffect(() => {
     autocompleteText = autocomplete;
@@ -239,7 +373,13 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   const themeName = monacoThemeName(colorScheme, theme);
   const themeNameRef = useRef(themeName);
   const appleTouchDevice = useMemo(() => isAppleTouchDevice(typeof navigator === "undefined" ? undefined : navigator), []);
-  const editorOptions = useMemo(() => getPseudocodeEditorOptions(appleTouchDevice), [appleTouchDevice]);
+  const [touchScreen] = useState(
+    () => appleTouchDevice || (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true),
+  );
+  const editorOptions = useMemo(
+    () => getPseudocodeEditorOptions(appleTouchDevice, touchScreen),
+    [appleTouchDevice, touchScreen],
+  );
 
   const handleBeforeMount: BeforeMount = () => {
     void ensureMonacoNullCaretHitTestGuard();
@@ -251,7 +391,9 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
       startColumn: diagnostic.column,
       endLineNumber: diagnostic.endLine,
       endColumn: Math.max(diagnostic.endColumn + 1, diagnostic.column + 1),
-      message: `${diagnostic.code}: ${diagnostic.message}${diagnostic.hint ? `\nHint: ${diagnostic.hint}` : ""}`,
+      // Message first (as in Problems); the code shows as Monaco's secondary label.
+      message: `${diagnostic.message}${diagnostic.hint ? `\nHint: ${diagnostic.hint}` : ""}`,
+      code: diagnostic.code,
       severity:
         diagnostic.severity === "error"
           ? 8
@@ -263,6 +405,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
 
   const handleMount: OnMount = (editor, monaco) => {
     monacoRef.current = monaco;
+    registerLoadedMonaco(monaco);
     editorRef.current = editor;
     touchFocusCleanupRef.current?.();
     touchFocusCleanupRef.current = null;
@@ -293,7 +436,12 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
         const keywords = syntaxKeywords(option).map((keyword) =>
           option.keywordCase === "lower" ? keyword : keyword,
         );
-        const pattern = keywords.map((keyword) => keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+        const escape = (keyword: string) => keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // Data types get their own colour, so they are classified before the general keyword rule.
+        const typeKeywords = keywords.filter((keyword) => DATA_TYPE_NAMES.has(keyword.toUpperCase()));
+        const otherKeywords = keywords.filter((keyword) => !DATA_TYPE_NAMES.has(keyword.toUpperCase()));
+        const pattern = otherKeywords.map(escape).join("|");
+        const typePattern = typeKeywords.map(escape).join("|");
         monaco.languages.register({ id });
         monaco.languages.setMonarchTokensProvider(id, {
           ignoreCase: option.keywordCase === "any",
@@ -301,6 +449,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
             root: [
               [/#.*$/, "comment"],
               [/\/\/.*$/, "comment"],
+              ...(typePattern ? [[new RegExp(`\\b(${typePattern})\\b`), "type"] as [RegExp, string]] : []),
               [new RegExp(`\\b(${pattern})\\b`), "keyword"],
               [/\b[0-9]+\.[0-9]+\b/, "number.float"],
               [/\b[0-9]+\b/, "number"],
@@ -428,6 +577,55 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
       monaco.editor.setModelLanguage(model, languageId);
     }
 
+    for (const command of commandsRef.current ?? []) {
+      editor.addAction({
+        id: `pseudoeditor.${command.id}`,
+        label: command.label,
+        keybindings: command.shortcuts.map((shortcut) => toMonacoKeybinding(monaco, shortcut)),
+        run: () => {
+          // Look the handler up at run time so the action always calls the current one.
+          commandsRef.current?.find((candidate) => candidate.id === command.id)?.run();
+        },
+      });
+    }
+
+    const publishCursor = () => {
+      const position = editor.getPosition();
+      const selection = editor.getSelection();
+      const activeModel = editor.getModel();
+      if (!position) {
+        return;
+      }
+      setEditorCursor({
+        line: position.lineNumber,
+        column: position.column,
+        selectedCharacters: selection && activeModel ? activeModel.getValueLengthInRange(selection) : 0,
+      });
+    };
+    editor.onDidChangeCursorSelection(publishCursor);
+    editor.onDidChangeModel(publishCursor);
+    publishCursor();
+
+    if (apiRef) {
+      apiRef.current = {
+        focus: () => editor.focus(),
+        showsDocument: (documentKey) => editor.getModel()?.uri.toString() === modelPathForDocument(documentKey),
+        revealPosition: (line, column) => {
+          editor.setSelection(new monaco.Selection(line, column, line, column));
+          editor.revealPositionInCenterIfOutsideViewport({ lineNumber: line, column });
+          editor.focus();
+        },
+        openCommandPalette: () => {
+          editor.focus();
+          void editor.getAction("editor.action.quickCommand")?.run();
+        },
+        goToLine: () => {
+          editor.focus();
+          void editor.getAction("editor.action.gotoLine")?.run();
+        },
+      };
+    }
+
     const insertQuotePair = (quote: "\"" | "'") => {
       const model = editor.getModel();
       const selection = editor.getSelection();
@@ -477,14 +675,18 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
 
     editor.onKeyDown((event) => {
       const browserKey = event.browserEvent.key;
-      const browserCode = event.browserEvent.code;
       if (browserKey === "Tab") {
         lastTabKeydownAt = Date.now();
       }
+      // Match the character typed, not the physical key: on UK, German and other layouts the key labelled
+      // "Quote" on a US keyboard types something else entirely.
+      const browserEvent = event.browserEvent;
       const isQuoteKey =
-        browserKey === "\"" ||
-        browserKey === "'" ||
-        (browserCode === "Quote" && browserKey !== "Dead");
+        (browserKey === "\"" || browserKey === "'") &&
+        !browserEvent.isComposing &&
+        !browserEvent.ctrlKey &&
+        !browserEvent.metaKey &&
+        !browserEvent.altKey;
       if (isQuoteKey) {
         const quote = browserKey === "\"" ? "\"" : "'";
         const paired = insertQuotePair(quote);
@@ -610,8 +812,10 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
     () => () => {
       touchFocusCleanupRef.current?.();
       touchFocusCleanupRef.current = null;
+      if (apiRef) apiRef.current = null;
+      setEditorCursor(null);
     },
-    [],
+    [apiRef],
   );
 
   useEffect(() => {
@@ -623,7 +827,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
       return;
     }
     monacoRef.current.editor.setModelMarkers(model, "igcse-compiler", markers);
-  }, [markers]);
+  }, [markers, documentKey]);
 
   useEffect(() => {
     themeNameRef.current = themeName;
@@ -642,12 +846,13 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
       return;
     }
     monaco.editor.setModelLanguage(model, languageId);
-  }, [languageId]);
+  }, [languageId, documentKey]);
 
   return (
     <Editor
-      key={documentKey}
       height="100%"
+      path={modelPathForDocument(documentKey)}
+      keepCurrentModel
       defaultLanguage={languageId}
       value={value}
       onChange={(nextValue) => onChange(nextValue ?? "")}

@@ -55,7 +55,7 @@ function HeroWindow({ workspace, compiled, terminal }: { workspace: string; comp
         <span className="window-dot bg-[var(--traffic-yellow)]" />
         <span className="window-dot bg-[var(--traffic-green)]" />
         <span className="ml-3 text-[13px] font-medium text-[var(--text2)]">main.pseudo</span>
-        <span className="ml-auto text-xs font-medium text-[var(--green)]">{compiled}</span>
+        <span className="ml-auto text-xs font-medium text-[var(--text3)]">{compiled}</span>
       </div>
       <div className="grid md:grid-cols-[170px_1fr]">
         <aside className="hidden border-r border-[var(--separator)] bg-[var(--sidebar)] px-2 py-3 text-[13px] md:block">
@@ -174,19 +174,21 @@ export default async function LandingPage({ params }: LocaleParams) {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href={href("/app")} className="site-btn site-btn-accent">
-              {t.ctaStart} <Play size={16} />
+              {t.ctaStart} <ArrowRight size={16} aria-hidden />
             </Link>
             <Link href={href("/practice")} className="site-btn site-btn-ghost">
               {t.ctaPractice} <Shuffle size={16} />
             </Link>
-            <Link href={href("/docs")} className="site-btn site-btn-ghost">
-              {t.ctaDocs} <ArrowRight size={16} />
-            </Link>
           </div>
           <p className="mt-6 text-sm text-[var(--ink-3)]">{t.noAccount}</p>
-          <Link href={href("/docs/pseudocode-compiler")} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--accent)]">
-            {t.compilerGuide} <ArrowRight size={14} />
-          </Link>
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-[var(--accent)]">
+            <Link href={href("/docs")} className="inline-flex items-center gap-2 hover:underline">
+              {t.ctaDocs} <ArrowRight size={14} aria-hidden />
+            </Link>
+            <Link href={href("/docs/pseudocode-compiler")} className="inline-flex items-center gap-2 hover:underline">
+              {t.compilerGuide} <ArrowRight size={14} aria-hidden />
+            </Link>
+          </div>
         </div>
         <HeroWindow workspace={t.windowWorkspace} compiled={t.windowCompiled} terminal={t.windowTerminal} />
       </section>

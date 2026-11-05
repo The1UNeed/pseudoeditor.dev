@@ -1,6 +1,7 @@
 import type { ResolvedTheme } from "@/lib/theme";
 
 export type SyntaxColorSchemeId =
+  | "pseudoeditor"
   | "classic"
   | "ocean"
   | "forest"
@@ -27,11 +28,35 @@ export type SyntaxColorScheme = {
   boldKeywords?: boolean;
 };
 
-export const DEFAULT_SYNTAX_COLOR_SCHEME: SyntaxColorSchemeId = "classic";
+export const DEFAULT_SYNTAX_COLOR_SCHEME: SyntaxColorSchemeId = "pseudoeditor";
 
 // Token colours only. The editor background, gutter and selection stay with the app theme,
 // so every scheme sits on the same surface as the rest of the workspace.
 export const SYNTAX_COLOR_SCHEMES: readonly SyntaxColorScheme[] = [
+  {
+    // The default: keywords in the brand green, neutral identifiers so code reads as text, not a rainbow.
+    id: "pseudoeditor",
+    dark: {
+      keyword: "#6FCF9F",
+      type: "#7FB6F0",
+      routine: "#E2A6DC",
+      string: "#E8A585",
+      number: "#E9C46A",
+      operator: "#B8BCC9",
+      comment: "#7F8698",
+      identifier: "#E3E5EC",
+    },
+    light: {
+      keyword: "#0B6E4F",
+      type: "#2F5FA8",
+      routine: "#9233AB",
+      string: "#A84A2A",
+      number: "#8A6400",
+      operator: "#4A5060",
+      comment: "#697080",
+      identifier: "#1C1F26",
+    },
+  },
   {
     id: "classic",
     dark: {

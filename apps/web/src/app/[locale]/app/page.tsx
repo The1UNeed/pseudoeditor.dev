@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
 import { BrandMark } from "@/app/components/BrandMark";
 import {
@@ -9,6 +8,7 @@ import {
   FormEvent,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
+  type ReactNode,
   UIEvent as ReactUIEvent,
   memo,
   useCallback,
@@ -25,13 +25,13 @@ import {
   CircleAlert,
   Code,
   CloudOff,
-  Ellipsis,
   FileCode,
   FilePlus,
   Folder,
-  GitBranch,
+  Workflow,
   LoaderCircle,
   LogIn,
+  PanelBottom,
   PanelLeft,
   Palette,
   Play,
@@ -53,6 +53,18 @@ import { PracticeQuestionBanner } from "@/app/components/PracticeQuestionBanner"
 import { SettingsSelect } from "@/app/components/SettingsSelect";
 import { SyntaxColorSchemePicker } from "@/app/components/SyntaxColorSchemePicker";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
+import { ProblemsList, countProblems } from "@/app/components/ProblemsList";
+import { StatusBar, type SaveIndicatorState } from "@/app/components/StatusBar";
+import type { PseudocodeEditorApi } from "@/app/components/MonacoPseudocodeEditor";
+import { disposeWorkspaceModels } from "@/lib/editorModels";
+import {
+  SHORTCUTS,
+  formatShortcut,
+  isApplePlatform,
+  matchesShortcut,
+  withShortcut,
+  type WorkspaceCommand,
+} from "@/lib/shortcuts";
 import { usePracticeQuestion } from "@/app/hooks/usePracticeQuestion";
 import { useWorkspaceSession } from "@/app/hooks/useWorkspaceSession";
 import {
@@ -108,6 +120,8 @@ const MAX_TERMINAL_HEIGHT = 460;
 const SIDEBAR_WIDTH_STORAGE_KEY = "pseudocode-compiler-sidebar-width";
 const TERMINAL_HEIGHT_STORAGE_KEY = "pseudocode-compiler-terminal-height";
 const AUTO_SAVE_INTERVAL_STORAGE_KEY = "pseudocode-compiler-autosave-minutes";
+const EXPLORER_VISIBLE_STORAGE_KEY = "pseudocode-compiler-explorer-visible";
+const PANEL_VISIBLE_STORAGE_KEY = "pseudocode-compiler-panel-visible";
 const DEFAULT_AUTO_SAVE_INTERVAL_MINUTES = 5;
 const MIN_AUTO_SAVE_INTERVAL_MINUTES = 1;
 const MAX_AUTO_SAVE_INTERVAL_MINUTES = 60;
@@ -115,10 +129,27 @@ const MANUAL_SAVE_STATUS_TIMEOUT_MS = 2200;
 const PSEUDO_EXTENSION = ".pseudo";
 // Shared so editors without compile results don't get a new array (and reset markers) every render.
 const EMPTY_DIAGNOSTICS: Diagnostic[] = [];
-const DIALOG_CARD_CLASS =
-  "w-[calc(100%-2rem)] border border-[var(--separator)] bg-[var(--surface)] p-6 text-[var(--text)] shadow-[var(--shadow-modal)]";
 
 type TouchTab = "editor" | "files" | "output" | "settings";
+type PanelView = "output" | "problems";
+
+function loadStoredFlag(key: string, fallback: boolean): boolean {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored === null ? fallback : stored === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+function saveStoredFlag(key: string, value: boolean): void {
+  try {
+    window.localStorage.setItem(key, value ? "1" : "0");
+  } catch {
+    /* storage can be blocked; the layout still works for this session */
+  }
+}
 type ManualSaveStatus = "idle" | "saving" | "saved" | "error";
 
 function EditorLoadingFallback() {
@@ -186,7 +217,9 @@ function normalizeDocumentEditableName(name: string): string {
 /** The focusable explorer button for a workspace node, if it is still rendered. */
 function findExplorerItem(nodeId: string | undefined): HTMLElement | null {
   if (!nodeId) return null;
-  return document.querySelector<HTMLElement>(`[data-workspace-row-id="${CSS.escape(nodeId)}"] [data-workspace-item]`);
+  // The tree owns keyboard focus (rows are its active descendants), so focus returns to the tree itself.
+  const row = document.querySelector<HTMLElement>(`[data-workspace-row-id="${CSS.escape(nodeId)}"]`);
+  return row?.closest<HTMLElement>('[role="tree"]') ?? null;
 }
 
 function getSubmittedRenameValue(renameDialog: RenameDialogState, value: string): string {
@@ -275,7 +308,7 @@ export default function HomePage() {
     { href: localePath(locale, "/security"), label: t.legal.security },
     { href: "https://github.com/The1UNeed/pseudoeditor.dev", label: t.legal.github },
   ];
-  const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded: authLoaded, isSignedIn, userId } = useAuth();
   const authLoading = !authLoaded;
   const [appPlatform] = useState(() => getClientAppPlatform());
   const cloudSavingRequired = platformUsesCloudSaving(appPlatform);
@@ -306,9 +339,13 @@ export default function HomePage() {
     pendingInput,
     isRunning,
     lastRunTrace,
+    lastRunError,
     runningTerminalPanelId,
     saveError,
     hasPendingSave,
+    unsyncedEditsSafeOnDevice,
+    syncNotice,
+    dismissSyncNotice,
     isSaving,
     appNotice,
     dismissNotice,
@@ -338,6 +375,8 @@ export default function HomePage() {
     getCloudAuthToken: workspaceAuthTokenProvider,
     persistenceMode: workspacePersistenceMode,
     cloudSyncLoading: cloudSavingRequired ? authLoading : false,
+    checkpointOwner: userId ?? null,
+    recoveredFolderName: t.sync.recoveredFolder,
   });
 
   /* ── local state ── */
@@ -361,7 +400,26 @@ export default function HomePage() {
       MAX_TERMINAL_HEIGHT,
     ),
   );
-  const [showTerminal, setShowTerminal] = useState(true);
+  const [showTerminal, setShowTerminalState] = useState(() => loadStoredFlag(PANEL_VISIBLE_STORAGE_KEY, true));
+  const setShowTerminal = useCallback((next: boolean | ((current: boolean) => boolean)) => {
+    setShowTerminalState((current) => {
+      const value = typeof next === "function" ? next(current) : next;
+      saveStoredFlag(PANEL_VISIBLE_STORAGE_KEY, value);
+      return value;
+    });
+  }, []);
+  const [showExplorer, setShowExplorerState] = useState(() => loadStoredFlag(EXPLORER_VISIBLE_STORAGE_KEY, true));
+  const setShowExplorer = useCallback((next: boolean | ((current: boolean) => boolean)) => {
+    setShowExplorerState((current) => {
+      const value = typeof next === "function" ? next(current) : next;
+      saveStoredFlag(EXPLORER_VISIBLE_STORAGE_KEY, value);
+      return value;
+    });
+  }, []);
+  const [panelView, setPanelView] = useState<PanelView>("output");
+  const [touchOutputView, setTouchOutputView] = useState<PanelView>("output");
+  const editorApiRef = useRef<PseudocodeEditorApi | null>(null);
+  const [apple] = useState(() => isApplePlatform());
   const [touchTab, setTouchTab] = useState<TouchTab>("editor");
   const [touchSidebarVisible, setTouchSidebarVisible] = useState(true);
   const [touchOutputVisible, setTouchOutputVisible] = useState(true);
@@ -481,6 +539,13 @@ export default function HomePage() {
     />
   ) : null;
 
+  const titlePath = useMemo(() => {
+    if (!workspace || !editorActiveDoc) return [];
+    return getNodePath(workspace, editorActiveDoc.id)
+      .filter((node) => node.parentId !== null)
+      .map((node) => node.name);
+  }, [workspace, editorActiveDoc]);
+
   const breadcrumbs = useMemo(() => {
     if (!workspace || !currentDocument) return [];
     return getNodePath(workspace, currentDocument.id);
@@ -490,7 +555,15 @@ export default function HomePage() {
     ? (terminalOutputs[terminalPanelId] ?? "")
     : "";
   const resolvedTheme = resolveTheme(themeMode, systemTheme);
+  // Warn while the account copy is behind, even when edits are safe in this device's checkpoint: a student who
+  // closes the tab and then works on another device would otherwise not see these edits there.
   const shouldWarnBeforeUnload = hasPendingSave || saveError !== null;
+  // The hook reports failures in English; show the dictionary's wording (manual Save vs. autosave) instead.
+  const localizedSaveError = saveError?.startsWith("Save failed")
+    ? t.save.failedKeptManual
+    : saveError?.startsWith("Autosave failed")
+      ? t.save.failedKeptAuto
+      : saveError;
   const flowchartVisible = showFlowchart;
   const currentSource = currentDocument?.source ?? "";
   // The flowchart stays mounted while hidden; only feed it source updates while it is visible.
@@ -777,9 +850,16 @@ export default function HomePage() {
   const handleRun = useCallback(() => {
     shouldAutoScrollOutputRef.current = true;
     setShowTerminal(true);
+    setPanelView("output");
     preloadRunRuntime();
-    runNow();
-  }, [preloadRunRuntime, runNow]);
+    void runNow().then((outcome) => {
+      // A program that doesn't compile has nothing to show in Output; the fix list is what the student needs.
+      if (outcome === "compile_error") {
+        setPanelView("problems");
+        setTouchOutputView("problems");
+      }
+    });
+  }, [preloadRunRuntime, runNow, setShowTerminal]);
 
   const handleSaveWorkspace = useCallback(() => {
     if ((cloudSavingRequired && authLoading) || isSaving) {
@@ -881,19 +961,23 @@ export default function HomePage() {
     [syncFlowchartCodeToWorkspace],
   );
   // Browser-only values; the workspace loading gate renders first, so this can't cause a hydration mismatch.
-  const touchLayout = getTouchLayout(viewportSize.width, coarsePointer);
+  const touchLayout = getTouchLayout(viewportSize.width, coarsePointer, viewportSize.height);
   const isTouchTablet = touchLayout === "tablet";
   const isTouchPhone = touchLayout === "phone";
 
   const handleTouchRun = useCallback(() => {
+    setTouchOutputView("output");
     if (isTouchTablet) {
       setTouchOutputVisible(true);
+      // Give output a useful share of a tall tablet screen instead of a thin strip under a mostly empty editor.
+      const comfortableHeight = Math.round(viewportSize.height * 0.35);
+      setTerminalHeight((current) => clampNumber(Math.max(current, comfortableHeight), MIN_TERMINAL_HEIGHT, maxTerminalHeight));
     }
     if (isTouchPhone) {
       setTouchTab("output");
     }
     handleRun();
-  }, [handleRun, isTouchPhone, isTouchTablet]);
+  }, [handleRun, isTouchPhone, isTouchTablet, maxTerminalHeight, viewportSize.height]);
 
   const handlePhoneBack = useCallback(() => {
     setTouchTab((current) => (current === "editor" ? "files" : "editor"));
@@ -923,54 +1007,61 @@ export default function HomePage() {
     setSyntaxId(nextSyntaxId);
   };
 
-  const renderSyntaxSettings = (compact = false) => (
-    <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
-          {t.settings.examBoard}
-        </p>
-        <h3 className="mt-2 text-[22px] font-semibold text-[var(--text)]">{t.settings.syntax}</h3>
-        <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text2)]">
-          {t.settings.syntaxDescription}
-        </p>
-      </div>
+  // Settings read like an IDE preferences pane: one card of rows, each with the label and what it does on the left
+  // and the control on the right (stacked on phones so descriptions keep a readable measure).
+  const settingsRowClass = (compact: boolean) =>
+    compact
+      ? "flex flex-col items-stretch gap-3 px-4 py-3.5"
+      : "flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5";
+  const settingsLabel = (label: string, description: ReactNode) => (
+    <span className="min-w-0 flex-1">
+      <span className="block text-[13px] font-medium text-[var(--text)]">{label}</span>
+      <span className="mt-0.5 block text-xs leading-5 text-[var(--text3)]">{description}</span>
+    </span>
+  );
 
-      <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
-        <label className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-[var(--text)]">{t.settings.examSyntax}</span>
-          <SettingsSelect
-            value={currentSyntax.id}
-            aria-label={t.settings.examSyntax}
-            onChange={(event) => handleSyntaxChange(event.target.value as WorkspaceSyntaxId)}
-            className="w-[220px] max-w-[60%]"
-          >
-            {SYNTAX_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </SettingsSelect>
-        </label>
-        <p className="mt-2 text-xs text-[var(--text3)]">
-          {currentSyntax.board} {currentSyntax.syllabus}. {currentSyntax.description}
-        </p>
-      </div>
-    </div>
+  const renderSyntaxSettings = (compact = false) => (
+    <label className={settingsRowClass(compact)}>
+      {settingsLabel(
+        t.settings.examSyntax,
+        <>
+          {t.settings.syntaxDescription}{" "}
+          <span className="text-[var(--text2)]">
+            {currentSyntax.board} {currentSyntax.syllabus}.
+          </span>
+        </>,
+      )}
+      <SettingsSelect
+        value={currentSyntax.id}
+        aria-label={t.settings.examSyntax}
+        onChange={(event) => handleSyntaxChange(event.target.value as WorkspaceSyntaxId)}
+        className={compact ? "w-full" : "w-[210px] max-w-full"}
+      >
+        {SYNTAX_OPTIONS.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </SettingsSelect>
+    </label>
   );
 
   const renderThemeSettings = (compact = false) => (
-    <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
-          {t.settings.appearance}
-        </p>
-        <h3 className="mt-2 text-[22px] font-semibold text-[var(--text)]">{t.settings.theme}</h3>
-        <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text2)]">
-          {t.settings.themeDescription}
-        </p>
-      </div>
-
-      <div className="flex rounded-xl border border-[var(--separator)] bg-[var(--surface2)] p-1">
+    <div className={settingsRowClass(compact)}>
+      {settingsLabel(
+        t.settings.theme,
+        <>
+          {t.settings.themeDescription}{" "}
+          {themeMode === "system"
+            ? `${t.settings.activeAppearance} ${resolvedTheme === "dark" ? t.settings.dark : t.settings.light}`
+            : null}
+        </>,
+      )}
+      <div
+        role="group"
+        aria-label={t.settings.theme}
+        className={`flex rounded-[var(--radius-control)] border border-[var(--separator)] bg-[var(--surface2)] p-0.5 ${compact ? "w-full" : ""}`}
+      >
         {themeOptions.map((option) => {
           const selected = themeMode === option.value;
           return (
@@ -979,39 +1070,24 @@ export default function HomePage() {
               type="button"
               onClick={() => handleThemeModeChange(option.value)}
               aria-pressed={selected}
-              className={`relative flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-[4px] px-3 text-[13px] font-medium transition ${compact ? "h-11 flex-1" : "h-7 pointer-coarse:min-h-11"} ${
                 selected
-                  ? "bg-[var(--accent)] text-[var(--on-accent)] shadow-sm"
+                  ? "bg-[var(--bg)] text-[var(--text)] shadow-[var(--shadow-sm)]"
                   : "text-[var(--text2)] hover:text-[var(--text)]"
               }`}
             >
-              <span className="block text-center">{option.label}</span>
+              {option.label}
             </button>
           );
         })}
       </div>
-
-      <p className="text-xs text-[var(--text3)]">
-        {t.settings.activeAppearance}{" "}
-        <span className="font-semibold text-[var(--text2)]">
-          {resolvedTheme === "dark" ? t.settings.dark : t.settings.light}
-        </span>
-      </p>
     </div>
   );
 
-  const renderSyntaxColorSettings = (compact = false) => (
-    <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
-          {t.settings.appearance}
-        </p>
-        <h3 className="mt-2 text-[22px] font-semibold text-[var(--text)]">{t.settings.syntaxColors}</h3>
-        <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text2)]">
-          {t.settings.syntaxColorsDescription}
-        </p>
-      </div>
-
+  // The scheme previews need the full width, so this row stacks its picker under the label.
+  const renderSyntaxColorSettings = () => (
+    <div className="flex flex-col items-stretch gap-3 px-4 py-3.5">
+      {settingsLabel(t.settings.syntaxColors, t.settings.syntaxColorsDescription)}
       <SyntaxColorSchemePicker
         value={syntaxColorScheme}
         theme={resolvedTheme}
@@ -1022,31 +1098,38 @@ export default function HomePage() {
     </div>
   );
 
-  const renderSaveSettings = (compact = false) => (
-    <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
-          {t.settings.saving}
-        </p>
-        <h3 className="mt-2 text-[22px] font-semibold text-[var(--text)]">{t.settings.autosave}</h3>
+  const renderSaveSettings = (compact = false) =>
+    workspacePersistenceMode !== "cloud" ? (
+      <div className={settingsRowClass(compact)}>
+        {settingsLabel(
+          t.settings.autosave,
+          workspacePersistenceMode === "local" ? t.settings.autosaveLocal : t.settings.autosaveMemory,
+        )}
       </div>
+    ) : (
+      <label className={settingsRowClass(compact)}>
+        {settingsLabel(t.settings.autosaveInterval, t.settings.autosaveEvery(autoSaveIntervalMinutes))}
+        <SettingsSelect
+          value={autoSaveIntervalMinutes}
+          aria-label={t.settings.autosaveIntervalMinutes}
+          onChange={(event) => handleAutoSaveIntervalChange(Number(event.target.value))}
+          className={compact ? "w-full" : "w-[140px] max-w-full"}
+        >
+          {[1, 2, 3, 5, 10, 15, 30, 60].map((minutes) => (
+            <option key={minutes} value={minutes}>
+              {t.settings.minute(minutes)}
+            </option>
+          ))}
+        </SettingsSelect>
+      </label>
+    );
 
-      <div className="rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-[var(--text)]">{t.settings.autosaveInterval}</span>
-          <SettingsSelect
-            value={autoSaveIntervalMinutes}
-            aria-label={t.settings.autosaveIntervalMinutes}
-            onChange={(event) => handleAutoSaveIntervalChange(Number(event.target.value))}
-            className="w-[220px] max-w-[60%]"
-          >
-            {[1, 2, 3, 5, 10, 15, 30, 60].map((minutes) => <option key={minutes} value={minutes}>{t.settings.minute(minutes)}</option>)}
-          </SettingsSelect>
-        </div>
-        <p className="mt-2 text-xs text-[var(--text3)]">
-          {t.settings.autosaveEvery(autoSaveIntervalMinutes)}
-        </p>
-      </div>
+  const renderSettingsRows = (compact = false) => (
+    <div className="divide-y divide-[var(--separator)] overflow-hidden rounded-[var(--radius-panel)] border border-[var(--separator)] bg-[var(--bg)]">
+      {renderSyntaxSettings(compact)}
+      {renderThemeSettings(compact)}
+      {renderSyntaxColorSettings()}
+      {renderSaveSettings(compact)}
     </div>
   );
 
@@ -1059,7 +1142,7 @@ export default function HomePage() {
       return (
         <button
           type="button"
-          className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[var(--text3)]"
+          className="flex h-7 items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 text-[var(--text3)]"
           aria-label={t.auth.checkingStatus}
           disabled
         >
@@ -1075,7 +1158,7 @@ export default function HomePage() {
       return (
         <button
           type="button"
-          className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--accent)] bg-[var(--accent)] font-semibold text-[var(--on-accent)] shadow-sm transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
+          className={`ui-btn ui-btn-primary gap-1 ${
             compact ? "h-8 w-8 px-0" : "h-8 px-3 text-xs"
           }`}
           onClick={() => {
@@ -1096,7 +1179,7 @@ export default function HomePage() {
           <SignInButton mode="modal">
             <button
               type="button"
-              className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--accent)] bg-[var(--accent)] font-semibold text-[var(--on-accent)] shadow-sm transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
+              className={`ui-btn ui-btn-primary gap-1 ${
                 compact ? "h-8 w-8 px-0" : "h-8 px-3 text-xs"
               }`}
             >
@@ -1115,7 +1198,7 @@ export default function HomePage() {
                 url="appearance"
                 labelIcon={<Palette size={16} />}
               >
-                <div className="p-2">
+                <div className="divide-y divide-[var(--separator)] overflow-hidden rounded-[var(--radius-panel)] border border-[var(--separator)] bg-[var(--bg)]">
                   {renderSyntaxSettings()}
                   {renderThemeSettings()}
                   {renderSyntaxColorSettings()}
@@ -1126,7 +1209,7 @@ export default function HomePage() {
                 url="general"
                 labelIcon={<Settings size={16} />}
               >
-                <div className="space-y-6 p-2">
+                <div className="overflow-hidden rounded-[var(--radius-panel)] border border-[var(--separator)] bg-[var(--bg)]">
                   {renderSaveSettings()}
                 </div>
               </UserButton.UserProfilePage>
@@ -1141,7 +1224,7 @@ export default function HomePage() {
     );
   };
 
-  const renderSaveControl = () => {
+  const renderSaveControl = (touch = false) => {
     const blocked = (cloudSavingRequired && authLoading) || isSaving;
     const isCloudSave = workspacePersistenceMode === "cloud";
     const showSaving = isSaving || manualSaveStatus === "saving";
@@ -1152,7 +1235,7 @@ export default function HomePage() {
       ? "text-[var(--green)]"
       : showError
         ? "text-[var(--red)]"
-        : "text-[var(--text2)]";
+        : "";
     const saveTitle = showError
       ? t.save.failedTitle
       : canSaveWorkspace
@@ -1164,29 +1247,26 @@ export default function HomePage() {
     return (
       <button
         type="button"
-        className={`flex h-7 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition ${
-          saveStatusLabel ? "min-w-7 px-2.5" : "w-7"
-        } ${
-          canSaveWorkspace
-            ? `${saveStatusClass} hover:bg-[var(--hover)]`
-            : "cursor-not-allowed border border-[var(--separator)] bg-[var(--surface2)] text-[var(--text3)] opacity-70"
+        className={`ui-icon-btn ${touch ? "h-10 w-10 text-[var(--text2)]" : ""} ${
+          canSaveWorkspace ? saveStatusClass : "cursor-not-allowed opacity-60"
         } ${blocked ? "opacity-60" : ""}`}
         aria-label={t.save.saveWorkspace}
         aria-disabled={!canSaveWorkspace || blocked}
         disabled={blocked}
-        title={saveTitle}
+        title={withShortcut(saveTitle, SHORTCUTS.save[0], apple)}
         onClick={handleSaveWorkspace}
       >
         {showSaving ? (
-          <LoaderCircle size={17} className="animate-spin" />
+          <LoaderCircle size={16} className="animate-spin" />
         ) : showSaved ? (
-          <Check size={17} />
+          <Check size={16} />
         ) : showError ? (
-          <CircleAlert size={17} />
+          <CircleAlert size={16} />
         ) : (
-          <Save size={18} />
+          <Save size={16} />
         )}
-        {saveStatusLabel ? <span>{saveStatusLabel}</span> : null}
+        {/* A fixed-size icon so the toolbar never shifts; the status bar carries the words. */}
+        {saveStatusLabel ? <span className="sr-only" aria-live="polite">{saveStatusLabel}</span> : null}
       </button>
     );
   };
@@ -1218,26 +1298,13 @@ export default function HomePage() {
 
   const renderFlowchartPromptDialog = () =>
     showFlowchartPrompt ? (
-      <Dialog
-        labelledBy="flowchart-prompt-title"
-        onClose={closeFlowchartPrompt}
-        className={`${DIALOG_CARD_CLASS} max-w-sm rounded-xl`}
-      >
-        <div className="flex items-center gap-3 text-[var(--text3)]">
-          <GitBranch size={20} />
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]">{t.flowchart.name}</span>
-        </div>
-        <h2
-          id="flowchart-prompt-title"
-          className="mt-3 text-xl font-semibold text-[var(--text)]"
-        >
+      <Dialog labelledBy="flowchart-prompt-title" onClose={closeFlowchartPrompt} className="ui-dialog max-w-sm">
+        <h2 id="flowchart-prompt-title" className="ui-dialog-title">
           {t.flowchart.createFirst}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
-          {t.flowchart.createFirstDescription}
-        </p>
+        <p className="ui-dialog-body">{t.flowchart.createFirstDescription}</p>
         <form
-          className="mt-5 space-y-4"
+          className="mt-4"
           onSubmit={(event) => {
             event.preventDefault();
             const name = flowchartFileName.trim();
@@ -1249,29 +1316,21 @@ export default function HomePage() {
           }}
         >
           <label className="block">
-            <span className="mb-2 block text-sm text-[var(--text2)]">{t.files.fileName}</span>
+            <span className="mb-1.5 block text-xs font-medium text-[var(--text2)]">{t.files.fileName}</span>
             <input
               data-autofocus
               aria-label={t.files.fileName}
               value={flowchartFileName}
               onChange={(event) => setFlowchartFileName(event.target.value)}
               placeholder="main.pseudo"
-              className="h-10 w-full rounded-xl border border-[var(--separator)] bg-[var(--bg)] px-3 text-sm text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              className="ui-input"
             />
           </label>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] hover:bg-[var(--surface3)]"
-              onClick={closeFlowchartPrompt}
-            >
+          <div className="ui-dialog-actions">
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={closeFlowchartPrompt}>
               {t.common.cancel}
             </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
-              disabled={!flowchartFileName.trim()}
-            >
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={!flowchartFileName.trim()}>
               {t.files.createAndOpen}
             </button>
           </div>
@@ -1281,25 +1340,14 @@ export default function HomePage() {
 
   const renderCreateFileDialog = () =>
     showCreateFileDialog ? (
-      <Dialog
-        labelledBy="create-file-dialog-title"
-        onClose={closeCreateFileDialog}
-        className={`${DIALOG_CARD_CLASS} max-w-sm rounded-xl`}
-      >
-        <div className="flex items-center gap-3 text-[var(--text3)]">
-          <FilePlus size={20} />
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]">{t.files.explorer}</span>
-        </div>
-        <h2
-          id="create-file-dialog-title"
-          className="mt-3 text-xl font-semibold text-[var(--text)]"
-        >
+      <Dialog labelledBy="create-file-dialog-title" onClose={closeCreateFileDialog} className="ui-dialog max-w-sm">
+        <h2 id="create-file-dialog-title" className="ui-dialog-title">
           {t.files.createNewFile}
         </h2>
-        <form className="mt-5 space-y-4" onSubmit={submitCreateFile}>
+        <form className="mt-4" onSubmit={submitCreateFile}>
           <label className="block">
-            <span className="mb-2 block text-sm text-[var(--text2)]">{t.files.fileName}</span>
-            <div className="flex h-10 w-full overflow-hidden rounded-xl border border-[var(--separator)] bg-[var(--bg)] focus-within:border-[var(--accent)]">
+            <span className="mb-1.5 block text-xs font-medium text-[var(--text2)]">{t.files.fileName}</span>
+            <span className="ui-input-group">
               <input
                 ref={createFileInputRef}
                 data-autofocus
@@ -1307,27 +1355,19 @@ export default function HomePage() {
                 value={createFileName}
                 onChange={(event) => setCreateFileName(normalizeDocumentEditableName(event.target.value))}
                 placeholder="main"
-                className="min-w-0 flex-1 border-0 bg-transparent px-3 text-sm text-[var(--text)] outline-none"
+                className="min-w-0 flex-1 border-0 bg-transparent px-2.5 text-[13px] text-[var(--text)] outline-none"
               />
-              <span className="flex shrink-0 items-center border-l border-[var(--separator)] bg-[var(--surface2)] px-3 text-sm text-[var(--text3)]">
+              <span className="flex shrink-0 items-center border-l border-[var(--separator)] bg-[var(--surface2)] px-2.5 font-mono text-xs text-[var(--text3)]">
                 {PSEUDO_EXTENSION}
               </span>
-            </div>
+            </span>
           </label>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] hover:bg-[var(--surface3)]"
-              onClick={closeCreateFileDialog}
-            >
+          <div className="ui-dialog-actions">
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={closeCreateFileDialog}>
               {t.common.cancel}
             </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
-              disabled={!createFileName.trim()}
-            >
-              {t.files.createFile}
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={!createFileName.trim()}>
+              {t.files.create}
             </button>
           </div>
         </form>
@@ -1336,40 +1376,26 @@ export default function HomePage() {
 
   const renderSignInPromptDialog = () =>
     showSignInPrompt ? (
-      <Dialog
-        labelledBy="sign-in-save-dialog-title"
-        onClose={() => setShowSignInPrompt(false)}
-        className={`${DIALOG_CARD_CLASS} max-w-sm rounded-xl`}
-      >
-        <div className="flex items-center gap-2 text-[var(--text3)]">
-          <CloudOff size={18} />
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]">{t.auth.signedOut}</span>
+      <Dialog labelledBy="sign-in-save-dialog-title" onClose={() => setShowSignInPrompt(false)} className="ui-dialog max-w-sm">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+            <CloudOff size={16} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 id="sign-in-save-dialog-title" className="ui-dialog-title">
+              {t.auth.signInToSave}
+            </h2>
+            <p className="ui-dialog-body">{t.auth.signInDescription}</p>
+          </div>
         </div>
-        <h2
-          id="sign-in-save-dialog-title"
-          className="mt-3 text-xl font-semibold text-[var(--text)]"
-        >
-          {t.auth.signInToSave}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--text2)]">
-          {t.auth.signInDescription}
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] transition hover:bg-[var(--surface3)]"
-            onClick={() => setShowSignInPrompt(false)}
-          >
+        <div className="ui-dialog-actions">
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setShowSignInPrompt(false)}>
             {t.auth.notNow}
           </button>
           <SignInButton mode="modal">
             {/* Close this modal first: Clerk's sign-in modal would otherwise sit under the inert page. */}
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm font-semibold text-[var(--text2)] transition hover:bg-[var(--surface3)] hover:text-[var(--text)]"
-              onClick={() => setShowSignInPrompt(false)}
-            >
-              <LogIn size={15} />
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setShowSignInPrompt(false)}>
+              <LogIn size={14} aria-hidden />
               {t.auth.logIn}
             </button>
           </SignInButton>
@@ -1383,33 +1409,18 @@ export default function HomePage() {
         labelledBy="rename-dialog-title"
         returnFocusTo={() => findExplorerItem(renameDialog.nodeId)}
         onClose={() => setRenameDialog(null)}
-        className={`${DIALOG_CARD_CLASS} max-w-md rounded-xl`}
+        className="ui-dialog max-w-sm"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">{t.files.explorer}</p>
-            <h2
-              id="rename-dialog-title"
-              className="mt-2 text-xl font-semibold text-[var(--text)]"
-            >
-              {t.files.renameItem}
-            </h2>
-            <p className="mt-2 text-sm text-[var(--text2)]">
-              {t.files.currentName} {renameDialog.currentName}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] hover:bg-[var(--surface3)]"
-            onClick={() => setRenameDialog(null)}
-          >
-            {t.common.cancel}
-          </button>
-        </div>
-        <form className="mt-5 space-y-4" onSubmit={submitRename}>
+        <h2 id="rename-dialog-title" className="ui-dialog-title">
+          {t.files.renameItem}
+        </h2>
+        <p className="ui-dialog-body">
+          {t.files.currentName} <span className="font-medium text-[var(--text)]">{renameDialog.currentName}</span>
+        </p>
+        <form className="mt-4" onSubmit={submitRename}>
           <label className="block">
-            <span className="mb-2 block text-sm text-[var(--text2)]">{t.files.itemName}</span>
-            <div className="flex h-10 w-full overflow-hidden rounded-xl border border-[var(--separator)] bg-[var(--bg)] focus-within:border-[var(--accent)]">
+            <span className="mb-1.5 block text-xs font-medium text-[var(--text2)]">{t.files.itemName}</span>
+            <span className="ui-input-group">
               <input
                 ref={renameInputRef}
                 data-autofocus
@@ -1422,28 +1433,20 @@ export default function HomePage() {
                       : event.target.value,
                   )
                 }
-                className="min-w-0 flex-1 border-0 bg-transparent px-3 text-sm text-[var(--text)] outline-none"
+                className="min-w-0 flex-1 border-0 bg-transparent px-2.5 text-[13px] text-[var(--text)] outline-none"
               />
               {renameDialog.isDocument ? (
-                <span className="flex shrink-0 items-center border-l border-[var(--separator)] bg-[var(--surface2)] px-3 text-sm text-[var(--text3)]">
+                <span className="flex shrink-0 items-center border-l border-[var(--separator)] bg-[var(--surface2)] px-2.5 font-mono text-xs text-[var(--text3)]">
                   {PSEUDO_EXTENSION}
                 </span>
               ) : null}
-            </div>
+            </span>
           </label>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] hover:bg-[var(--surface3)]"
-              onClick={() => setRenameDialog(null)}
-            >
+          <div className="ui-dialog-actions">
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setRenameDialog(null)}>
               {t.common.cancel}
             </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
-              disabled={!renameValue.trim()}
-            >
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={!renameValue.trim()}>
               {t.files.saveName}
             </button>
           </div>
@@ -1457,29 +1460,17 @@ export default function HomePage() {
         labelledBy="delete-dialog-title"
         onClose={() => setDeleteDialog(null)}
         returnFocusTo={() => findExplorerItem(deleteDialog.nodeIds[0])}
-        className={`${DIALOG_CARD_CLASS} max-w-md rounded-xl`}
+        className="ui-dialog max-w-sm"
       >
-        <p className="text-xs uppercase tracking-[0.2em] text-[var(--red)]">{t.files.explorer}</p>
-        <h2
-          id="delete-dialog-title"
-          className="mt-2 text-xl font-semibold text-[var(--text)]"
-        >
-          {t.files.confirmDelete}
+        <h2 id="delete-dialog-title" className="ui-dialog-title">
+          {deleteDialog.message}
         </h2>
-        <p className="mt-3 text-sm text-[var(--text2)]">{deleteDialog.message}</p>
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] hover:bg-[var(--surface3)]"
-            onClick={() => setDeleteDialog(null)}
-          >
+        <p className="ui-dialog-body">{t.files.cannotUndo}</p>
+        <div className="ui-dialog-actions">
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setDeleteDialog(null)}>
             {t.common.cancel}
           </button>
-          <button
-            type="button"
-            className="rounded-lg bg-[var(--red)] px-3 py-1.5 text-sm font-semibold text-[var(--on-red)]"
-            onClick={confirmDelete}
-          >
+          <button type="button" className="ui-btn ui-btn-danger" onClick={confirmDelete}>
             {t.common.delete}
           </button>
         </div>
@@ -1491,125 +1482,130 @@ export default function HomePage() {
       <Dialog
         labelledBy="settings-dialog-title"
         onClose={() => setShowSettingsPanel(false)}
-        className={`${DIALOG_CARD_CLASS} max-w-lg rounded-[var(--radius-3xl)]`}
+        className="ui-dialog max-w-xl overflow-y-auto p-0"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">{t.toolbar.settings}</p>
-            <h2
-              id="settings-dialog-title"
-              className="mt-2 text-2xl font-semibold text-[var(--text)]"
-            >
-              {t.toolbar.settings}
-            </h2>
-          </div>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--separator)] bg-[var(--surface)] px-5 py-3.5">
+          <h2 id="settings-dialog-title" className="ui-dialog-title">
+            {t.toolbar.settings}
+          </h2>
           <button
             type="button"
-            className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-3 py-1.5 text-sm text-[var(--text2)] hover:bg-[var(--surface3)]"
+            className="ui-icon-btn"
+            aria-label={t.common.close}
+            title={t.common.close}
             onClick={() => setShowSettingsPanel(false)}
           >
-            {t.common.close}
+            <X size={16} />
           </button>
         </div>
-        <div className="mt-5 space-y-6">
-          {renderSyntaxSettings()}
-          {renderThemeSettings()}
-          {renderSyntaxColorSettings()}
-          {renderSaveSettings()}
-        </div>
-        <div className="mt-6 border-t border-[var(--separator)] pt-4 text-center">
-          <p className="text-xs text-[var(--text3)]">
-            {t.legal.notice(new Date().getFullYear())}
-          </p>
-          <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
+        <div className="px-5 py-5">{renderSettingsRows()}</div>
+        <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[var(--separator)] px-5 py-3 text-xs text-[var(--text3)]">
+          <span>{t.legal.notice(new Date().getFullYear())}</span>
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {appLegalLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[var(--accent)] hover:underline"
+                className="text-[var(--text2)] underline-offset-2 hover:text-[var(--accent)] hover:underline"
               >
                 {link.label}
               </a>
             ))}
             <LocaleSwitcher />
-          </div>
-        </div>
+          </span>
+        </footer>
       </Dialog>
     ) : null;
 
-  const renderStarterPanel = (compact = false) => (
-    <div
-      className={`flex h-full min-h-0 items-center justify-center px-5 ${
-        compact ? "py-8" : "py-12"
-      }`}
-    >
-      <section className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[var(--separator)] bg-[var(--surface)] p-8 shadow-[var(--shadow-xl)]">
-        <div className="relative flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface)]">
-            <Image
-              src="/branding/app-icon-128.png"
-              alt="PseudoEditor"
-              width={44}
-              height={44}
-              className="h-11 w-11"
-            />
+  // The empty editor works like an IDE start page: the actions that begin work, and the shortcuts worth learning.
+  const renderStarterPanel = (compact = false) => {
+    const startActions = [
+      { icon: FilePlus, label: t.files.createNewFile, onClick: () => openCreateFileDialog() },
+      { icon: Folder, label: t.files.createFolder, onClick: () => createFolderInWorkspace() },
+      { icon: BookOpen, label: t.empty.openDocs, onClick: openDocsPanel },
+    ];
+    const shortcutRows: Array<{ label: string; id: keyof typeof SHORTCUTS }> = [
+      { label: t.toolbar.run, id: "run" },
+      { label: t.save.saveWorkspace, id: "save" },
+      { label: t.workbench.commandPalette, id: "commandPalette" },
+      { label: t.workbench.toggleExplorer, id: "toggleExplorer" },
+    ];
+    return (
+      <div className={`flex h-full min-h-0 overflow-y-auto px-6 ${compact ? "py-8" : "py-12"}`}>
+        <section className="m-auto w-full max-w-lg">
+          <BrandMark size={36} />
+          <h2 className="mt-5 text-xl font-semibold tracking-[-0.01em] text-[var(--text)]">{t.empty.welcome}</h2>
+          <p className="mt-1.5 text-sm leading-6 text-[var(--text2)]">{t.empty.description}</p>
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {startActions.map(({ icon: Icon, label, onClick }, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={onClick}
+                className={`ui-btn ${index === 0 ? "ui-btn-primary" : "ui-btn-secondary"}`}
+              >
+                <Icon size={15} aria-hidden />
+                {label}
+              </button>
+            ))}
           </div>
-          <h2 className="mt-5 text-2xl font-semibold text-[var(--text)]">
-            {t.empty.welcome}
-          </h2>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--text2)]">
-            {t.empty.description}
-          </p>
-          <div className="mt-7 flex w-full flex-col gap-2.5">
-            <button
-              type="button"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--on-accent)] transition hover:brightness-110"
-                  onClick={() => openCreateFileDialog()}
-            >
-              <FilePlus size={16} />
-              {t.files.createNewFile}
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--separator)] bg-[var(--surface2)] px-5 text-sm font-medium text-[var(--text2)] transition hover:bg-[var(--surface3)] hover:text-[var(--text)]"
-              onClick={() => createFolderInWorkspace()}
-            >
-              <Folder size={16} />
-              {t.files.createFolder}
-            </button>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
+          {!compact ? (
+            <div className="mt-8">
+              <h3 className="text-xs font-semibold text-[var(--text3)]">{t.empty.shortcuts}</h3>
+              <dl className="mt-2 divide-y divide-[var(--separator)] border-y border-[var(--separator)]">
+                {shortcutRows.map((row) => (
+                  <div key={row.id} className="flex items-center justify-between py-2 text-[13px]">
+                    <dt className="text-[var(--text2)]">{row.label}</dt>
+                    <dd>
+                      <kbd className="rounded-[4px] border border-[var(--separator-strong)] bg-[var(--surface)] px-1.5 py-0.5 font-sans text-xs text-[var(--text2)]">
+                        {shortcutHint(row.id)}
+                      </kbd>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+        </section>
+      </div>
+    );
+  };
 
   const renderTouchOutputSurface = (title: string, onClose?: () => void) => (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--surface)]">
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-[var(--separator)] px-4">
-        <span className="text-[13px] font-semibold text-[var(--text2)]">{title}</span>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--surface)]">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--separator)] px-3">
+        {renderPanelTabs(touchOutputView, setTouchOutputView, true)}
         <div className="flex-1" />
-        <button
-          type="button"
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
-          aria-label={t.terminal.clearOutput}
-          onClick={handleClearTerminal}
-        >
-          <Trash2 size={16} />
-        </button>
+        {touchOutputView === "output" ? (
+          <button
+            type="button"
+            className="ui-icon-btn h-10 w-10"
+            aria-label={t.terminal.clearOutput}
+            onClick={handleClearTerminal}
+          >
+            <Trash2 size={18} />
+          </button>
+        ) : null}
         {onClose ? (
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
+            className="ui-icon-btn h-10 w-10"
             aria-label={t.terminal.close(title)}
             onClick={onClose}
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         ) : null}
       </div>
 
+      {touchOutputView === "problems" ? (
+        <div role="tabpanel" aria-label={t.workbench.problems} className="min-h-0 flex-1 overflow-auto overscroll-contain">
+          <ProblemsList diagnostics={compileDiagnostics} onSelect={revealDiagnostic} touch />
+        </div>
+      ) : (
+      <>
       <div
         ref={touchOutputScrollRef}
         data-testid="touch-output-scroll-region"
@@ -1623,10 +1619,11 @@ export default function HomePage() {
         <pre className="min-w-full whitespace-pre-wrap break-words font-mono text-[13px] leading-[1.5]">
           {terminalOutput ? (
             <span className="text-[var(--text2)]">{terminalOutput}</span>
-          ) : (
+          ) : lastRunError ? null : (
             <span className="text-[var(--text3)]">{t.terminal.ready}</span>
           )}
         </pre>
+        {renderRunErrorRow(true)}
       </div>
 
       {pendingInput.panelId === terminalPanelId && pendingInput.prompt ? (
@@ -1647,18 +1644,18 @@ export default function HomePage() {
               autoFocus
               aria-label={t.terminal.input}
               aria-describedby="terminal-input-prompt"
-              className="h-8 min-w-[140px] flex-1 rounded-lg border border-[var(--separator)] bg-[var(--bg)] px-2 font-mono text-xs text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              className="ui-input h-10 min-w-[140px] flex-1 font-mono text-[14px]"
               placeholder={t.terminal.inputPlaceholder}
             />
             <button
               type="submit"
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-[var(--on-accent)]"
+              className="ui-btn ui-btn-primary h-10"
             >
               {t.terminal.send}
             </button>
             <button
               type="button"
-              className="rounded-lg px-2.5 py-1.5 text-[11px] text-[var(--text2)] transition hover:bg-[var(--hover)]"
+              className="ui-btn ui-btn-ghost h-10"
               onClick={cancelPendingInput}
             >
               {t.common.cancel}
@@ -1674,6 +1671,8 @@ export default function HomePage() {
             <p className="text-[11px] text-[var(--green)]">{t.terminal.running}</p>
           </div>
         )}
+      </>
+      )}
     </div>
   );
 
@@ -1707,6 +1706,22 @@ export default function HomePage() {
     [t, workspace],
   );
 
+  function focusEditorWhenReady() {
+    let attempts = 0;
+    let previousApi: PseudocodeEditorApi | null = null;
+    const tryFocus = () => {
+      const api = editorApiRef.current;
+      // Two consecutive frames with the same editor means any remount for the new file has finished.
+      if (api && api === previousApi) {
+        api.focus();
+        return;
+      }
+      previousApi = api;
+      if (attempts++ < 120) window.requestAnimationFrame(tryFocus);
+    };
+    window.requestAnimationFrame(tryFocus);
+  }
+
   const openCreateFileDialog = (options?: { parentId?: string; initialName?: string }) => {
     setCreateFileParentId(options?.parentId);
     setCreateFileName(getDocumentEditableName(options?.initialName ?? "main.pseudo"));
@@ -1732,6 +1747,9 @@ export default function HomePage() {
     const name = `${baseName}${PSEUDO_EXTENSION}`;
     createDocumentInWorkspace(createFileParentId, { name });
     closeCreateFileDialog();
+    // Put the caret in the new file so the first keystrokes land in the code, as in an IDE. This runs after the
+    // dialog's focus restoration, and waits for a freshly mounted editor if this was the first file.
+    focusEditorWhenReady();
   };
 
   const submitRename = (event: FormEvent<HTMLFormElement>) => {
@@ -1768,6 +1786,329 @@ export default function HomePage() {
     }
   };
 
+  const renderPanelTabs = (view: PanelView, onChange: (view: PanelView) => void, touch = false) => {
+    const tabs: Array<{ id: PanelView; label: string; count?: number }> = [
+      { id: "output", label: t.terminal.output },
+      { id: "problems", label: t.workbench.problems, count: problemTotal },
+    ];
+    return (
+      <div
+        role="tablist"
+        aria-label={t.workbench.panelTabs}
+        className={`flex items-stretch gap-4 self-stretch ${touch ? "gap-5" : ""}`}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          const next = view === "output" ? "problems" : "output";
+          const tabList = event.currentTarget;
+          onChange(next);
+          window.requestAnimationFrame(() => {
+            tabList.querySelector<HTMLElement>(`[data-panel-view="${next}"]`)?.focus();
+          });
+        }}
+      >
+        {tabs.map((tab) => {
+          const selected = view === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              data-panel-view={tab.id}
+              data-active={selected}
+              aria-selected={selected}
+              tabIndex={selected ? 0 : -1}
+              className={`ui-tab font-medium ${touch ? "text-[14px]" : "text-[12px]"}`}
+              onClick={() => onChange(tab.id)}
+            >
+              {tab.label}
+              {tab.count ? (
+                <span
+                  className={`min-w-[18px] rounded-full px-1.5 text-center text-[10px] font-semibold leading-4 ${
+                    problemCounts.errors > 0
+                      ? "bg-[var(--red)] text-[var(--on-red)]"
+                      : "bg-[var(--orange)] text-[var(--on-accent)]"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /** Explains account-sync situations in the notice bar, with the action that resolves them. */
+  const renderSyncNotice = () => {
+    if (!syncNotice) return null;
+    const unreachable = syncNotice === "account-unreachable";
+    return (
+      <div className="flex items-center gap-3" role="status">
+        <span className={unreachable ? "text-[var(--red)]" : "text-[var(--text2)]"}>
+          {unreachable ? t.sync.accountUnreachable : t.sync.recoveredCopies}
+        </span>
+        <button
+          type="button"
+          className="ui-btn ui-btn-secondary h-6 px-2 text-xs"
+          onClick={unreachable ? () => window.location.reload() : dismissSyncNotice}
+        >
+          {unreachable ? t.sync.retry : t.common.dismiss}
+        </button>
+      </div>
+    );
+  };
+
+  /** The error that stopped the last run, as a row that jumps to the line (like a linked stack frame). */
+  const renderRunErrorRow = (touch = false) => {
+    if (!lastRunError) return null;
+    const message = lastRunError.code === "RUN408" ? t.workbench.runawayLoop : lastRunError.message;
+    const errorDocument = workspace?.nodes[lastRunError.documentId];
+    if (!errorDocument) return null;
+    const inOtherFile = lastRunError.documentId !== currentDocument?.id;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (inOtherFile) selectDocument(lastRunError.documentId);
+          revealDiagnostic(lastRunError, lastRunError.documentId);
+        }}
+        className={`mt-1 flex w-full items-start gap-2 rounded-md border border-[color-mix(in_srgb,var(--red)_35%,transparent)] bg-[color-mix(in_srgb,var(--red)_10%,transparent)] px-2.5 text-left transition enabled:hover:bg-[color-mix(in_srgb,var(--red)_16%,transparent)] ${
+          touch ? "min-h-11 py-2.5 text-[13px]" : "py-1.5 text-xs"
+        }`}
+      >
+        <CircleAlert size={touch ? 16 : 14} className="mt-px shrink-0 text-[var(--red)]" aria-hidden />
+        <span className="min-w-0 flex-1 text-[var(--text)]">
+          <span className="font-semibold text-[var(--red)]">
+            {inOtherFile
+              ? t.workbench.runtimeErrorInFile(errorDocument.name, lastRunError.line)
+              : t.workbench.runtimeErrorOnLine(lastRunError.line)}
+          </span>{" "}
+          {message}
+          {lastRunError.hint ? <span className="block text-[var(--text2)]">{t.diagnostics.hint} {lastRunError.hint}</span> : null}
+        </span>
+      </button>
+    );
+  };
+
+  /** Closes a tab and, like IDE tab strips, activates its right-hand neighbour (else the left one). */
+  const closeTabSelectingNeighbour = (documentId: string): string | undefined => {
+    if (!editorPanel) return undefined;
+    const ids = editorPanel.openDocumentIds;
+    const index = ids.indexOf(documentId);
+    const neighbourId = ids[index + 1] ?? ids[index - 1];
+    const wasActive = editorPanel.activeDocumentId === documentId;
+    closeEditorDocumentTab(editorPanel.id, documentId);
+    if (wasActive && neighbourId) setEditorActiveDocument(editorPanel.id, neighbourId);
+    return wasActive ? neighbourId : editorPanel.activeDocumentId ?? neighbourId;
+  };
+
+  /** Arrow keys move between editor tabs, as in IDE tab strips; Home/End jump to the ends. */
+  const handleTabListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!editorPanel) return;
+    const ids = editorPanel.openDocumentIds;
+    const currentIndex = ids.indexOf(editorPanel.activeDocumentId ?? "");
+    let nextIndex = -1;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % ids.length;
+    else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + ids.length) % ids.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = ids.length - 1;
+    else if ((event.key === "Delete" || event.key === "Backspace") && currentIndex >= 0 && ids.length > 1) {
+      // Close the focused tab from the keyboard, then keep focus in the strip on its neighbour.
+      event.preventDefault();
+      const neighbourId = closeTabSelectingNeighbour(ids[currentIndex]);
+      const tabList = event.currentTarget;
+      window.requestAnimationFrame(() => {
+        const next = neighbourId
+          ? tabList.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(neighbourId)}"]`)
+          : null;
+        (next ?? document.querySelector<HTMLElement>('[role="tree"]'))?.focus();
+      });
+      return;
+    }
+    if (nextIndex < 0 || ids.length === 0) return;
+    event.preventDefault();
+    const nextId = ids[nextIndex];
+    setEditorActiveDocument(editorPanel.id, nextId);
+    const tabList = event.currentTarget;
+    window.requestAnimationFrame(() => {
+      tabList.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(nextId)}"]`)?.focus();
+    });
+  };
+
+  /* ── workspace commands & keyboard shortcuts ── */
+
+  // Free the editor models of deleted documents, and all of them when leaving the workspace.
+  const documentIdsKey = workspace
+    ? Object.values(workspace.nodes)
+        .filter((node) => node.type === "document")
+        .map((node) => node.id)
+        .sort()
+        .join("\n")
+    : "";
+  useEffect(() => {
+    const keep = new Set(documentIdsKey ? documentIdsKey.split("\n") : []);
+    // Wait a tick so an editor that is unmounting with the last document has detached its model first.
+    const timer = window.setTimeout(() => disposeWorkspaceModels(keep), 0);
+    return () => window.clearTimeout(timer);
+  }, [documentIdsKey]);
+  useEffect(() => () => void window.setTimeout(() => disposeWorkspaceModels(), 0), []);
+
+  const revealDiagnostic = useCallback(
+    (diagnostic: Diagnostic, documentId?: string) => {
+      if (isTouchPhone) {
+        setTouchTab("editor");
+      }
+      // On phones the editor remounts when its tab opens, and opening another file swaps the model a frame later,
+      // so wait until the editor is showing the right document.
+      let attempts = 0;
+      const tryReveal = () => {
+        const api = editorApiRef.current;
+        if (api && (!documentId || api.showsDocument(documentId))) {
+          api.revealPosition(diagnostic.line, diagnostic.column);
+          return;
+        }
+        if (attempts++ < 120) window.requestAnimationFrame(tryReveal);
+      };
+      tryReveal();
+    },
+    [isTouchPhone],
+  );
+
+  const showProblems = useCallback(() => {
+    if (touchLayout === "phone") {
+      setTouchTab("output");
+      setTouchOutputView("problems");
+      return;
+    }
+    if (touchLayout === "tablet") {
+      setTouchOutputVisible(true);
+      setTouchOutputView("problems");
+      return;
+    }
+    setShowTerminal(true);
+    setPanelView("problems");
+  }, [setShowTerminal, touchLayout]);
+
+  const togglePanel = useCallback(() => {
+    if (touchLayout === "tablet") {
+      setTouchOutputVisible((current) => !current);
+      return;
+    }
+    setShowTerminal((current) => !current);
+  }, [setShowTerminal, touchLayout]);
+
+  const toggleExplorer = useCallback(() => {
+    if (touchLayout === "tablet") {
+      setTouchSidebarVisible((current) => !current);
+      return;
+    }
+    setShowExplorer((current) => !current);
+  }, [setShowExplorer, touchLayout]);
+
+  // Commands call through a ref so the list (and the editor actions built from it) stays stable across renders.
+  const commandHandlersRef = useRef<Record<string, () => void>>({});
+  useEffect(() => {
+    commandHandlersRef.current = {
+      run: () => {
+        if (!isRunning && currentDocument) (touchLayout ? handleTouchRun : handleRun)();
+      },
+      save: handleSaveWorkspace,
+      toggleExplorer,
+      togglePanel,
+      problems: showProblems,
+      settings: () => (isTouchPhone ? setTouchTab("settings") : setShowSettingsPanel(true)),
+      newFile: () => openCreateFileDialog(),
+      newFolder: () => createFolderInWorkspace(),
+      commandPalette: () => editorApiRef.current?.openCommandPalette(),
+    };
+  });
+
+  const workspaceCommands = useMemo<WorkspaceCommand[]>(() => [
+    { id: "run", label: t.workbench.commands.run, shortcuts: SHORTCUTS.run, run: () => commandHandlersRef.current.run?.() },
+    { id: "save", label: t.workbench.commands.save, shortcuts: SHORTCUTS.save, run: () => commandHandlersRef.current.save?.() },
+    {
+      id: "toggleExplorer",
+      label: t.workbench.commands.toggleExplorer,
+      shortcuts: SHORTCUTS.toggleExplorer,
+      run: () => commandHandlersRef.current.toggleExplorer?.(),
+    },
+    {
+      id: "togglePanel",
+      label: t.workbench.commands.togglePanel,
+      shortcuts: SHORTCUTS.togglePanel,
+      run: () => commandHandlersRef.current.togglePanel?.(),
+    },
+    {
+      id: "problems",
+      label: t.workbench.commands.problems,
+      shortcuts: SHORTCUTS.problems,
+      run: () => commandHandlersRef.current.problems?.(),
+    },
+    {
+      id: "settings",
+      label: t.workbench.commands.settings,
+      shortcuts: SHORTCUTS.settings,
+      run: () => commandHandlersRef.current.settings?.(),
+    },
+    { id: "newFile", label: t.workbench.commands.newFile, shortcuts: [], run: () => commandHandlersRef.current.newFile?.() },
+    { id: "newFolder", label: t.workbench.commands.newFolder, shortcuts: [], run: () => commandHandlersRef.current.newFolder?.() },
+    {
+      id: "commandPalette",
+      label: t.workbench.commands.commandPalette,
+      shortcuts: SHORTCUTS.commandPalette,
+      run: () => commandHandlersRef.current.commandPalette?.(),
+    },
+  ], [t]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // The editor handles its own keybindings (and marks the event handled); everything else lands here.
+      if (event.defaultPrevented || event.isComposing) return;
+      const command = workspaceCommands.find((candidate) =>
+        candidate.shortcuts.some((shortcut) => matchesShortcut(event, shortcut, apple)),
+      );
+      if (!command) return;
+      event.preventDefault();
+      // Leave the page behind an open dialog alone; still swallow Save so the browser's save-page dialog never opens.
+      if (document.querySelector("dialog[open]") && command.id !== "save") return;
+      command.run();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [apple, workspaceCommands]);
+
+  const phoneSaveLabel = {
+    "saved-local": t.workbench.savedLocal,
+    "saved-cloud": t.workbench.savedCloud,
+    "saved-device-syncing": t.workbench.savedDeviceSyncingShort,
+    unsaved: t.workbench.unsaved,
+    saving: t.workbench.savingNow,
+    "not-saved": t.workbench.notSaved,
+    failed: t.workbench.saveFailed,
+  }[saveIndicatorStateFor()];
+  function saveIndicatorStateFor(): SaveIndicatorState {
+    return saveError
+      ? "failed"
+      : isSaving || manualSaveStatus === "saving"
+        ? "saving"
+        : !canSaveWorkspace
+          ? "not-saved"
+          : hasPendingSave
+            ? workspacePersistenceMode === "cloud" && unsyncedEditsSafeOnDevice
+              ? "saved-device-syncing"
+              : "unsaved"
+            : workspacePersistenceMode === "cloud"
+              ? "saved-cloud"
+              : "saved-local";
+  }
+  const shortcutHint = (id: keyof typeof SHORTCUTS) => formatShortcut(SHORTCUTS[id][0], apple);
+  const tip = (label: string, id: keyof typeof SHORTCUTS) => withShortcut(label, SHORTCUTS[id][0], apple);
+  const problemCounts = countProblems(compileDiagnostics);
+  const problemTotal = problemCounts.errors + problemCounts.warnings;
+  const saveIndicatorState = saveIndicatorStateFor();
+
   /* ── loading state ── */
 
   if (!workspace) {
@@ -1794,10 +2135,11 @@ export default function HomePage() {
         style={{ height: "100dvh", minHeight: "100svh" }}
       >
         <div className="flex h-full min-h-0 flex-col overflow-hidden" style={touchSafeAreaStyle}>
-          {(saveError || appNotice) && (
+          {(saveError || appNotice || syncNotice) && (
             <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
               <div className="flex flex-wrap items-center gap-3 text-[11px]">
-                {saveError && <span className="text-[var(--red)]">{saveError}</span>}
+                {renderSyncNotice()}
+                {saveError && syncNotice !== "account-unreachable" && <span className="text-[var(--red)]">{localizedSaveError}</span>}
                 {appNotice && (
                   <div className="flex items-center gap-3">
                     <span
@@ -1809,7 +2151,7 @@ export default function HomePage() {
                     </span>
                     <button
                       type="button"
-                      className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-2.5 py-1 text-[11px] text-[var(--text2)] transition hover:bg-[var(--surface3)]"
+                      className="ui-btn ui-btn-secondary h-6 px-2 text-xs"
                       onClick={dismissNotice}
                     >
                 {t.common.dismiss}
@@ -1826,28 +2168,24 @@ export default function HomePage() {
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--accent)] transition hover:bg-[var(--hover)]"
+                    className="ui-icon-btn h-10 w-10 text-[var(--text2)]"
                     aria-label={touchSidebarVisible ? t.toolbar.hideSidebar : t.toolbar.showSidebar}
                     onClick={() => setTouchSidebarVisible((current) => !current)}
                   >
                     <PanelLeft size={22} />
                   </button>
                   <div className="h-6 w-px bg-[var(--separator)]" />
-                  <FileCode size={18} className="text-[var(--accent)]" />
+                  <FileCode size={18} aria-hidden className={currentDocument ? "text-[var(--accent)]" : "text-[var(--text3)]"} />
                   <span className="truncate text-[17px] font-semibold text-[var(--text)]">
                     {currentDocument?.name ?? t.files.noFileSelected}
                   </span>
                 </div>
 
-                <div className="flex flex-1 items-center justify-center">
-                  <p className="text-[13px] font-medium text-[var(--text2)]">{t.toolbar.editor}</p>
-                </div>
-
                 <div className="flex flex-1 items-center justify-end gap-3">
-                  {renderSaveControl()}
+                  {renderSaveControl(true)}
                   <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--accent)] transition hover:bg-[var(--hover)]"
+                    className="ui-icon-btn h-10 w-10 text-[var(--text2)]"
                     aria-label={t.toolbar.openSettings}
                     onClick={() => setShowSettingsPanel(true)}
                   >
@@ -1855,14 +2193,16 @@ export default function HomePage() {
                   </button>
                   <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--green)] text-[var(--on-green)] transition hover:brightness-110 disabled:opacity-50"
+                    className="group flex h-11 w-11 items-center justify-center disabled:opacity-50"
                     aria-label={isRunning ? t.toolbar.running : t.toolbar.run}
                     onPointerEnter={preloadRunRuntime}
                     onFocus={preloadRunRuntime}
                     onClick={handleTouchRun}
                     disabled={isRunning || !currentDocument}
                   >
-                    <Play size={22} fill="currentColor" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] bg-[var(--green)] text-[var(--on-green)] transition group-hover:brightness-110">
+                      <Play size={16} fill="currentColor" aria-hidden />
+                    </span>
                   </button>
                   {renderAccountControl(true)}
                 </div>
@@ -1894,21 +2234,23 @@ export default function HomePage() {
                       aria-label={t.terminal.resizeSidebar}
                       aria-orientation="vertical"
                       tabIndex={0}
-                      className="relative w-3 shrink-0 cursor-col-resize touch-none"
+                      className="relative z-10 w-px shrink-0 cursor-col-resize touch-none bg-[var(--separator)] before:absolute before:inset-y-0 before:-left-3 before:-right-3 before:content-[''] focus-visible:bg-[var(--accent)] focus-visible:outline-none"
                       onPointerDown={handleSidebarResize}
                       onKeyDown={handleSidebarResizeKeyDown}
-                    >
-                      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--separator)]" />
-                    </div>
+                    />
                   </>
                 ) : null}
 
                 <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--bg)]">
-                  <div className="flex h-8 shrink-0 items-center px-4">
-                    <Breadcrumbs path={breadcrumbs} />
-                  </div>
+                  {breadcrumbs.filter((node) => node.parentId !== null).length > 1 ? (
+                    <>
+                      <div className="flex h-8 shrink-0 items-center px-4">
+                        <Breadcrumbs path={breadcrumbs} />
+                      </div>
+                      <div className="h-px shrink-0 bg-[var(--separator)]" />
+                    </>
+                  ) : null}
                   {practiceBanner}
-                  <div className="h-px shrink-0 bg-[var(--separator)]" />
 
                   <div className="min-h-0 flex-1">
                     {currentDocument ? (
@@ -1922,26 +2264,27 @@ export default function HomePage() {
                         theme={resolvedTheme}
                         syntaxId={syntaxId}
                         colorScheme={syntaxColorScheme}
+                        commands={workspaceCommands}
+                        apiRef={editorApiRef}
                       />
                     ) : (
                       renderStarterPanel(true)
                     )}
                   </div>
 
-                  <div className="h-px shrink-0 bg-[var(--separator)]" />
-
                   {touchOutputVisible ? (
                     <>
+                      {/* A finger-sized drag handle with a visible grip, on a single divider. */}
                       <div
                         role="separator"
                         aria-label={t.terminal.resizeOutput}
                         aria-orientation="horizontal"
                         tabIndex={0}
-                        className="relative h-3 shrink-0 cursor-row-resize touch-none"
+                        className="relative flex h-6 shrink-0 cursor-row-resize touch-none items-center justify-center border-t border-[var(--separator)] bg-[var(--surface)]"
                         onPointerDown={handleTerminalResize}
                         onKeyDown={handleTerminalResizeKeyDown}
                       >
-                        <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-[var(--separator)]" />
+                        <div className="h-1 w-10 rounded-full bg-[var(--surface3)]" />
                       </div>
                       <div
                         className="min-h-0 shrink-0 overflow-hidden"
@@ -1959,52 +2302,79 @@ export default function HomePage() {
                   ) : (
                     <button
                       type="button"
-                      className="flex h-9 shrink-0 items-center gap-2 px-4 text-left text-[var(--text2)] transition hover:bg-[var(--surface)]"
+                      className="flex h-11 shrink-0 items-center gap-2 border-t border-[var(--separator)] px-4 text-left text-[var(--text2)] transition hover:bg-[var(--surface)]"
+                      aria-label={t.workbench.showPanel}
                       onClick={() => setTouchOutputVisible(true)}
                     >
                       <span className="text-[13px] font-semibold">{t.terminal.output}</span>
                       <div className="flex-1" />
-                      <ChevronUp size={16} className="rotate-180 text-[var(--text3)]" />
+                      <ChevronUp size={16} className="text-[var(--text3)]" />
                     </button>
                   )}
                 </section>
               </div>
+              <StatusBar
+                errors={problemCounts.errors}
+                warnings={problemCounts.warnings}
+                onShowProblems={showProblems}
+                syntaxLabel={currentSyntax.label}
+                onChangeSyntax={() => setShowSettingsPanel(true)}
+                saveState={saveIndicatorState}
+                onSave={handleSaveWorkspace}
+                showCursor={Boolean(currentDocument)}
+                onGoToLine={() => editorApiRef.current?.goToLine()}
+              />
             </>
           ) : (
             <>
               <header className="flex h-12 shrink-0 items-center gap-3 bg-[var(--titlebar)] px-4">
                 <button
                   type="button"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--accent)] transition hover:bg-[var(--hover)]"
+                  className="ui-icon-btn h-10 w-10 text-[var(--text2)]"
                   aria-label={touchTab === "editor" ? t.toolbar.openFiles : t.toolbar.backToEditor}
                   onClick={handlePhoneBack}
                 >
                   <ChevronLeft size={24} />
                 </button>
-                <span className="truncate text-[17px] font-semibold text-[var(--text)]">
-                  {currentDocument?.name ?? t.files.createAFile}
-                </span>
-                <div className="flex-1" />
-                {renderSaveControl()}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[17px] font-semibold leading-6 text-[var(--text)]">
+                    {currentDocument?.name ?? t.files.createAFile}
+                  </span>
+                  <span
+                    className={`truncate text-[11px] leading-4 ${
+                      saveIndicatorState === "failed"
+                        ? "text-[var(--red)]"
+                        : saveIndicatorState === "not-saved" || saveIndicatorState === "unsaved"
+                          ? "text-[var(--text2)]"
+                          : "text-[var(--text3)]"
+                    }`}
+                    aria-live="polite"
+                  >
+                    {phoneSaveLabel}
+                  </span>
+                </div>
+                {renderSaveControl(true)}
                 <button
                   type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--accent)] transition hover:bg-[var(--hover)]"
+            className="ui-icon-btn h-10 w-10 text-[var(--text2)]"
             aria-label={t.toolbar.openDocs}
             onClick={openDocsPanel}
           >
-            <Ellipsis size={22} />
+            <BookOpen size={22} />
           </button>
                 <button
                   type="button"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--green)] text-[var(--on-green)] transition hover:brightness-110 disabled:opacity-50"
+                  className="group flex h-11 w-11 items-center justify-center disabled:opacity-50"
                   aria-label={isRunning ? t.toolbar.running : t.toolbar.run}
                   onPointerEnter={preloadRunRuntime}
                   onFocus={preloadRunRuntime}
                   onClick={handleTouchRun}
                   disabled={isRunning || !currentDocument}
                 >
-                  <Play size={22} fill="currentColor" />
-                </button>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] bg-[var(--green)] text-[var(--on-green)] transition group-hover:brightness-110">
+                      <Play size={16} fill="currentColor" aria-hidden />
+                    </span>
+                  </button>
                 {renderAccountControl(true)}
               </header>
 
@@ -2025,6 +2395,8 @@ export default function HomePage() {
                         theme={resolvedTheme}
                         syntaxId={syntaxId}
                         colorScheme={syntaxColorScheme}
+                        commands={workspaceCommands}
+                        apiRef={editorApiRef}
                       />
                     ) : (
                       renderStarterPanel(true)
@@ -2048,25 +2420,15 @@ export default function HomePage() {
                   {touchTab === "output" ? renderTouchOutputSurface(t.terminal.output) : null}
 
                   {touchTab === "settings" ? (
-                    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[var(--bg)] px-6 py-8">
-                      <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
-                        {t.settings.heading}
-                      </p>
-                      <h2 className="mt-3 text-[28px] font-semibold text-[var(--text)]">
-                        PseudoEditor
-                      </h2>
-                      <p className="mt-4 max-w-xs text-sm leading-6 text-[var(--text2)]">
-                        {t.settings.touchDescription}
-                      </p>
-                      {renderSyntaxSettings(true)}
-                      {renderThemeSettings(true)}
-                      {renderSyntaxColorSettings(true)}
-                      {renderSaveSettings(true)}
+                    <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-[var(--bg)] px-5 pb-8 pt-6">
+                      <h2 className="text-[28px] font-semibold text-[var(--text)]">{t.toolbar.settings}</h2>
+                      <div className="mt-5">{renderSettingsRows(true)}</div>
                       <button
                         type="button"
-                        className="mt-6 inline-flex h-10 items-center justify-center self-start rounded-2xl bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--on-accent)] transition hover:brightness-110"
+                        className="ui-btn ui-btn-secondary mt-6 h-11 w-full text-sm"
                         onClick={openDocsPanel}
                       >
+                        <BookOpen size={16} />
                         {t.toolbar.openDocs}
                       </button>
                     </div>
@@ -2077,7 +2439,10 @@ export default function HomePage() {
                   className="shrink-0 bg-[var(--bg)] px-4 pt-3"
                   style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 21px)" }}
                 >
-                  <div className="flex h-[50px] items-center rounded-[var(--radius-3xl)] border border-[var(--separator)] bg-[var(--surface)] p-1">
+                  <nav
+                    aria-label={t.workbench.sections}
+                    className="flex h-[52px] items-center rounded-[18px] border border-[var(--separator)] bg-[var(--surface)] p-1 shadow-[var(--shadow-sm)]"
+                  >
                     {phoneTabItems.map((tab) => {
                       const Icon = tab.icon;
                       const isActive = touchTab === tab.key;
@@ -2085,22 +2450,37 @@ export default function HomePage() {
                         <button
                           key={tab.key}
                           type="button"
-                          className={`flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-[var(--radius-2xl)] transition ${
+                          className={`flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-[14px] transition-colors ${
                             isActive
-                              ? "bg-[var(--accent)] text-[var(--on-accent)]"
-                              : "text-[var(--text3)]"
+                              ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                              : "text-[var(--text3)] active:bg-[var(--hover)]"
                           }`}
                           aria-label={tab.label}
+                          aria-current={isActive ? "page" : undefined}
                           onClick={() => setTouchTab(tab.key)}
                         >
-                          <Icon size={18} />
-                          <span className="text-[9px] font-semibold tracking-[0.5px]">
+                          <span className="relative flex">
+                            <Icon size={18} />
+                            {tab.key === "output" && problemTotal > 0 ? (
+                              <span
+                                className={`absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full px-1 text-center text-[9px] font-bold leading-4 ${
+                                  problemCounts.errors > 0
+                                    ? "bg-[var(--red)] text-[var(--on-red)]"
+                                    : "bg-[var(--orange)] text-[var(--on-accent)]"
+                                }`}
+                                aria-hidden
+                              >
+                                {problemTotal}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="text-[11px] font-medium">
                             {tab.label}
                           </span>
                         </button>
                       );
                     })}
-                  </div>
+                  </nav>
                 </div>
               </section>
             </>
@@ -2121,13 +2501,14 @@ export default function HomePage() {
   return (
     <main className="flex h-dvh flex-col overflow-hidden">
       {/* ════════════ Title Bar ════════════ */}
+      {/* Three columns so the file name sits in the true centre of the window, never over the brand or toolbar. */}
       <header
-        className={`flex h-[52px] shrink-0 items-center px-4 bg-[var(--titlebar)] ${
+        className={`grid h-11 shrink-0 grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-3 border-b border-[var(--separator)] bg-[var(--titlebar)] pl-4 pr-2 ${
           isDesktopShell ? "app-drag-region" : ""
         }`}
       >
         {/* Spacer for native traffic lights (desktop) / brand label (web) */}
-        <div className={`flex items-center gap-2 ${isDesktopShell ? "w-[80px]" : "w-auto"}`}>
+        <div className={`flex shrink-0 items-center gap-2 justify-self-start ${isDesktopShell ? "w-[80px]" : "w-auto"}`}>
           {isDesktopShell ? null : (
             <Link
               href="/"
@@ -2135,83 +2516,111 @@ export default function HomePage() {
               aria-label={t.toolbar.home}
             >
               <BrandMark size={20} />
-              <span className="text-[13px] font-semibold text-[var(--text)]">
+              <span className="hidden text-[13px] font-semibold text-[var(--text)] min-[800px]:inline">
                 PseudoEditor
               </span>
             </Link>
           )}
         </div>
 
-        <div className="flex-1" />
-        <p className="text-[13px] font-medium text-[var(--text2)]">{t.toolbar.editor}</p>
-        <div className="flex-1" />
+        <p className="min-w-0 truncate text-center text-[13px] font-medium text-[var(--text2)]" title={titlePath.join(" / ")}>
+          {titlePath.length > 1 ? (
+            <span className="text-[var(--text3)]">{titlePath.slice(0, -1).join(" / ")} / </span>
+          ) : null}
+          {titlePath.at(-1) ?? ""}
+        </p>
 
-        {/* Toolbar */}
-        <div className="app-no-drag flex items-center gap-1.5">
-          {renderSaveControl()}
-          <Link
-            href={localePath(locale, "/practice")}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:text-[var(--text2)]"
-            aria-label={t.toolbar.openPractice}
-            title={t.toolbar.practice}
-          >
-            <Shuffle size={18} />
-          </Link>
+        {/* Toolbar: layout toggles | file and learning tools | Run (the primary action) */}
+        <div className="app-no-drag flex items-center gap-0.5 justify-self-end">
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:text-[var(--text2)]"
-            aria-label={t.toolbar.docs}
-            onClick={openDocsPanel}
+            className="ui-icon-btn"
+            aria-label={showExplorer ? t.workbench.hideExplorer : t.workbench.showExplorer}
+            aria-pressed={showExplorer}
+            title={tip(t.workbench.toggleExplorer, "toggleExplorer")}
+            onClick={toggleExplorer}
           >
-            <BookOpen size={18} />
+            <PanelLeft size={16} />
           </button>
           <button
             type="button"
-            className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
-              flowchartVisible
-                ? "bg-[var(--accent)] text-[var(--on-accent)]"
-                : "text-[var(--text3)] hover:text-[var(--text2)]"
-            }`}
+            className="ui-icon-btn"
+            aria-label={showTerminal ? t.workbench.hidePanel : t.workbench.showPanel}
+            aria-pressed={showTerminal}
+            title={tip(t.workbench.togglePanel, "togglePanel")}
+            onClick={togglePanel}
+          >
+            <PanelBottom size={16} />
+          </button>
+          <div className="mx-1.5 h-4 w-px bg-[var(--separator-strong)]" aria-hidden />
+          {renderSaveControl()}
+          <Link
+            href={localePath(locale, "/practice")}
+            className="ui-icon-btn"
+            aria-label={t.toolbar.openPractice}
+            title={t.toolbar.openPractice}
+          >
+            <Shuffle size={16} />
+          </Link>
+          <button
+            type="button"
+            className="ui-icon-btn"
+            aria-label={t.toolbar.docs}
+            title={t.toolbar.openDocs}
+            onClick={openDocsPanel}
+          >
+            <BookOpen size={16} />
+          </button>
+          <button
+            type="button"
+            className="ui-icon-btn"
+            data-accent-when-on
             aria-label={flowchartVisible ? t.toolbar.switchToCode : t.toolbar.switchToFlowchart}
+            aria-pressed={flowchartVisible}
             title={flowchartVisible ? t.toolbar.switchToCode : t.toolbar.switchToFlowchart}
             onPointerEnter={preloadFlowchartEditor}
             onFocus={preloadFlowchartEditor}
             onClick={handleToggleFlowchart}
           >
-            <GitBranch size={18} />
+            <Workflow size={16} aria-hidden />
           </button>
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text3)] transition hover:text-[var(--text2)]"
+            className="ui-icon-btn"
             aria-label={t.toolbar.openSettings}
-            title={t.toolbar.settings}
+            title={tip(t.toolbar.settings, "settings")}
             onClick={() => setShowSettingsPanel(true)}
           >
-            <Settings size={18} />
+            <Settings size={16} />
           </button>
+          <div className="mx-1.5 h-4 w-px bg-[var(--separator-strong)]" aria-hidden />
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--green)] text-[var(--on-green)] transition hover:brightness-110 disabled:opacity-50"
+            className="ui-btn ui-btn-run h-7 gap-1.5 px-2.5 text-[13px]"
             aria-label={isRunning ? t.toolbar.running : t.toolbar.run}
+            title={tip(isRunning ? t.toolbar.running : t.toolbar.run, "run")}
             onPointerEnter={preloadRunRuntime}
             onFocus={preloadRunRuntime}
             onClick={handleRun}
             disabled={isRunning || !currentDocument}
           >
-            <Play size={18} fill="currentColor" />
+            {isRunning ? (
+              <LoaderCircle size={13} className="animate-spin" aria-hidden />
+            ) : (
+              <Play size={12} fill="currentColor" aria-hidden />
+            )}
+            <span className="max-[700px]:hidden">{isRunning ? t.toolbar.running : t.toolbar.run}</span>
           </button>
           {renderAccountControl()}
         </div>
       </header>
 
-      {/* ════════════ Title Divider ════════════ */}
-      <div className="h-px shrink-0 bg-[var(--separator)]" />
-
       {/* ════════════ Notice Bar ════════════ */}
-      {(saveError || appNotice) && (
+      {(saveError || appNotice || syncNotice) && (
         <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
           <div className="flex flex-wrap items-center gap-3 text-[11px]">
-            {saveError && <span className="text-[var(--red)]">{saveError}</span>}
+            {renderSyncNotice()}
+            {saveError && syncNotice !== "account-unreachable" && <span className="text-[var(--red)]">{localizedSaveError}</span>}
             {appNotice && (
               <div className="flex items-center gap-3">
                 <span
@@ -2223,7 +2632,7 @@ export default function HomePage() {
                 </span>
                 <button
                   type="button"
-                  className="rounded-lg border border-[var(--separator)] bg-[var(--surface2)] px-2.5 py-1 text-[11px] text-[var(--text2)] transition hover:bg-[var(--surface3)]"
+                  className="ui-btn ui-btn-secondary h-6 px-2 text-xs"
                   onClick={dismissNotice}
                 >
                 {t.common.dismiss}
@@ -2237,6 +2646,8 @@ export default function HomePage() {
       {/* ════════════ Body ════════════ */}
       <div className="flex min-h-0 flex-1">
         {/* ──── Sidebar ──── */}
+        {showExplorer ? (
+        <>
         <div className="shrink-0 overflow-hidden" style={{ width: sidebarWidth }}>
           <WorkspaceSidebar
             workspace={workspace}
@@ -2257,12 +2668,13 @@ export default function HomePage() {
           aria-label={t.terminal.resizeSidebar}
           aria-orientation="vertical"
           tabIndex={0}
-          className="group relative w-2 shrink-0 cursor-col-resize touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+          // A 1px divider with an invisible 7px grab area, so no gutter shows between the panes.
+          className="relative z-10 w-px shrink-0 cursor-col-resize touch-none bg-[var(--separator)] transition-colors delay-100 before:absolute before:inset-y-0 before:-left-[3px] before:-right-[3px] before:content-[''] hover:bg-[var(--accent)] active:bg-[var(--accent)] focus-visible:bg-[var(--accent)] focus-visible:outline-none"
           onPointerDown={handleSidebarResize}
           onKeyDown={handleSidebarResizeKeyDown}
-        >
-          <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--separator)] transition-colors group-hover:bg-[var(--accent)]" />
-        </div>
+        />
+        </>
+        ) : null}
 
         {/* ──── Editor Area ──── */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg)]">
@@ -2270,7 +2682,7 @@ export default function HomePage() {
             {flowchartMounted ? (
               <div
                 inert={!flowchartVisible}
-                className={`absolute inset-0 z-20 min-h-0 min-w-0 transition-transform duration-500 ease-in-out ${
+                className={`absolute inset-0 z-20 min-h-0 min-w-0 transition-transform duration-200 ease-out ${
                   flowchartVisible ? "translate-x-0" : "translate-x-full pointer-events-none"
                 }`}
               >
@@ -2288,16 +2700,17 @@ export default function HomePage() {
             {/* Code View */}
             <div
               inert={flowchartVisible}
-              className={`absolute inset-0 flex min-h-0 min-w-0 flex-col transition-transform duration-500 ease-in-out ${
+              className={`absolute inset-0 flex min-h-0 min-w-0 flex-col transition-transform duration-200 ease-out ${
                 flowchartVisible ? "-translate-x-full pointer-events-none" : "translate-x-0"
               }`}
             >
               {/* Tab Bar */}
-              {editorPanel && (
+              {editorPanel && editorPanel.openDocumentIds.length > 0 && (
                 <div
                   role="tablist"
                   aria-label={t.toolbar.editor}
-                  className="flex h-[38px] shrink-0 items-center gap-0.5 overflow-x-auto px-2"
+                  className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-[var(--separator)] bg-[var(--sidebar)] [scrollbar-width:none]"
+                  onKeyDown={handleTabListKeyDown}
                 >
                   {editorPanel.openDocumentIds.map((documentId, index) => {
                     const doc = workspace.nodes[documentId];
@@ -2308,9 +2721,11 @@ export default function HomePage() {
                         key={documentId}
                         draggable
                         role="presentation"
-                        className={`group flex h-[30px] shrink-0 items-center gap-1.5 rounded-lg pr-2 text-[12px] font-medium transition ${
+                        // Flat IDE tabs: the active one takes the editor's background, covers the strip's bottom
+                        // border so it joins the code below, and carries the accent line on top.
+                        className={`group relative -mb-px flex shrink-0 items-center gap-1 border-r border-[var(--separator)] pr-1.5 text-[13px] transition-colors ${
                           isActive
-                            ? "bg-[var(--surface2)] text-[var(--text)]"
+                            ? "bg-[var(--bg)] text-[var(--text)] shadow-[inset_0_2px_0_var(--accent)]"
                             : "text-[var(--text3)] hover:bg-[var(--hover)] hover:text-[var(--text2)]"
                         }`}
                         onDragStart={(event) => {
@@ -2328,22 +2743,33 @@ export default function HomePage() {
                           type="button"
                           role="tab"
                           aria-selected={isActive}
-                          className="flex h-full min-w-0 items-center gap-1.5 rounded-lg pl-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
+                          tabIndex={isActive ? 0 : -1}
+                          data-document-id={documentId}
+                          title={getNodePath(workspace, documentId).filter((node) => node.parentId !== null).map((node) => node.name).join(" / ")}
+                          className="flex h-full min-w-0 max-w-[220px] items-center gap-1.5 pl-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"
                           onClick={() => setEditorActiveDocument(editorPanel.id, documentId)}
+                          onAuxClick={(event) => {
+                            if (event.button === 1 && editorPanel.openDocumentIds.length > 1) {
+                              closeTabSelectingNeighbour(documentId);
+                              focusEditorWhenReady();
+                            }
+                          }}
                         >
-                          <FileCode
-                            size={14}
-                            className={isActive ? "text-[var(--accent)]" : "text-[var(--text3)]"}
-                          />
+                          <FileCode size={14} aria-hidden className={isActive ? "text-[var(--accent)]" : "text-[var(--text3)]"} />
                           <span className="truncate">{doc.name}</span>
                         </button>
                         <button
                           type="button"
-                          className="rounded-lg p-0.5 text-[var(--text3)] opacity-0 hover:bg-[var(--hover)] hover:text-[var(--text)] focus-visible:opacity-100 group-hover:opacity-100"
+                          tabIndex={-1}
+                          hidden={editorPanel.openDocumentIds.length === 1}
+                          className={`flex h-5 w-5 items-center justify-center rounded-[4px] text-[var(--text3)] hover:bg-[var(--hover)] hover:text-[var(--text)] focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 ${
+                            isActive ? "opacity-100" : "opacity-0"
+                          }`}
                           aria-label={t.files.closeDocument(doc.name)}
                           onClick={(event) => {
                             event.stopPropagation();
-                            closeEditorDocumentTab(editorPanel.id, documentId);
+                            closeTabSelectingNeighbour(documentId);
+                            focusEditorWhenReady();
                           }}
                         >
                           <X size={12} />
@@ -2353,21 +2779,20 @@ export default function HomePage() {
                   })}
                   {/* Drop target at end of tab bar */}
                   <div
-                    className="h-[38px] min-w-[32px] flex-1"
+                    className="min-w-[32px] flex-1"
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => handleTabDrop(event, editorPanel.openDocumentIds.length)}
                   />
                 </div>
               )}
 
-              {/* Breadcrumb */}
-              <div className="flex h-7 shrink-0 items-center px-4">
-                <Breadcrumbs path={breadcrumbs} />
-              </div>
+              {/* Breadcrumb: only when the file sits in a folder; a top-level path would just repeat the tab. */}
+              {breadcrumbs.filter((node) => node.parentId !== null).length > 1 ? (
+                <div className="flex h-6 shrink-0 items-center px-4">
+                  <Breadcrumbs path={breadcrumbs} />
+                </div>
+              ) : null}
               {practiceBanner}
-
-              {/* Editor Separator */}
-              <div className="h-px shrink-0 bg-[var(--separator)]" />
 
               {/* Editor Content */}
               <div className="min-h-0 flex-1">
@@ -2382,6 +2807,8 @@ export default function HomePage() {
                     theme={resolvedTheme}
                     syntaxId={syntaxId}
                     colorScheme={syntaxColorScheme}
+                    commands={workspaceCommands}
+                    apiRef={editorApiRef}
                   />
                 ) : (
                   renderStarterPanel()
@@ -2397,18 +2824,16 @@ export default function HomePage() {
               aria-label={t.terminal.resizeTerminal}
               aria-orientation="horizontal"
               tabIndex={0}
-              className="group relative h-2 shrink-0 cursor-row-resize touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+              className="relative z-10 h-px shrink-0 cursor-row-resize touch-none bg-[var(--separator)] transition-colors delay-100 before:absolute before:inset-x-0 before:-top-[3px] before:-bottom-[3px] before:content-[''] hover:bg-[var(--accent)] active:bg-[var(--accent)] focus-visible:bg-[var(--accent)] focus-visible:outline-none"
               onPointerDown={handleTerminalResize}
               onKeyDown={handleTerminalResizeKeyDown}
-            >
-              <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-[var(--separator)] transition-colors group-hover:bg-[var(--accent)]" />
-            </div>
+            />
           )}
 
           {/* Terminal Panel */}
           {showTerminal && (
             <div
-              className="flex shrink-0 flex-col overflow-hidden bg-[var(--surface)]"
+              className="flex shrink-0 flex-col overflow-hidden bg-[var(--sidebar)]"
               style={{
                 height: clampNumber(
                   terminalHeight,
@@ -2417,23 +2842,44 @@ export default function HomePage() {
                 ),
               }}
             >
-              {/* Terminal Header */}
-              <div className="flex h-8 shrink-0 items-center gap-2 px-3">
-                <span className="text-[11px] font-semibold tracking-[0.5px] text-[var(--text2)]">
-                    {t.terminal.terminal}
-                </span>
+              {/* Panel Header: Output | Problems */}
+              <div className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
+                {renderPanelTabs(panelView, setPanelView)}
                 <div className="flex-1" />
+                {panelView === "output" ? (
+                  <button
+                    type="button"
+                    className="ui-icon-btn h-6 w-6"
+                    aria-label={t.terminal.clearOutput}
+                    title={t.terminal.clearOutput}
+                    onClick={handleClearTerminal}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                      className="flex items-center justify-center rounded-lg text-[var(--text3)] transition hover:text-[var(--text2)]"
-                      aria-label={t.terminal.closeTerminal}
+                  className="ui-icon-btn h-6 w-6"
+                  aria-label={t.workbench.hidePanel}
+                  title={tip(t.workbench.hidePanel, "togglePanel")}
                   onClick={() => setShowTerminal(false)}
                 >
                   <X size={14} />
                 </button>
               </div>
 
-              {/* Terminal Content */}
+              {panelView === "problems" ? (
+                <div
+                  id="panel-view-problems"
+                  role="tabpanel"
+                  aria-label={t.workbench.problems}
+                  className="min-h-0 flex-1 overflow-auto overscroll-contain"
+                >
+                  <ProblemsList diagnostics={compileDiagnostics} onSelect={revealDiagnostic} />
+                </div>
+              ) : (
+              <>
+              {/* Output Content */}
               <div
                 ref={desktopTerminalScrollRef}
                 data-testid="terminal-scroll-region"
@@ -2446,14 +2892,12 @@ export default function HomePage() {
               >
                 <pre className="min-w-full whitespace-pre-wrap break-words font-mono text-xs leading-5">
                   {terminalOutput ? (
-                    <>
-                      <span className="text-[var(--green)]">$ </span>
-                      <span className="text-[var(--text2)]">{terminalOutput}</span>
-                    </>
-                  ) : (
+                    <span className="text-[var(--text2)]">{terminalOutput}</span>
+                  ) : lastRunError ? null : (
                     <span className="text-[var(--text3)]">{t.terminal.ready}</span>
                   )}
                 </pre>
+                {renderRunErrorRow()}
               </div>
 
               {/* Pending Input */}
@@ -2475,18 +2919,18 @@ export default function HomePage() {
                       autoFocus
                       aria-label={t.terminal.input}
                       aria-describedby="terminal-input-prompt"
-                      className="h-7 flex-1 rounded-lg border border-[var(--separator)] bg-[var(--bg)] px-2 font-mono text-xs text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                      className="ui-input h-8 flex-1 font-mono text-[12.5px]"
                       placeholder={t.terminal.inputPlaceholder}
                     />
                     <button
                       type="submit"
-                      className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--on-accent)]"
+                      className="ui-btn ui-btn-primary h-8"
                     >
                       {t.terminal.send}
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg px-2.5 py-1 text-[11px] text-[var(--text2)] hover:bg-[var(--hover)]"
+                      className="ui-btn ui-btn-ghost h-8"
                       onClick={cancelPendingInput}
                     >
                       {t.common.cancel}
@@ -2503,10 +2947,26 @@ export default function HomePage() {
                     <p className="text-[11px] text-[var(--green)]">{t.terminal.running}</p>
                   </div>
                 )}
+              </>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      <StatusBar
+        errors={problemCounts.errors}
+        warnings={problemCounts.warnings}
+        onShowProblems={showProblems}
+        problemsShortcut={shortcutHint("problems")}
+        syntaxLabel={currentSyntax.label}
+        onChangeSyntax={() => setShowSettingsPanel(true)}
+        saveState={saveIndicatorState}
+        onSave={handleSaveWorkspace}
+        saveShortcut={shortcutHint("save")}
+        showCursor={Boolean(editorActiveDoc) && !flowchartVisible}
+        onGoToLine={() => editorApiRef.current?.goToLine()}
+      />
 
       {renderSettingsDialog()}
       {renderRenameDialog()}

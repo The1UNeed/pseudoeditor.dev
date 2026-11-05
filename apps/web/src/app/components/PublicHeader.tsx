@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { localePath, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/messages";
 import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
@@ -25,7 +25,7 @@ export function PublicHeader({ locale, active }: PublicHeaderProps) {
 
   return (
     <header className="sticky top-0 z-[var(--z-sticky)] border-b border-[var(--separator)] bg-[var(--titlebar)] px-4 md:px-6">
-      <nav className="mx-auto flex min-h-[52px] max-w-6xl flex-wrap items-center gap-x-4">
+      <nav className="mx-auto flex min-h-[52px] max-w-6xl flex-wrap items-center gap-x-4 pt-2 md:pt-0">
         <Link
           href={localePath(locale, "/")}
           aria-label={productName}
@@ -50,10 +50,10 @@ export function PublicHeader({ locale, active }: PublicHeaderProps) {
         <Link
           href={localePath(locale, "/app")}
           aria-label={t.openEditor}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-semibold text-[var(--on-accent)] transition hover:brightness-110"
+          className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center bg-[var(--accent)] px-3 text-[13px] font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-strong)]"
         >
-          <Play size={14} />
           <span className="hidden sm:inline">{t.openEditor}</span>
+          <ArrowRight size={14} aria-hidden />
         </Link>
       </nav>
     </header>

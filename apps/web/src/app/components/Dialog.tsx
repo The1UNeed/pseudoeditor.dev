@@ -14,6 +14,11 @@ type DialogProps = {
   children: ReactNode;
 };
 
+function isOutsideDialogBox(dialog: HTMLElement, x: number, y: number): boolean {
+  const box = dialog.getBoundingClientRect();
+  return x < box.left || x > box.right || y < box.top || y > box.bottom;
+}
+
 /**
  * Modal built on the native <dialog> element, so focus is trapped and the rest of the page is inert.
  * Escape and backdrop clicks call onClose; the parent owns the open state by mounting or unmounting this.
@@ -24,6 +29,7 @@ export function Dialog({ labelledBy, onClose, className = "", returnFocusTo, chi
   const dialogRef = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
   const returnFocusToRef = useRef(returnFocusTo);
+  const pointerDownOnBackdropRef = useRef(false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -62,8 +68,21 @@ export function Dialog({ labelledBy, onClose, className = "", returnFocusTo, chi
         event.stopPropagation();
         onCloseRef.current();
       }}
+      onPointerDown={(event) => {
+        pointerDownOnBackdropRef.current = isOutsideDialogBox(event.currentTarget, event.clientX, event.clientY);
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onCloseRef.current();
+        // The <dialog> element is also the target for clicks on its own padding, so only a press that both
+        // starts and ends outside the card's box counts as a backdrop click (a drag out of an input does not).
+        const startedOnBackdrop = pointerDownOnBackdropRef.current;
+        pointerDownOnBackdropRef.current = false;
+        if (
+          event.target === event.currentTarget &&
+          startedOnBackdrop &&
+          isOutsideDialogBox(event.currentTarget, event.clientX, event.clientY)
+        ) {
+          onCloseRef.current();
+        }
       }}
       className={`m-auto max-h-[calc(100%-2rem)] outline-none backdrop:bg-[var(--overlay)] ${className}`}
     >

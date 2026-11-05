@@ -122,54 +122,67 @@
     U+FFFD;
 }
 
+/*
+ * PseudoEditor palette. One green brand accent in both themes (forest green in light, sea green in dark). Running
+ * code, success and program output use a brighter, separate green so "interactive" and "execute" stay distinct.
+ * Neutrals are cool and ink-tinted rather than generic greys.
+ */
 :root,
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --font-sans: "Inter";
   --font-mono: "Fira Code";
-  --bg: #1C1C1E;
-  --sidebar: #262628;
-  --titlebar: #323234;
-  --surface: #2C2C2E;
-  --surface2: #3A3A3C;
-  --surface3: #48484A;
-  --separator: #38383A;
-  --text: #FFFFFF;
-  --text2: #AEAEB2;
-  --text3: #9C9CA1;
-  --accent: #0A84FF;
-  --green: #30D158;
-  --red: #FF453A;
-  --on-accent: #111111;
-  --on-green: #111111;
-  --on-red: #111111;
-  --orange: #FF9F0A;
-  --yellow: #FFD60A;
-  --selected: rgba(10, 132, 255, 0.19);
-  --hover: rgba(255, 255, 255, 0.04);
-  --line-num: #98989D;
+  --bg: #16171B;
+  --sidebar: #1B1C21;
+  --titlebar: #1B1C21;
+  --surface: #202128;
+  --surface2: #292B33;
+  --surface3: #353742;
+  --separator: #2B2D35;
+  --separator-strong: #3A3D48;
+  --text: #ECEDF2;
+  --text2: #A9ADBB;
+  --text3: #8A8FA0;
+  --accent: #5BC49A;
+  --accent-strong: #7FD6B0;
+  --accent-soft: rgba(91, 196, 154, 0.14);
+  --green: #3FCB7E;
+  --red: #FF6B63;
+  --on-accent: #08251A;
+  --on-green: #06210F;
+  --on-red: #2A0605;
+  --orange: #F2B45A;
+  --yellow: #F2C14E;
+  --selected: rgba(91, 196, 154, 0.15);
+  --selected-strong: rgba(91, 196, 154, 0.24);
+  --hover: rgba(236, 237, 242, 0.05);
+  --pressed: rgba(236, 237, 242, 0.08);
+  --focus-ring: #5BC49A;
+  --line-num: #7D8293;
   --traffic-red: #FF5F57;
   --traffic-yellow: #FEBC2E;
   --traffic-green: #28C840;
-  --code-keyword: #FC5FA3;
-  --code-variable: #67B7A4;
-  --code-type: #5DD8FF;
-  --code-string: #FC6A5D;
-  --code-number: #D0BF69;
-  --code-operator: #E5E5EA;
-  --code-comment: #6C7986;
-  --code-func: #A167E6;
-  --code-text: #E5E5EA;
+  --code-keyword: #6FCF9F;
+  --code-variable: #E3E5EC;
+  --code-type: #7FB6F0;
+  --code-string: #E8A585;
+  --code-number: #E9C46A;
+  --code-operator: #B8BCC9;
+  --code-comment: #7F8698;
+  --code-func: #E2A6DC;
+  --code-text: #E3E5EC;
 
   /* ── Unified Design Tokens ─────────────────────────────────── */
 
   /* Border Radius */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 14px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-3xl: 24px;
+  /* These names also drive Tailwind's rounded-* utilities, so they follow the 6 / 10 / 14px scale. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
+  --radius-3xl: 14px;
   --radius-full: 999px;
 
   /* Shadows */
@@ -194,7 +207,7 @@
   --z-toast: 90;
 
   /* Overlays */
-  --overlay: rgba(0, 0, 0, 0.55);
+  --overlay: rgb(0 0 0 / 0.5);
   --overlay-strong: rgba(0, 0, 0, 0.6);
 
   /* Semantic colors */
@@ -203,57 +216,73 @@
 
   /* Flowchart colors */
   --flowchart-terminator: var(--green);
-  --flowchart-process: #8B5CF6;
+  --flowchart-process: var(--code-type);
   --flowchart-decision: var(--orange);
   --flowchart-io: var(--accent);
   --flowchart-subroutine: var(--accent);
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #FFFFFF;
-  --sidebar: #FAFAFA;
-  --titlebar: #FFFFFF;
-  --surface: #FAFAFA;
-  --surface2: #F5F5F5;
-  --surface3: #EDEDED;
-  --separator: #E5E5E5;
-  --text: #111111;
-  --text2: #4B5563;
-  --text3: #666B73;
+  --sidebar: #F7F8FA;
+  --titlebar: #F7F8FA;
+  --surface: #F7F8FA;
+  --surface2: #EEF0F4;
+  --surface3: #E3E6EC;
+  --separator: #E3E6EC;
+  --separator-strong: #D2D6DF;
+  --text: #15171C;
+  --text2: #4A5060;
+  --text3: #626979;
   --accent: #0B6E4F;
-  --green: #087A48;
-  --red: #C03B2B;
+  --accent-strong: #085A40;
+  --accent-soft: rgba(11, 110, 79, 0.09);
+  --green: #137A4B;
+  --red: #C2362F;
   --on-accent: #FFFFFF;
   --on-green: #FFFFFF;
   --on-red: #FFFFFF;
-  --orange: #B45309;
-  --yellow: #CA8A04;
-  --selected: rgba(11, 110, 79, 0.14);
-  --hover: rgba(17, 17, 17, 0.04);
-  --line-num: #6E6E73;
-  --traffic-red: #D95C52;
-  --traffic-yellow: #D6A33F;
-  --traffic-green: #55A66F;
-  --code-keyword: #9B2D63;
-  --code-variable: #2D7A6D;
-  --code-type: #0F7A94;
-  --code-string: #B45438;
-  --code-number: #8D6A12;
-  --code-operator: #111111;
-  --code-comment: #9CA3AF;
-  --code-func: #7856B3;
-  --code-text: #111111;
+  --orange: #9A5800;
+  --yellow: #8A6A00;
+  --selected: rgba(11, 110, 79, 0.11);
+  --selected-strong: rgba(11, 110, 79, 0.18);
+  --hover: rgba(21, 23, 28, 0.045);
+  --pressed: rgba(21, 23, 28, 0.08);
+  --focus-ring: #0B6E4F;
+  --line-num: #6E7383;
+  --traffic-red: #E0574F;
+  --traffic-yellow: #E0A73A;
+  --traffic-green: #3FA35E;
+  --code-keyword: #0B6E4F;
+  --code-variable: #1C1F26;
+  --code-type: #2F5FA8;
+  --code-string: #A84A2A;
+  --code-number: #8A6400;
+  --code-operator: #4A5060;
+  --code-comment: #697080;
+  --code-func: #9233AB;
+  --code-text: #1C1F26;
 
-  /* Light theme overrides for semantic tokens */
+  /* Light theme overrides for semantic tokens: softer, ink-tinted elevation instead of dark-theme black shadows */
+  --shadow-sm: 0 1px 2px rgb(21 23 28 / 0.06), 0 1px 3px rgb(21 23 28 / 0.05);
+  --shadow-md: 0 4px 12px rgb(21 23 28 / 0.08);
+  --shadow-lg: 0 10px 28px rgb(21 23 28 / 0.11);
+  --shadow-xl: 0 16px 40px rgb(21 23 28 / 0.14);
+  --shadow-context: 0 8px 24px rgb(21 23 28 / 0.12);
+  --shadow-dropdown: 0 8px 24px rgb(21 23 28 / 0.12);
+  --shadow-modal: 0 20px 60px rgb(21 23 28 / 0.18);
+  --shadow-card: 0 1px 2px rgb(21 23 28 / 0.05), 0 4px 12px rgb(21 23 28 / 0.05);
+  --shadow-card-hover: 0 2px 4px rgb(21 23 28 / 0.06), 0 10px 24px rgb(21 23 28 / 0.08);
   --shadow-button: 0 0 0 1px rgba(0, 0, 0, 0.06);
-  --overlay: rgba(0, 0, 0, 0.55);
-  --overlay-strong: rgba(0, 0, 0, 0.65);
+  --overlay: rgb(21 23 28 / 0.28);
+  --overlay-strong: rgb(21 23 28 / 0.4);
   --danger-hover: rgba(192, 59, 43, 0.12);
   --surface-ghost: rgba(0, 0, 0, 0.02);
 
   /* Flowchart colors */
   --flowchart-terminator: var(--green);
-  --flowchart-process: #7C3AED;
+  --flowchart-process: var(--code-type);
   --flowchart-decision: var(--orange);
   --flowchart-io: var(--accent);
   --flowchart-subroutine: var(--accent);
@@ -362,23 +391,41 @@ code {
   box-shadow: none !important;
 }
 
+/* React Flow's minimap defaults to a light grey mask; tie it to the theme. */
+.flowchart-canvas {
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--bg) 70%, transparent);
+  --xy-minimap-mask-stroke-color: var(--accent);
+  --xy-minimap-background-color: var(--surface);
+  /* Branch labels (Yes/No) sit on the canvas colour instead of React Flow's white box. */
+  --xy-edge-label-background-color: var(--bg);
+  --xy-edge-label-color: var(--text2);
+}
+
 /* Replaying a run: the current block glows, blocks still ahead fade back */
 .flowchart-canvas .react-flow__node {
-  transition: opacity 200ms ease, filter 200ms ease;
+  transition: opacity 200ms ease;
 }
 
 .flowchart-canvas .react-flow__node.flowchart-run-pending {
   opacity: 0.38;
 }
 
-.flowchart-canvas .react-flow__node.flowchart-run-current {
+.flowchart-canvas .react-flow__node.flowchart-run-current,
+.flowchart-canvas .react-flow__node.flowchart-run-error {
   z-index: 10 !important;
+}
+
+/* The glow wraps the block's shape only, so labels beside it (a decision's Yes/No) stay sharp. */
+.flowchart-canvas .flowchart-shape {
+  transition: filter 200ms ease;
+}
+
+.flowchart-canvas .react-flow__node.flowchart-run-current .flowchart-shape {
   /* A thin outline in the text colour keeps the glow visible on blocks of any colour */
   filter: drop-shadow(0 0 1px var(--text)) drop-shadow(0 0 1px var(--text)) drop-shadow(0 0 12px var(--green));
 }
 
-.flowchart-canvas .react-flow__node.flowchart-run-error {
-  z-index: 10 !important;
+.flowchart-canvas .react-flow__node.flowchart-run-error .flowchart-shape {
   filter: drop-shadow(0 0 1px var(--red)) drop-shadow(0 0 1px var(--red)) drop-shadow(0 0 12px var(--red));
 }
 
@@ -397,7 +444,8 @@ code {
 
 @media (prefers-reduced-motion: reduce) {
   .flowchart-canvas .react-flow__node,
-  .flowchart-canvas .react-flow__edge {
+  .flowchart-canvas .react-flow__edge,
+  .flowchart-canvas .flowchart-shape {
     transition: none;
   }
 }
@@ -554,7 +602,7 @@ code {
   --ink-2: var(--text2);
   --ink-3: var(--text3);
   --line: var(--separator);
-  --radius: 12px;
+  --radius: var(--radius-lg);
   min-height: 100vh;
   overflow-x: clip;
   background: var(--bg);
@@ -615,7 +663,7 @@ code {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-control);
   border: 1px solid var(--separator);
   background: var(--surface2);
   padding: 0 1.25rem;
@@ -661,7 +709,7 @@ code {
 .site-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control);
   background: var(--surface2);
   padding: 0.125rem 0.5rem;
   font-size: 0.75rem;
@@ -670,12 +718,20 @@ code {
 }
 
 .site-nav-link {
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control);
   padding: 0.375rem 0.75rem;
   font-size: 13px;
   font-weight: 500;
   color: var(--text2);
   transition: background-color 150ms, color 150ms;
+}
+
+@media (pointer: coarse) {
+  .site-nav-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
 }
 
 .site-nav-link:hover {
@@ -1491,4 +1547,262 @@ code {
 .doc-cell-narrow {
   min-width: 2rem;
   padding: 0 0.25rem;
+}
+
+/* ── Workbench primitives ─────────────────────────────────────────────────────────────────────────────────────
+ * One definition per control so every surface of the editor shares size, radius, colour and state behaviour.
+ * Radius scale: controls 6px, panels and menus 10px, dialogs 14px. Utilities still override these.
+ */
+:root {
+  --radius-control: var(--radius-sm);
+  --radius-panel: var(--radius-lg);
+  --radius-dialog: var(--radius-2xl);
+}
+
+@layer base {
+  :where(button, a, [role="tab"], [role="menuitem"], [tabindex]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface3) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+.monaco-editor .monaco-hover {
+  min-width: 280px;
+}
+
+@layer components {
+  .ui-icon-btn {
+    display: inline-flex;
+    height: 28px;
+    width: 28px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-control);
+    color: var(--text3);
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .ui-icon-btn:hover:not(:disabled) {
+    background: var(--hover);
+    color: var(--text);
+  }
+  .ui-icon-btn:active:not(:disabled) {
+    background: var(--pressed);
+  }
+  /* A switched-on layout toggle is simply brighter; only mode switches (flowchart) take the accent fill. */
+  .ui-icon-btn[aria-pressed="true"] {
+    color: var(--text);
+  }
+  .ui-icon-btn[data-accent-when-on][aria-pressed="true"],
+  .ui-icon-btn[data-accent-when-on][aria-pressed="true"]:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .ui-icon-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .ui-btn {
+    display: inline-flex;
+    height: 32px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .ui-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .ui-btn:active:not(:disabled) {
+    transform: translateY(0.5px);
+    filter: brightness(0.94);
+  }
+  .ui-btn-primary {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+  .ui-btn-primary:hover:not(:disabled) {
+    background: var(--accent-strong);
+  }
+  .ui-btn-secondary {
+    border-color: var(--separator-strong);
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .ui-btn-secondary:hover:not(:disabled) {
+    background: var(--surface3);
+  }
+  .ui-btn-ghost {
+    color: var(--text2);
+  }
+  .ui-btn-ghost:hover:not(:disabled) {
+    background: var(--hover);
+    color: var(--text);
+  }
+  .ui-btn-danger {
+    background: var(--red);
+    color: var(--on-red);
+    font-weight: 600;
+  }
+  .ui-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--red) 88%, var(--text));
+  }
+  /* Fingers need 44px targets; desktop keeps its compact sizes. */
+  @media (pointer: coarse) {
+    .ui-btn,
+    .ui-icon-btn {
+      min-height: 44px;
+    }
+    .ui-icon-btn {
+      min-width: 44px;
+    }
+  }
+
+  /* Running code is the one action in green, everywhere it appears. */
+  .ui-btn-run {
+    background: var(--green);
+    color: var(--on-green);
+    font-weight: 600;
+  }
+  .ui-btn-run:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--green) 88%, var(--text));
+  }
+
+  .ui-input {
+    height: 34px;
+    width: 100%;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--separator-strong);
+    background: var(--bg);
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .ui-input:focus,
+  .ui-input-group:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .ui-input-group {
+    display: flex;
+    height: 34px;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--separator-strong);
+    background: var(--bg);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .ui-dialog {
+    width: calc(100% - 2rem);
+    border-radius: var(--radius-dialog);
+    border: 1px solid var(--separator-strong);
+    background: var(--surface);
+    padding: 20px;
+    color: var(--text);
+    box-shadow: var(--shadow-modal);
+  }
+  .ui-dialog-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text);
+  }
+  .ui-dialog-body {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text2);
+  }
+  .ui-dialog-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .ui-menu {
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--separator-strong);
+    background: var(--surface);
+    padding: 4px;
+    box-shadow: var(--shadow-dropdown);
+  }
+  .ui-menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    border-radius: var(--radius-control);
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text);
+    text-align: left;
+  }
+  .ui-menu-item:hover:not(:disabled),
+  .ui-menu-item:focus-visible {
+    background: var(--selected);
+    outline: none;
+  }
+  .ui-menu-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .ui-menu-separator {
+    margin: 4px 6px;
+    height: 1px;
+    background: var(--separator);
+  }
+
+  /* IDE tab strip: flat tabs; the active one joins the surface below and carries an accent line. */
+  .ui-tab {
+    position: relative;
+    display: inline-flex;
+    height: 100%;
+    align-items: center;
+    gap: 6px;
+    color: var(--text3);
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+  .ui-tab:hover {
+    color: var(--text2);
+  }
+  .ui-tab[data-active="true"] {
+    color: var(--text);
+  }
+  .ui-tab[data-active="true"]::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 2px;
+    background: var(--accent);
+  }
 }

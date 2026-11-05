@@ -10,8 +10,9 @@ import {
 
 // The editor surfaces each scheme is drawn on: the background and the current-line highlight.
 const EDITOR_SURFACES = {
-  dark: ["#1C1C1E", "#2C2C2E"],
-  light: ["#FFFFFF", "#F5F5F5"],
+  // The editor background and its current-line highlight (see EDITOR_SURFACE_COLORS).
+  dark: ["#16171B", "#1D1E24"],
+  light: ["#FFFFFF", "#F5F6F9"],
 } as const;
 
 function luminance(hex: string): number {

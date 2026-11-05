@@ -56,6 +56,27 @@ describe("compilePseudocodeInWorker", () => {
     await expect(first).resolves.toMatchObject({ stale: true, cached: false });
   });
 
+  it("never lets a background (live diagnostics) compile make a foreground Run compile stale", async () => {
+    const { compilePseudocodeInWorker } = await import("./compilePseudocodeInWorker");
+
+    const run = compilePseudocodeInWorker(
+      { source: "OUTPUT 1", filename: "main.pseudo", strict: true },
+      "run",
+    );
+    const live = compilePseudocodeInWorker(
+      { source: "OUTPUT 12", filename: "main.pseudo", strict: true },
+      "live",
+      { background: true },
+    );
+
+    const worker = MockWorker.instances[0];
+    worker.emit({ kind: "compiled", id: 2, result: successResult });
+    worker.emit({ kind: "compiled", id: 1, result: successResult });
+
+    await expect(run).resolves.toMatchObject({ stale: false });
+    await expect(live).resolves.toMatchObject({ stale: false });
+  });
+
   it("returns cached compile results without posting another worker request", async () => {
     const { compilePseudocodeInWorker } = await import("./compilePseudocodeInWorker");
     const request = { source: "OUTPUT 1", filename: "main.pseudo", strict: true as const };
