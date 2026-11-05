@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   SYNTAX_COLOR_SCHEMES,
   type SyntaxColorScheme,
@@ -58,6 +59,8 @@ type SyntaxColorSchemePickerProps = {
 };
 
 export function SyntaxColorSchemePicker({ value, theme, label, names, onChange }: SyntaxColorSchemePickerProps) {
+  // Radios group by name across the whole page, so two pickers on screen at once need different names.
+  const radioName = useId();
   return (
     <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2">
       {SYNTAX_COLOR_SCHEMES.map((scheme) => {
@@ -73,7 +76,7 @@ export function SyntaxColorSchemePicker({ value, theme, label, names, onChange }
           >
             <input
               type="radio"
-              name="syntax-color-scheme"
+              name={radioName}
               value={scheme.id}
               checked={selected}
               onChange={() => onChange(scheme.id)}

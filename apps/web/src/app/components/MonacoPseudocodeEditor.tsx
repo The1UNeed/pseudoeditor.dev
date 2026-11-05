@@ -235,6 +235,9 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   const monacoRef = useRef<typeof import("monaco-editor") | null>(null);
   const editorRef = useRef<import("monaco-editor").editor.IStandaloneCodeEditor | null>(null);
   const touchFocusCleanupRef = useRef<(() => void) | null>(null);
+  // The editor keeps the first onMount it is given, so mount reads the current theme through a ref.
+  const themeName = monacoThemeName(colorScheme, theme);
+  const themeNameRef = useRef(themeName);
   const appleTouchDevice = useMemo(() => isAppleTouchDevice(typeof navigator === "undefined" ? undefined : navigator), []);
   const editorOptions = useMemo(() => getPseudocodeEditorOptions(appleTouchDevice), [appleTouchDevice]);
 
@@ -577,7 +580,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
     });
 
     defineSyntaxThemes(monaco);
-    monaco.editor.setTheme(monacoThemeName(colorScheme, theme));
+    monaco.editor.setTheme(themeNameRef.current);
 
     if (appleTouchDevice) {
       const editorElement = editor.getDomNode();
@@ -623,12 +626,9 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   }, [markers]);
 
   useEffect(() => {
-    if (!monacoRef.current) {
-      return;
-    }
-
-    monacoRef.current.editor.setTheme(monacoThemeName(colorScheme, theme));
-  }, [colorScheme, theme]);
+    themeNameRef.current = themeName;
+    monacoRef.current?.editor.setTheme(themeName);
+  }, [themeName]);
 
   useEffect(() => {
     keywordLookupRef.current = keywordLookup;
