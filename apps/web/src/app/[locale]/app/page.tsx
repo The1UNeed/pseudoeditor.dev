@@ -1707,16 +1707,16 @@ export default function HomePage() {
   );
 
   function focusEditorWhenReady() {
+    // Each file gets its own editor instance, so after opening a file wait for the new instance; if the open
+    // file did not change (e.g. a background tab closed), fall back to the current editor after a few frames.
+    const initialApi = editorApiRef.current;
     let attempts = 0;
-    let previousApi: PseudocodeEditorApi | null = null;
     const tryFocus = () => {
       const api = editorApiRef.current;
-      // Two consecutive frames with the same editor means any remount for the new file has finished.
-      if (api && api === previousApi) {
+      if (api && (api !== initialApi || attempts >= 20)) {
         api.focus();
         return;
       }
-      previousApi = api;
       if (attempts++ < 120) window.requestAnimationFrame(tryFocus);
     };
     window.requestAnimationFrame(tryFocus);

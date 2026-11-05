@@ -385,6 +385,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
     void ensureMonacoNullCaretHitTestGuard();
   };
 
+  const markersRef = useRef<Monaco.editor.IMarkerData[]>([]);
   const markers = useMemo(() => {
     return diagnostics.map((diagnostic) => ({
       startLineNumber: diagnostic.line,
@@ -575,6 +576,8 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
     const model = editor.getModel();
     if (model) {
       monaco.editor.setModelLanguage(model, languageId);
+      // Diagnostics that arrived while Monaco was still loading.
+      monaco.editor.setModelMarkers(model, "igcse-compiler", markersRef.current);
     }
 
     for (const command of commandsRef.current ?? []) {
@@ -819,6 +822,7 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
   );
 
   useEffect(() => {
+    markersRef.current = markers;
     if (!monacoRef.current || !editorRef.current) {
       return;
     }
@@ -850,6 +854,9 @@ export const MonacoPseudocodeEditor = memo(function MonacoPseudocodeEditor({
 
   return (
     <Editor
+      // One editor per document: on switch the wrapper saves this file's view state under its own path and the next
+      // editor restores its own, while keepCurrentModel keeps every file's model (and undo history) alive.
+      key={documentKey}
       height="100%"
       path={modelPathForDocument(documentKey)}
       keepCurrentModel

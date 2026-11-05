@@ -740,4 +740,27 @@ describe("workspace storage", () => {
     const sources = Object.values(loaded.nodes).flatMap((node) => (node.type === "document" ? [node.source] : []));
     expect(sources).toContain('OUTPUT "E1 laptop"');
   });
+
+  it("sends a queued account write with the sign-in of the account that made it", async () => {
+    let releaseFirst: () => void = () => {};
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockImplementationOnce(async () => {
+        await new Promise<void>((resolve) => { releaseFirst = resolve; });
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      })
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    let signedInAs = "account-A";
+    const getAuthToken = async () => signedInAs;
+    const workspace = createEmptyWorkspace("2026-03-15T00:00:00.000Z");
+    const first = storage.saveWorkspace(workspace, { mode: "cloud", getAuthToken });
+    const second = storage.saveWorkspace(workspace, { mode: "cloud", getAuthToken });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    signedInAs = "account-B";
+    releaseFirst();
+    await Promise.all([first, second]);
+    const headers = fetchMock.mock.calls[1]?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer account-A");
+  });
 });

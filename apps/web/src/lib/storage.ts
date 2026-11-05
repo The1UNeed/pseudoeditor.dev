@@ -328,7 +328,8 @@ export async function loadWorkspace(
     if (!seed) {
       return createEmptyWorkspace();
     }
-    void enqueueCloudWrite(() => saveWorkspaceToCloud(seed, options.getAuthToken)).catch(() => {
+    const seedToken = options.getAuthToken ? await options.getAuthToken().catch(() => null) : null;
+    void enqueueCloudWrite(() => saveWorkspaceToCloud(seed, async () => seedToken)).catch(() => {
       /* Keep local cache usable even when an initial cloud backfill fails. */
     });
     return seed;
@@ -355,8 +356,11 @@ export async function saveWorkspace(
     if (owner && unreadableCloudOwners.has(owner)) {
       throw new Error("Your account couldn't be reached, so changes are kept on this device. Reload to sync them.");
     }
+    // Resolve the sign-in token now, so a write that waits in the queue still goes to the account that made it,
+    // even if someone signs in as another account before it is sent.
+    const token = options.getAuthToken ? await options.getAuthToken() : null;
     await enqueueCloudWrite(async () => {
-      await saveWorkspaceToCloud(state, options.getAuthToken);
+      await saveWorkspaceToCloud(state, async () => token);
       if (options.checkpointOwner) {
         // The account now holds edits up to this snapshot's own edit time (not the reply's arrival time), so edits
         // made while the request was in flight still count as newer than the acknowledged base.
