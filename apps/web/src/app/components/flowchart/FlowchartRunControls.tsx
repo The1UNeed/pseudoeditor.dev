@@ -99,7 +99,7 @@ export function FlowchartRunControls({
               }}
               aria-label={playing ? t.pause : t.play}
               title={playing ? t.pause : t.play}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-white transition hover:opacity-90"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--on-accent)] transition hover:opacity-90"
             >
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>

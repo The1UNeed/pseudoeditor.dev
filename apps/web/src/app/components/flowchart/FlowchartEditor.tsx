@@ -618,7 +618,7 @@ function FlowchartEditorInner({
             onClick={generatePseudocode}
             className="
               flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5
-              bg-[var(--accent)] text-sm font-medium text-white transition-opacity hover:opacity-90
+              bg-[var(--accent)] text-sm font-medium text-[var(--on-accent)] transition-opacity hover:opacity-90
             "
           >
             <Download className="h-4 w-4" />
@@ -773,7 +773,7 @@ function FlowchartEditorInner({
                               rounded-lg border px-3 py-2 text-sm font-medium transition
                               ${
                                 active
-                                  ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                                  ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]'
                                   : 'border-[var(--separator)] bg-[var(--surface)] text-[var(--text2)] hover:text-[var(--text)]'
                               }
                             `}

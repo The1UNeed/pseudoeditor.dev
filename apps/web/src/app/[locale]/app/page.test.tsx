@@ -110,6 +110,10 @@ vi.mock("@/lib/auth-components", () => ({
 vi.mock("@/lib/storage", () => ({
   loadWorkspace: loadWorkspaceMock,
   saveWorkspace: saveWorkspaceMock,
+  saveDeviceCheckpoint: vi.fn(async () => {}),
+  takeAccountSyncPending: vi.fn(() => false),
+  takeRecoveredCopies: vi.fn(() => false),
+  isAccountUnreachable: vi.fn(() => false),
 }));
 
 /** Makes loadWorkspace resolve to `workspace`. */
@@ -386,8 +390,8 @@ describe("HomePage workspace flow", () => {
     render(<HomePage />);
     await screen.findByRole("textbox", { name: "Mock editor" });
 
-    fireEvent.click(getExplorerHeaderButton("Create File"));
-    const createDialog = await screen.findByRole("dialog", { name: "Create New File" });
+    fireEvent.click(getExplorerHeaderButton("New file"));
+    const createDialog = await screen.findByRole("dialog", { name: "New file" });
 
     const nameInput = within(createDialog).getByLabelText("File name");
     expect(nameInput).toHaveValue("Untitled");
@@ -395,7 +399,7 @@ describe("HomePage workspace flow", () => {
 
     fireEvent.change(nameInput, { target: { value: "Renamed Doc.pseudo" } });
     expect(nameInput).toHaveValue("Renamed Doc");
-    fireEvent.click(within(createDialog).getByRole("button", { name: "Create File" }));
+    fireEvent.click(within(createDialog).getByRole("button", { name: "Create" }));
     await waitFor(() => {
       expect(getExplorerButton("Renamed Doc.pseudo")).toBeInTheDocument();
     });
@@ -410,14 +414,18 @@ describe("HomePage workspace flow", () => {
     mockLoadedWorkspace(createEmptyWorkspace("2026-03-15T00:00:00.000Z"));
     render(<HomePage />);
 
-    expect(await screen.findByText("Welcome to PseudoEditor")).toBeInTheDocument();
+    expect(await screen.findByText("Start writing pseudocode")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Create New File" }));
-    const dialog = await screen.findByRole("dialog", { name: "Create New File" });
+    fireEvent.click(
+      within(screen.getByText("Start writing pseudocode").closest("section") as HTMLElement).getByRole("button", {
+        name: "New file",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "New file" });
     fireEvent.change(within(dialog).getByLabelText("File name"), {
       target: { value: "main.pseudo" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create File" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
       expect(screen.getByRole("textbox", { name: "Mock editor" })).toHaveValue("");
@@ -528,13 +536,13 @@ describe("HomePage workspace flow", () => {
     mockLoadedWorkspace(createWorkspaceFixture());
     const { unmount } = render(<HomePage />);
     const editor = await screen.findByRole("textbox", { name: "Mock editor" });
-    expect(editor).toHaveAttribute("data-color-scheme", "classic");
+    expect(editor).toHaveAttribute("data-color-scheme", "pseudoeditor");
 
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     const dialog = await screen.findByRole("dialog", { name: "Settings" });
     const picker = within(dialog).getByRole("radiogroup", { name: "Syntax colours" });
-    expect(within(picker).getAllByRole("radio")).toHaveLength(6);
-    expect(within(picker).getByRole("radio", { name: "Classic" })).toBeChecked();
+    expect(within(picker).getAllByRole("radio")).toHaveLength(7);
+    expect(within(picker).getByRole("radio", { name: "PseudoEditor" })).toBeChecked();
 
     fireEvent.click(within(picker).getByRole("radio", { name: "Ocean" }));
 
@@ -556,7 +564,7 @@ describe("HomePage workspace flow", () => {
     await screen.findByRole("textbox", { name: "Mock editor" });
 
     fireEvent.contextMenu(getExplorerButton("Helper.pseudo"));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Move Up" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move up" }));
 
     await waitFor(() => {
       const savedState = lastLocallySavedWorkspace();
@@ -614,7 +622,7 @@ describe("HomePage workspace flow", () => {
 
     fireEvent.contextMenu(getExplorerButton("Helper.pseudo"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    expect(screen.getByText('Delete "Helper.pseudo"?')).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: 'Delete "Helper.pseudo"?' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
@@ -635,7 +643,7 @@ describe("HomePage workspace flow", () => {
     fireEvent.click(helperRow);
     fireEvent.keyDown(helperRow, { key: "Delete" });
 
-    const dialog = await screen.findByRole("dialog", { name: "Confirm Delete" });
+    const dialog = await screen.findByRole("dialog", { name: 'Delete "Helper.pseudo"?' });
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
 
     fireEvent.keyDown(dialog, { key: "Escape" });
@@ -643,7 +651,7 @@ describe("HomePage workspace flow", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    expect(helperRow).toHaveFocus();
+    expect(screen.getByRole("tree", { name: "Explorer" })).toHaveFocus();
     expect(getExplorerRow("Helper.pseudo")).toBeInTheDocument();
   });
 
@@ -656,8 +664,8 @@ describe("HomePage workspace flow", () => {
     fireEvent.contextMenu(helperRow);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Rename Item" });
-    const nameInput = within(dialog).getByRole("textbox", { name: "Item name" });
+    const dialog = await screen.findByRole("dialog", { name: "Rename" });
+    const nameInput = within(dialog).getByRole("textbox", { name: "Name" });
     expect(nameInput).toHaveFocus();
 
     fireEvent.keyDown(nameInput, { key: "Escape" });
@@ -665,7 +673,7 @@ describe("HomePage workspace flow", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    expect(helperRow).toHaveFocus();
+    expect(screen.getByRole("tree", { name: "Explorer" })).toHaveFocus();
   });
 
   it("uses the phone layout on narrow windows regardless of user agent and hides the flowchart switch", async () => {
@@ -677,7 +685,7 @@ describe("HomePage workspace flow", () => {
       render(<HomePage />);
       await screen.findByRole("textbox", { name: "Mock editor" });
 
-      fireEvent.click(screen.getByRole("button", { name: "SETTINGS" }));
+      fireEvent.click(within(screen.getByRole("navigation", { name: "Workspace sections" })).getByRole("button", { name: "Settings" }));
       expect(screen.getByText("Theme")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Switch to flowchart view" })).not.toBeInTheDocument();
     } finally {
@@ -946,7 +954,7 @@ describe("HomePage workspace flow", () => {
     loadWorkspaceMock.mockResolvedValue(createEmptyWorkspace("2026-03-15T00:00:00.000Z"));
     render(<HomePage />);
 
-    expect(await screen.findByText("Welcome to PseudoEditor")).toBeInTheDocument();
+    expect(await screen.findByText("Start writing pseudocode")).toBeInTheDocument();
 
     const event = new Event("beforeunload", { cancelable: true });
     Object.defineProperty(event, "returnValue", {
@@ -967,7 +975,7 @@ describe("HomePage workspace flow", () => {
     await screen.findByRole("textbox", { name: "Mock editor" });
     expect(loadWorkspaceMock).toHaveBeenCalledWith(expect.any(String), { mode: "memory" });
     const signInButton = screen.getByRole("button", { name: "Log In" });
-    expect(signInButton).toHaveClass("bg-[var(--accent)]", "text-[var(--on-accent)]");
+    expect(signInButton).toHaveClass("ui-btn", "ui-btn-primary");
     expect(screen.queryByText(/Need an account/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));

@@ -23,6 +23,26 @@ function getBearerToken(request: Request): string | null {
 export async function getWorkspaceRequestAuth(request: Request): Promise<WorkspaceRequestAuth | null> {
   const authState = await auth();
   if (authState.userId) {
+    // A request that names its account with a bearer token must match the cookie session. Otherwise a save queued
+    // by one account could be written into another account the browser switched to before it was sent.
+    const sessionBearer = getBearerToken(request);
+    const sessionSecret = process.env.CLERK_SECRET_KEY;
+    if (sessionBearer && sessionSecret) {
+      let bearerUserId: string | null = null;
+      try {
+        const claims = await verifyToken(sessionBearer, { secretKey: sessionSecret });
+        bearerUserId = typeof claims.sub === "string" ? claims.sub : null;
+      } catch (error) {
+        // An unverifiable token cannot name another account; keep the session as before rather than block saving.
+        console.warn("Workspace API bearer token verification failed; using the session.", {
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+      if (bearerUserId && bearerUserId !== authState.userId) {
+        console.warn("Workspace API unauthorized: bearer token account does not match the session.");
+        return null;
+      }
+    }
     return {
       userId: authState.userId,
       convexToken: await authState.getToken({ template: "convex" }),

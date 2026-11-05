@@ -74,20 +74,21 @@ interface SelectionModifierState {
 const CONTEXT_MENU_WIDTH = 248;
 const CONTEXT_MENU_HEIGHT = 320;
 const CONTEXT_MENU_MARGIN = 14;
+const deleteKeyLabel =
+  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform ?? "") ? "⌫" : "Del";
 const EXPLORER_RELEASE_LABEL = `${packageJson.version}-Preview`;
 const DRAG_EDGE_SCROLL_ZONE = 34;
 const DRAG_EDGE_SCROLL_STEP = 14;
 
-const contextMenuButtonClassName =
-  "block w-full appearance-none rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)] disabled:cursor-not-allowed";
-const contextMenuDangerButtonClassName =
-  "block w-full appearance-none rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm transition hover:bg-[var(--danger-hover)] disabled:cursor-not-allowed";
+const contextMenuButtonClassName = "ui-menu-item";
+const contextMenuDangerButtonClassName = "ui-menu-item !text-[var(--red)] hover:!bg-[var(--danger-hover)]";
 
+// Icons stay neutral; only the file open in the editor takes the accent, matching its tab.
 function getFileIcon(name: string, isActive: boolean) {
   const ext = name.split(".").pop()?.toLowerCase();
   const color = isActive ? "text-[var(--accent)]" : "text-[var(--text3)]";
   if (ext === "pseudo" || ext === "ps") {
-    return <FileCode size={16} className="shrink-0 text-[var(--accent)]" />;
+    return <FileCode size={16} aria-hidden className={`shrink-0 ${color}`} />;
   }
   if (ext === "md" || ext === "txt") {
     return <FileText size={16} className={`shrink-0 ${color}`} />;
@@ -169,6 +170,9 @@ export function WorkspaceSidebar({
     workspace.activeDocumentId ? [workspace.activeDocumentId] : [],
   );
   const [anchorState, setAnchorState] = useState<string | null>(workspace.activeDocumentId);
+  const [focusState, setFocusState] = useState<string | null>(null);
+  const menuOpenedByKeyboardRef = useRef(false);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [dropHint, setDropHint] = useState<DropHint | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [supportsNativeDragAndDrop] = useState(() => getInitialNativeDragSupport());
@@ -209,8 +213,14 @@ export function WorkspaceSidebar({
     const handleEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         setContextMenu(null);
+        if (menuOpenedByKeyboardRef.current) treeContainerRef.current?.focus();
       }
     };
+    if (menuOpenedByKeyboardRef.current) {
+      window.requestAnimationFrame(() => {
+        contextMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus();
+      });
+    }
 
     window.addEventListener("pointerdown", handleClose);
     window.addEventListener("scroll", handleClose, true);
@@ -222,6 +232,7 @@ export function WorkspaceSidebar({
       window.removeEventListener("scroll", handleClose, true);
       window.removeEventListener("keydown", handleEscape);
       window.removeEventListener("blur", handleClose);
+      menuOpenedByKeyboardRef.current = false;
     };
   }, [contextMenu]);
 
@@ -260,6 +271,7 @@ export function WorkspaceSidebar({
   const selectSingleNode = (node: WorkspaceNode) => {
     setSelectionState([node.id]);
     setAnchorState(node.id);
+    setFocusState(node.id);
     if (node.type === "document") {
       onSelectDocument(node.id);
     }
@@ -354,6 +366,7 @@ export function WorkspaceSidebar({
 
   const handleNodeSelection = (node: WorkspaceNode, modifiers: SelectionModifierState) => {
     setContextMenu(null);
+    setFocusState(node.id);
 
     if (modifiers.shiftKey && anchorNodeId) {
       setSelectionState(getRangeSelection(visibleNodeIds, anchorNodeId, node.id));
@@ -376,6 +389,8 @@ export function WorkspaceSidebar({
 
   const handleNodeClick = (event: MouseEvent<HTMLElement>, node: WorkspaceNode) => {
     event.stopPropagation();
+    // Keep focus on the tree (rows are its active descendants) so arrow keys continue from the clicked row.
+    treeContainerRef.current?.focus({ preventScroll: true });
 
     if (suppressClickRef.current) {
       event.preventDefault();
@@ -693,48 +708,129 @@ export function WorkspaceSidebar({
     setContextMenu(null);
   };
 
+  // The keyboard cursor; Shift+Arrow moves it while the anchor stays put, so the range grows from where it began.
+  const focusedNodeId =
+    focusState && visibleNodeIds.includes(focusState)
+      ? focusState
+      : anchorNodeId && visibleNodeIds.includes(anchorNodeId)
+        ? anchorNodeId
+        : (orderedSelection[0] ?? visibleNodeIds[0] ?? null);
+
+  const revealRow = (nodeId: string) => {
+    window.requestAnimationFrame(() => {
+      treeContainerRef.current
+        ?.querySelector<HTMLElement>(`[data-workspace-row-id="${CSS.escape(nodeId)}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  /** Moves the keyboard cursor to a row: a plain move selects it (Enter opens it); Shift extends the selection. */
+  const moveFocusTo = (nodeId: string, extend: boolean) => {
+    const node = workspace.nodes[nodeId];
+    if (!node) return;
+    setFocusState(nodeId);
+    if (extend && anchorNodeId) {
+      setSelectionState(getRangeSelection(visibleNodeIds, anchorNodeId, nodeId));
+    } else {
+      setSelectionState([nodeId]);
+      setAnchorState(nodeId);
+    }
+    revealRow(nodeId);
+  };
+
+  const openContextMenuFromKeyboard = (nodeId: string) => {
+    const node = workspace.nodes[nodeId];
+    const row = treeContainerRef.current?.querySelector<HTMLElement>(`[data-workspace-row-id="${CSS.escape(nodeId)}"]`);
+    if (!node || !row) return;
+    const bounds = row.getBoundingClientRect();
+    menuOpenedByKeyboardRef.current = true;
+    openContextMenuForNode(node, bounds.left + 24, bounds.bottom);
+  };
+
   const handleTreeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if ((event.key === "Delete" || event.key === "Backspace") && orderedSelection.length > 0) {
-      event.preventDefault();
-      handleDeleteSelection();
+    // Leave Cmd/Ctrl/Alt chords (Run, Save, panel toggles…) to the workspace keymap.
+    if (event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
-
-    if (orderedSelection.length !== 1) {
-      return;
-    }
-
-    const selectedNode = workspace.nodes[orderedSelection[0]];
-    if (!selectedNode) {
-      return;
-    }
-
-    if (event.key === "F2") {
-      event.preventDefault();
-      onRenameNode(selectedNode.id);
-      return;
-    }
-
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleNodeDoubleClick(selectedNode);
-      return;
-    }
-
-    if (selectedNode.type !== "folder") {
-      return;
-    }
-
+    const currentIndex = focusedNodeId ? visibleNodeIds.indexOf(focusedNodeId) : -1;
+    const focusedNode = focusedNodeId ? workspace.nodes[focusedNodeId] : null;
     const expandedFolders = new Set(workspace.expandedFolderIds ?? []);
-    if (event.key === "ArrowRight" && !expandedFolders.has(selectedNode.id)) {
-      event.preventDefault();
-      onExpandFolder(selectedNode.id);
-      return;
-    }
 
-    if (event.key === "ArrowLeft" && expandedFolders.has(selectedNode.id)) {
-      event.preventDefault();
-      onToggleFolder(selectedNode.id);
+    switch (event.key) {
+      case "ArrowDown":
+      case "ArrowUp": {
+        event.preventDefault();
+        if (visibleNodeIds.length === 0) return;
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        const nextIndex = currentIndex < 0 ? 0 : Math.min(visibleNodeIds.length - 1, Math.max(0, currentIndex + delta));
+        const nextId = visibleNodeIds[nextIndex];
+        moveFocusTo(nextId, event.shiftKey);
+        return;
+      }
+      case "Home":
+      case "End": {
+        event.preventDefault();
+        const nextId = event.key === "Home" ? visibleNodeIds[0] : visibleNodeIds[visibleNodeIds.length - 1];
+        if (nextId) moveFocusTo(nextId, event.shiftKey);
+        return;
+      }
+      case "ArrowRight": {
+        if (!focusedNode || focusedNode.type !== "folder") return;
+        event.preventDefault();
+        if (!expandedFolders.has(focusedNode.id)) {
+          onExpandFolder(focusedNode.id);
+          return;
+        }
+        const firstChild = getChildNodes(workspace, focusedNode.id)[0];
+        if (firstChild) moveFocusTo(firstChild.id, false);
+        return;
+      }
+      case "ArrowLeft": {
+        if (!focusedNode) return;
+        event.preventDefault();
+        if (focusedNode.type === "folder" && expandedFolders.has(focusedNode.id)) {
+          onToggleFolder(focusedNode.id);
+          return;
+        }
+        if (focusedNode.parentId && focusedNode.parentId !== workspace.rootFolderId) {
+          moveFocusTo(focusedNode.parentId, false);
+        }
+        return;
+      }
+      case "Enter":
+      case " ": {
+        if (!focusedNode) return;
+        event.preventDefault();
+        handleNodeDoubleClick(focusedNode);
+        return;
+      }
+      case "F2": {
+        if (!focusedNode || orderedSelection.length > 1) return;
+        event.preventDefault();
+        onRenameNode(focusedNode.id);
+        return;
+      }
+      case "Delete":
+      case "Backspace": {
+        if (orderedSelection.length === 0) return;
+        event.preventDefault();
+        handleDeleteSelection();
+        return;
+      }
+      case "ContextMenu": {
+        if (!focusedNode) return;
+        event.preventDefault();
+        openContextMenuFromKeyboard(focusedNode.id);
+        return;
+      }
+      case "F10": {
+        if (!event.shiftKey || !focusedNode) return;
+        event.preventDefault();
+        openContextMenuFromKeyboard(focusedNode.id);
+        return;
+      }
+      default:
+        return;
     }
   };
 
@@ -869,31 +965,31 @@ export function WorkspaceSidebar({
       onClick={() => setContextMenu(null)}
     >
       {/* Sidebar Header */}
-      <div className="@container flex h-10 items-center gap-2 px-4">
+      <div className="@container flex h-9 shrink-0 items-center gap-2 pl-4 pr-1.5 pointer-coarse:h-11">
         <div className="flex min-w-0 flex-col items-start">
-          <span className="max-w-full truncate text-[11px] font-semibold tracking-[0.8px] text-[var(--text2)]">{t.files.explorer}</span>
+          <h2 className="max-w-full truncate text-[12px] font-semibold text-[var(--text2)]">{t.files.explorer}</h2>
         </div>
         <div className="flex-1" />
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            className="flex h-7 items-center gap-1 rounded-lg px-2 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
+            className="flex h-7 items-center gap-1 rounded-[var(--radius-control)] px-1.5 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] pointer-coarse:h-11"
             aria-label={t.files.createFile}
             title={t.files.createFile}
             onClick={() => onCreateDocument(createTargetParentId)}
           >
-            <FilePlus size={16} />
-            <span className="text-[11px] font-medium @max-[12rem]:hidden">{t.files.file}</span>
+            <FilePlus size={15} aria-hidden />
+            <span className="text-[12px] font-medium @max-[12rem]:hidden">{t.files.file}</span>
           </button>
           <button
             type="button"
-            className="flex h-7 items-center gap-1 rounded-lg px-2 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text2)]"
+            className="flex h-7 items-center gap-1 rounded-[var(--radius-control)] px-1.5 text-[var(--text3)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] pointer-coarse:h-11"
             aria-label={t.files.createFolder}
             title={t.files.createFolder}
             onClick={() => onCreateFolder(createTargetParentId)}
           >
-            <FolderPlus size={16} />
-            <span className="text-[11px] font-medium @max-[12rem]:hidden">{t.files.folder}</span>
+            <FolderPlus size={15} aria-hidden />
+            <span className="text-[12px] font-medium @max-[12rem]:hidden">{t.files.folder}</span>
           </button>
         </div>
       </div>
@@ -901,13 +997,17 @@ export function WorkspaceSidebar({
       {/* File Tree */}
       <div
         ref={treeContainerRef}
-        className="min-h-0 flex-1 overflow-auto px-2 py-1"
+        role="tree"
+        aria-label={t.files.explorer}
+        aria-multiselectable
+        aria-activedescendant={focusedNodeId ? `explorer-row-${focusedNodeId}` : undefined}
+        className="group/tree min-h-0 flex-1 overflow-auto px-2 py-1 outline-none"
         tabIndex={0}
         onKeyDown={handleTreeKeyDown}
         onDragOver={handleRootDragOver}
         onDrop={handleRootDrop}
       >
-        <div className="space-y-px">
+        <div className="space-y-px" role="presentation">
           {flattened.map(({ node, depth }) => {
             const isActive = node.type === "document" && node.id === workspace.activeDocumentId;
             const isSelected = selectedNodeSet.has(node.id);
@@ -916,12 +1016,18 @@ export function WorkspaceSidebar({
             const isDropTarget = dropHint?.nodeId === node.id;
 
             return (
-              <div key={node.id}>
+              <div key={node.id} role="presentation">
                 {isDropTarget && dropHint.position === "before" ? (
                   <div className="ml-2 h-0.5 rounded-full bg-[var(--accent)]" />
                 ) : null}
 
                 <div
+                  id={`explorer-row-${node.id}`}
+                  role="treeitem"
+                  aria-level={depth + 1}
+                  aria-selected={isSelected}
+                  aria-expanded={node.type === "folder" ? isFolderOpen : undefined}
+                  aria-label={node.name}
                   draggable={supportsNativeDragAndDrop}
                   data-workspace-row="true"
                   data-workspace-row-id={node.id}
@@ -942,19 +1048,26 @@ export function WorkspaceSidebar({
                   onDragEnd={clearDragState}
                   onDragOver={(event) => handleDragOver(event, node)}
                   onDrop={(event) => handleDrop(event, node)}
-                  className={`flex h-7 touch-pan-y select-none items-center gap-1.5 rounded-lg transition ${
+                  className={`flex h-[26px] touch-pan-y select-none items-center gap-1.5 rounded-[var(--radius-control)] transition-colors pointer-coarse:h-11 ${
+                    node.id === focusedNodeId
+                      ? "group-focus-visible/tree:outline group-focus-visible/tree:outline-1 group-focus-visible/tree:-outline-offset-1 group-focus-visible/tree:outline-[var(--accent)]"
+                      : ""
+                  } ${
                     isSelected
-                      ? "bg-[var(--selected)]"
+                      ? isActive
+                        ? "bg-[var(--selected-strong)]"
+                        : "bg-[var(--selected)]"
                       : isDropTarget && dropHint?.position === "inside"
                         ? "bg-[var(--selected)]"
                         : "hover:bg-[var(--hover)]"
                   }`}
-                  style={{ paddingLeft: `${depth * 20 + 8}px`, paddingRight: 8 }}
+                  style={{ paddingLeft: `${depth * 16 + 6}px`, paddingRight: 8 }}
                 >
                   {node.type === "folder" ? (
                     <button
                       type="button"
-                      className="flex h-5 w-3.5 shrink-0 items-center justify-center text-[var(--text3)]"
+                      tabIndex={-1}
+                      className="flex h-5 w-3.5 shrink-0 items-center justify-center text-[var(--text3)] pointer-coarse:h-11 pointer-coarse:w-6"
                       onPointerDown={(event) => {
                         if (event.pointerType === "mouse") {
                           event.stopPropagation();
@@ -978,16 +1091,17 @@ export function WorkspaceSidebar({
 
                   {node.type === "folder" ? (
                     isFolderOpen ? (
-                      <FolderOpen size={16} className="shrink-0 text-[var(--orange)]" />
+                      <FolderOpen size={16} aria-hidden className="shrink-0 text-[var(--text2)]" />
                     ) : (
-                      <Folder size={16} className="shrink-0 text-[var(--orange)]" />
+                      <Folder size={16} aria-hidden className="shrink-0 text-[var(--text3)]" />
                     )
                   ) : (
-                    getFileIcon(node.name, isActive || isSelected)
+                    getFileIcon(node.name, isActive)
                   )}
 
                   <button
                     type="button"
+                    tabIndex={-1}
                     data-workspace-item="true"
                     className="min-w-0 flex-1 text-left"
                     title={node.name}
@@ -1020,8 +1134,8 @@ export function WorkspaceSidebar({
         </div>
       </div>
 
-      <div className="flex h-7 items-center border-t border-[var(--separator)] bg-[var(--surface-ghost)] px-3">
-        <span className="truncate text-[10px] font-semibold tracking-[0.12em] text-[var(--text3)]">
+      <div className="flex h-7 items-center border-t border-[var(--separator)] px-4">
+        <span className="truncate text-[11px] text-[var(--text3)]">
           {EXPLORER_RELEASE_LABEL}
         </span>
       </div>
@@ -1029,33 +1143,44 @@ export function WorkspaceSidebar({
       {/* Context Menu */}
       {contextMenu ? (
         <div
+          ref={contextMenuRef}
           role="menu"
           aria-label={t.files.explorerActions}
-          className="fixed z-[var(--z-dropdown)] w-[248px] overflow-hidden rounded-lg border border-[var(--surface3)] bg-[var(--surface)] shadow-[var(--shadow-dropdown)]"
+          onKeyDown={(event) => {
+            const items = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])'),
+            );
+            const index = items.indexOf(document.activeElement as HTMLElement);
+            let next = -1;
+            if (event.key === "ArrowDown") next = (index + 1) % items.length;
+            else if (event.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
+            else if (event.key === "Home") next = 0;
+            else if (event.key === "End") next = items.length - 1;
+            else if (event.key === "Tab") {
+              event.preventDefault();
+              setContextMenu(null);
+              treeContainerRef.current?.focus();
+              return;
+            }
+            if (next < 0 || items.length === 0) return;
+            event.preventDefault();
+            items[next]?.focus();
+          }}
+          className="ui-menu fixed z-[var(--z-dropdown)] w-[232px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <div className="border-b border-[var(--separator)] bg-[var(--surface2)] px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
-              {contextMenu.selection.length > 1
-                ? t.files.itemsSelected(contextMenu.selection.length)
-                : contextNode?.type === "folder"
-                  ? t.files.folderActions
-                  : t.files.fileActions}
-            </p>
-            <p className="mt-1 truncate text-sm font-semibold text-[var(--text)]">
-              {contextMenu.selection.length > 1 ? t.files.batchActions : contextNode?.name}
-            </p>
-          </div>
-          <div className="p-1.5">
+          <p className="truncate px-2.5 pb-1 pt-1.5 text-xs text-[var(--text3)]">
+            {contextMenu.selection.length > 1 ? t.files.itemsSelected(contextMenu.selection.length) : contextNode?.name}
+          </p>
+          <div>
             {contextMenu.selection.length === 1 && contextNode?.type === "folder" ? (
               <>
                 <button
                   type="button"
                   role="menuitem"
                   className={contextMenuButtonClassName}
-                  style={{ color: "var(--text)" }}
                   onClick={() => {
                     onCreateDocument(contextNode.id);
                     setContextMenu(null);
@@ -1067,7 +1192,6 @@ export function WorkspaceSidebar({
                   type="button"
                   role="menuitem"
                   className={contextMenuButtonClassName}
-                  style={{ color: "var(--text)" }}
                   onClick={() => {
                     onCreateFolder(contextNode.id);
                     setContextMenu(null);
@@ -1079,7 +1203,6 @@ export function WorkspaceSidebar({
                   type="button"
                   role="menuitem"
                   className={contextMenuButtonClassName}
-                  style={{ color: "var(--text)" }}
                   onClick={() => {
                     onToggleFolder(contextNode.id);
                     setContextMenu(null);
@@ -1087,7 +1210,7 @@ export function WorkspaceSidebar({
                 >
                   {(workspace.expandedFolderIds ?? []).includes(contextNode.id) ? t.files.collapseFolder : t.files.expandFolder}
                 </button>
-                <div className="my-1 h-px bg-[var(--separator)]" />
+                <div className="ui-menu-separator" role="separator" />
               </>
             ) : null}
             {contextMenu.selection.length === 1 ? (
@@ -1097,10 +1220,6 @@ export function WorkspaceSidebar({
                   role="menuitem"
                   className={contextMenuButtonClassName}
                   disabled={!canMoveContextNodeUp}
-                  style={{
-                    color: "var(--text)",
-                    opacity: canMoveContextNodeUp ? 1 : 0.38,
-                  }}
                   onClick={() => {
                     if (!contextNode) return;
                     moveByOffset(contextNode, -1);
@@ -1114,10 +1233,6 @@ export function WorkspaceSidebar({
                   role="menuitem"
                   className={contextMenuButtonClassName}
                   disabled={!canMoveContextNodeDown}
-                  style={{
-                    color: "var(--text)",
-                    opacity: canMoveContextNodeDown ? 1 : 0.38,
-                  }}
                   onClick={() => {
                     if (!contextNode) return;
                     moveByOffset(contextNode, 1);
@@ -1132,7 +1247,6 @@ export function WorkspaceSidebar({
               type="button"
               role="menuitem"
                   className={contextMenuButtonClassName}
-              style={{ color: "var(--text)" }}
               onClick={() => moveSelectionToTopLevel(contextMenu.selection)}
             >
               {t.files.moveTopLevel}
@@ -1142,24 +1256,24 @@ export function WorkspaceSidebar({
                 type="button"
                 role="menuitem"
                   className={contextMenuButtonClassName}
-                style={{ color: "var(--text)" }}
                 onClick={() => {
                   onRenameNode(contextMenu.nodeId);
                   setContextMenu(null);
                 }}
               >
                 {t.files.rename}
+                <span className="ml-auto text-xs text-[var(--text3)]" aria-hidden>F2</span>
               </button>
             ) : null}
-            <div className="my-1 h-px bg-[var(--separator)]" />
+            <div className="ui-menu-separator" role="separator" />
             <button
               type="button"
               role="menuitem"
               className={contextMenuDangerButtonClassName}
-              style={{ color: "var(--red)" }}
               onClick={handleDeleteSelection}
             >
               {contextMenu.selection.length > 1 ? t.files.deleteItems(contextMenu.selection.length) : t.common.delete}
+              <span className="ml-auto text-xs opacity-70" aria-hidden>{deleteKeyLabel}</span>
             </button>
           </div>
         </div>

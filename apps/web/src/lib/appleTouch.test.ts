@@ -83,12 +83,24 @@ describe("getTouchLayout", () => {
     expect(getTouchLayout(1024, false)).toBeNull();
   });
 
-  it("uses the phone layout for any window narrower than 744px", () => {
+  it("uses the phone layout for touch screens narrower than 744px and very narrow mouse windows", () => {
     expect(getTouchLayout(743, true)).toBe("phone");
     expect(getTouchLayout(390, false)).toBe("phone");
+    expect(getTouchLayout(559, false)).toBe("phone");
+  });
+
+  it("keeps the desktop workbench for half-screen mouse windows", () => {
+    expect(getTouchLayout(683, false)).toBeNull();
+    expect(getTouchLayout(560, false)).toBeNull();
   });
 
   it("uses the tablet layout for wide windows with a coarse pointer", () => {
     expect(getTouchLayout(744, true)).toBe("tablet");
+    expect(getTouchLayout(1180, true, 820)).toBe("tablet");
+  });
+
+  it("keeps phones in landscape on the phone layout", () => {
+    expect(getTouchLayout(844, true, 390)).toBe("phone");
+    expect(getTouchLayout(932, true, 430)).toBe("phone");
   });
 });

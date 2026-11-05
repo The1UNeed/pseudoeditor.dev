@@ -68,4 +68,28 @@ describe("getWorkspaceRequestAuth", () => {
     await expect(getWorkspaceRequestAuth(new Request("https://app.test/api/workspace"))).resolves.toBeNull();
     expect(verifyTokenMock).not.toHaveBeenCalled();
   });
+
+  it("rejects a request whose bearer token belongs to a different account than the session", async () => {
+    authMock.mockResolvedValue({
+      userId: "user_B",
+      getToken: vi.fn().mockResolvedValue("convex-session-token"),
+      sessionClaims: {},
+    } as unknown as Awaited<ReturnType<typeof auth>>);
+    verifyTokenMock.mockResolvedValue({ sub: "user_A" } as unknown as Awaited<ReturnType<typeof verifyToken>>);
+    const request = new Request("https://app.test/api/workspace", { headers: { authorization: "Bearer token-A" } });
+
+    await expect(getWorkspaceRequestAuth(request)).resolves.toBeNull();
+  });
+
+  it("accepts a bearer token that matches the session", async () => {
+    authMock.mockResolvedValue({
+      userId: "user_A",
+      getToken: vi.fn().mockResolvedValue("convex-session-token"),
+      sessionClaims: {},
+    } as unknown as Awaited<ReturnType<typeof auth>>);
+    verifyTokenMock.mockResolvedValue({ sub: "user_A" } as unknown as Awaited<ReturnType<typeof verifyToken>>);
+    const request = new Request("https://app.test/api/workspace", { headers: { authorization: "Bearer token-A" } });
+
+    await expect(getWorkspaceRequestAuth(request)).resolves.toMatchObject({ userId: "user_A" });
+  });
 });

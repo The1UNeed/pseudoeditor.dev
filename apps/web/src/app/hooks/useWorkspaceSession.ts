@@ -36,7 +36,14 @@ import {
 } from "@pseudoeditor/workspace";
 import type { Diagnostic, RunTraceStep } from "@/compiler/types";
 import { track } from "@/lib/analytics";
-import { loadWorkspace, saveWorkspace } from "@/lib/storage";
+import {
+  isAccountUnreachable,
+  loadWorkspace,
+  saveDeviceCheckpoint,
+  saveWorkspace,
+  takeAccountSyncPending,
+  takeRecoveredCopies,
+} from "@/lib/storage";
 import type { WorkspacePersistenceMode } from "@/lib/platform";
 import { pseudocodeRuntimeRunner } from "@/runtime/executeRuntime";
 import {
@@ -49,6 +56,11 @@ const INPUT_REQUEST_ERROR_TEXT = "INPUT requested but no stdin lines remain";
 const MAX_INTERACTIVE_INPUTS = 200;
 const TERMINAL_PROMPT = ">";
 const DEFAULT_AUTO_SAVE_DELAY_MS = 5 * 60 * 1000;
+const LIVE_DIAGNOSTICS_DELAY_MS = 450;
+const GENERIC_RUNTIME_HINT = "Check pseudocode runtime state and input values.";
+// Device-only saves are a cheap IndexedDB write: save shortly after typing stops, and at least this often.
+const LOCAL_SAVE_IDLE_MS = 1000;
+const LOCAL_SAVE_MAX_WAIT_MS = 5000;
 
 /** The steps of the last finished run, which the flowchart replays block by block. */
 export interface RunTrace {
@@ -76,6 +88,10 @@ interface WorkspaceSessionOptions {
   cloudSyncLoading?: boolean;
   getCloudAuthToken?: () => Promise<string | null>;
   persistenceMode?: WorkspacePersistenceMode;
+  /** The signed-in account id; enables the device checkpoint of not-yet-synced edits in cloud mode. */
+  checkpointOwner?: string | null;
+  /** Localized name of the folder that receives this device's versions after a sync conflict. */
+  recoveredFolderName?: string;
 }
 
 interface PendingTerminalInput {
@@ -85,6 +101,10 @@ interface PendingTerminalInput {
 }
 
 type SaveRequestSource = "autosave" | "manual";
+
+function persistenceModeUsesCheckpoint(options: WorkspaceSessionOptions): boolean {
+  return (options.persistenceMode ?? (options.cloudSyncEnabled ? "cloud" : "local")) === "cloud";
+}
 
 function isInputRequestRuntimeError(stderr: string): boolean {
   return stderr.includes(INPUT_REQUEST_ERROR_TEXT);
@@ -128,17 +148,40 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
   });
   const [isRunning, setIsRunning] = useState(false);
   const [lastRunTrace, setLastRunTrace] = useState<RunTrace | null>(null);
+  /** The error that stopped the last run, with its location, so Output can link straight to the line. */
+  const [lastRunError, setLastRunError] = useState<
+    (Diagnostic & { documentId: string; source: string; syntaxId: string }) | null
+  >(null);
   const runTraceIdRef = useRef(0);
   const [runningTerminalPanelId, setRunningTerminalPanelId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasPendingSave, setHasPendingSave] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  /** Cloud mode: every edit is already in this device's checkpoint, even if the account sync is still pending. */
+  const [unsyncedEditsSafeOnDevice, setUnsyncedEditsSafeOnDevice] = useState(false);
+  const checkpointOwner = persistenceModeUsesCheckpoint(options) ? (options.checkpointOwner ?? null) : null;
+  const checkpointOwnerRef = useRef(checkpointOwner);
+  const recoveredFolderNameRef = useRef(options.recoveredFolderName);
+  useEffect(() => {
+    recoveredFolderNameRef.current = options.recoveredFolderName;
+  }, [options.recoveredFolderName]);
+  const checkpointTimerRef = useRef<number | null>(null);
+  const checkpointFirstChangeAtRef = useRef<number | null>(null);
+  /** Wall-clock time of the latest workspace change; ties checkpoints and saves to the edits they contain. */
+  const lastEditAtRef = useRef(0);
+  const persistWorkspaceRef = useRef<
+    ((state: WorkspaceState, requestId: number, source: SaveRequestSource) => Promise<boolean>) | null
+  >(null);
   const [appNotice, setAppNotice] = useState<AppNotice | null>(null);
+  /** Account-sync situations the page explains (localized) right after loading. */
+  const [syncNotice, setSyncNotice] = useState<"account-unreachable" | "recovered-copies" | null>(null);
 
   const workspaceRef = useRef<WorkspaceState | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const saveRequestIdRef = useRef(0);
+  const activeSaveCountRef = useRef(0);
+  const firstUnsavedChangeAtRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
   const getCloudAuthTokenRef = useRef(options.getCloudAuthToken);
   const pendingInputResolverRef = useRef<((value: string | null) => void) | null>(null);
@@ -146,6 +189,31 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
   useEffect(() => {
     getCloudAuthTokenRef.current = options.getCloudAuthToken;
   }, [options.getCloudAuthToken]);
+
+  useEffect(() => {
+    checkpointOwnerRef.current = checkpointOwner;
+  }, [checkpointOwner]);
+
+  /** Writes the latest workspace to the device checkpoint now (cloud mode only). */
+  const writeCheckpointNow = useCallback(() => {
+    if (checkpointTimerRef.current !== null) {
+      window.clearTimeout(checkpointTimerRef.current);
+      checkpointTimerRef.current = null;
+    }
+    checkpointFirstChangeAtRef.current = null;
+    const owner = checkpointOwnerRef.current;
+    const latestWorkspace = workspaceRef.current;
+    if (!owner || !latestWorkspace) return;
+    const revision = saveRequestIdRef.current;
+    void saveDeviceCheckpoint(latestWorkspace, owner, lastEditAtRef.current).then(
+      () => {
+        if (saveRequestIdRef.current === revision) setUnsyncedEditsSafeOnDevice(true);
+      },
+      () => {
+        /* the account sync and unload warning still cover these edits */
+      },
+    );
+  }, []);
 
   const getCurrentCloudAuthToken = useCallback(async () => {
     return await (getCloudAuthTokenRef.current?.() ?? null);
@@ -173,6 +241,9 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     void loadWorkspace(defaultSource, {
       ...(getCloudAuthTokenRef.current ? { getAuthToken: getCurrentCloudAuthToken } : {}),
       mode: persistenceMode,
+      ...(checkpointOwnerRef.current
+        ? { checkpointOwner: checkpointOwnerRef.current, recoveredFolderName: recoveredFolderNameRef.current }
+        : {}),
     }).then((loadedWorkspace) => {
       if (cancelled) {
         return;
@@ -182,12 +253,50 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       setHasPendingSave(false);
       setLastSavedAt(null);
       loadedRef.current = true;
+      // Recovered edits (or an account that couldn't be read) still have to reach the account: sync through the
+      // normal save path so "Unsaved", failures and the leave warning all reflect it until it is acknowledged.
+      const owner = checkpointOwnerRef.current;
+      setSyncNotice(
+        isAccountUnreachable(owner) ? "account-unreachable" : takeRecoveredCopies(owner) ? "recovered-copies" : null,
+      );
+      if (takeAccountSyncPending(owner)) {
+        // Stamp the recovered snapshot as this tab's latest edit so its acknowledged save clears the checkpoint.
+        lastEditAtRef.current = Math.max(Date.now(), lastEditAtRef.current + 1);
+        const requestId = saveRequestIdRef.current + 1;
+        saveRequestIdRef.current = requestId;
+        setHasPendingSave(true);
+        void persistWorkspaceRef.current?.(loadedWorkspace, requestId, "autosave");
+      }
     });
 
     return () => {
       cancelled = true;
+      const owner = checkpointOwnerRef.current;
+      const pendingWorkspace = workspaceRef.current;
+      if (checkpointTimerRef.current !== null) {
+        window.clearTimeout(checkpointTimerRef.current);
+        checkpointTimerRef.current = null;
+        // Unsynced edits must reach the checkpoint even when no account save is queued (an immediate save may
+        // already have taken the timer and could still fail).
+        if (owner && pendingWorkspace && loadedRef.current) {
+          void saveDeviceCheckpoint(pendingWorkspace, owner, lastEditAtRef.current).catch(() => {});
+        }
+      }
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        // Leaving the workspace (another page in the app, or a storage-mode change) must not drop the edits
+        // that were waiting for autosave: write them to the store this workspace was loaded from.
+        if (pendingWorkspace && loadedRef.current && persistenceMode !== "memory") {
+          if (owner) void saveDeviceCheckpoint(pendingWorkspace, owner, lastEditAtRef.current).catch(() => {});
+          void saveWorkspace(pendingWorkspace, {
+            ...(getCloudAuthTokenRef.current ? { getAuthToken: getCurrentCloudAuthToken } : {}),
+            mode: persistenceMode,
+            ...(owner ? { checkpointOwner: owner, editedAt: lastEditAtRef.current } : {}),
+          }).catch(() => {
+            /* best effort; the unload warning covers closing the tab */
+          });
+        }
       }
       const resolver = pendingInputResolverRef.current;
       if (resolver) {
@@ -195,7 +304,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
         resolver(null);
       }
     };
-  }, [cloudSyncLoading, defaultSource, getCurrentCloudAuthToken, persistenceMode]);
+  }, [cloudSyncLoading, defaultSource, getCurrentCloudAuthToken, persistenceMode, checkpointOwner]);
 
   const persistWorkspace = useCallback(async (
     nextWorkspace: WorkspaceState,
@@ -213,14 +322,21 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       return false;
     }
 
+    activeSaveCountRef.current += 1;
     setIsSaving(true);
+    // Saves always write the latest workspace, so the latest edit time describes this snapshot.
+    const snapshotEditedAt = lastEditAtRef.current;
     try {
       await saveWorkspace(nextWorkspace, {
         ...(getCloudAuthTokenRef.current ? { getAuthToken: getCurrentCloudAuthToken } : {}),
         mode: persistenceMode,
+        ...(checkpointOwnerRef.current
+          ? { checkpointOwner: checkpointOwnerRef.current, editedAt: snapshotEditedAt }
+          : {}),
       });
       if (saveRequestIdRef.current !== requestId) {
-        return false;
+        // The write succeeded; newer edits arrived meanwhile and stay flagged as unsaved for the next save.
+        return true;
       }
       setSaveError(null);
       setHasPendingSave(false);
@@ -238,15 +354,23 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       setHasPendingSave(true);
       return false;
     } finally {
-      if (saveRequestIdRef.current === requestId) {
+      // "Saving" tracks writes in flight, not whether newer edits exist: an edit made during a save must not
+      // leave the control stuck on "Saving…" (newer edits stay flagged through hasPendingSave instead).
+      activeSaveCountRef.current = Math.max(0, activeSaveCountRef.current - 1);
+      if (activeSaveCountRef.current === 0) {
         setIsSaving(false);
       }
     }
   }, [getCurrentCloudAuthToken, persistenceMode]);
 
+  useEffect(() => {
+    persistWorkspaceRef.current = persistWorkspace;
+  }, [persistWorkspace]);
+
   const commitWorkspace = useCallback(
     (nextWorkspace: WorkspaceState, mode: "immediate" | "debounced") => {
       workspaceRef.current = nextWorkspace;
+      lastEditAtRef.current = Math.max(Date.now(), lastEditAtRef.current + 1);
       setWorkspace(nextWorkspace);
 
       if (!loadedRef.current) {
@@ -268,20 +392,84 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
           window.clearTimeout(saveTimerRef.current);
           saveTimerRef.current = null;
         }
+        firstUnsavedChangeAtRef.current = null;
+        if (checkpointOwnerRef.current) {
+          setUnsyncedEditsSafeOnDevice(false);
+          writeCheckpointNow();
+        }
         void persistWorkspace(nextWorkspace, requestId, "autosave");
         return;
       }
 
-      if (saveTimerRef.current !== null) {
-        window.clearTimeout(saveTimerRef.current);
-      }
-      saveTimerRef.current = window.setTimeout(() => {
+      const flush = () => {
         saveTimerRef.current = null;
-        void persistWorkspace(nextWorkspace, requestId, "autosave");
-      }, autoSaveDelayMs);
+        firstUnsavedChangeAtRef.current = null;
+        const latestWorkspace = workspaceRef.current;
+        if (latestWorkspace) {
+          void persistWorkspace(latestWorkspace, saveRequestIdRef.current, "autosave");
+        }
+      };
+
+      if (persistenceMode === "local") {
+        // Save a second after typing stops, but never let continuous typing hold a save back past the max wait.
+        const now = Date.now();
+        firstUnsavedChangeAtRef.current ??= now;
+        const untilMaxWait = firstUnsavedChangeAtRef.current + LOCAL_SAVE_MAX_WAIT_MS - now;
+        if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = window.setTimeout(flush, Math.max(0, Math.min(LOCAL_SAVE_IDLE_MS, untilMaxWait)));
+        return;
+      }
+
+      // Account syncing is a network write, so it keeps the chosen interval; meanwhile a device checkpoint on the
+      // fast local schedule makes sure a crash or closed tab between syncs loses nothing.
+      setUnsyncedEditsSafeOnDevice(false);
+      if (checkpointOwnerRef.current) {
+        const now = Date.now();
+        checkpointFirstChangeAtRef.current ??= now;
+        const untilMaxWait = checkpointFirstChangeAtRef.current + LOCAL_SAVE_MAX_WAIT_MS - now;
+        if (checkpointTimerRef.current !== null) window.clearTimeout(checkpointTimerRef.current);
+        checkpointTimerRef.current = window.setTimeout(
+          writeCheckpointNow,
+          Math.max(0, Math.min(LOCAL_SAVE_IDLE_MS, untilMaxWait)),
+        );
+      }
+
+      // The account interval is a ceiling, not a debounce: continuous typing must not postpone the sync forever.
+      // The first unsaved change starts the clock; the save writes the latest state.
+      if (saveTimerRef.current === null) {
+        saveTimerRef.current = window.setTimeout(flush, autoSaveDelayMs);
+      }
     },
-    [autoSaveDelayMs, persistWorkspace, persistenceMode],
+    [autoSaveDelayMs, persistWorkspace, persistenceMode, writeCheckpointNow],
   );
+
+  // Save before the page can be discarded: mobile Safari often skips beforeunload for backgrounded tabs.
+  useEffect(() => {
+    if (typeof window === "undefined" || persistenceMode === "memory") {
+      return;
+    }
+    const flushPendingSave = () => {
+      // The checkpoint is a local write, so it lands even when the account request is cut off by the unload.
+      if (checkpointTimerRef.current !== null) writeCheckpointNow();
+      if (saveTimerRef.current === null) return;
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      firstUnsavedChangeAtRef.current = null;
+      const latestWorkspace = workspaceRef.current;
+      if (latestWorkspace) {
+        void persistWorkspace(latestWorkspace, saveRequestIdRef.current, "autosave");
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushPendingSave();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushPendingSave);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushPendingSave);
+    };
+  }, [persistWorkspace, persistenceMode, writeCheckpointNow]);
 
   const resolvePendingInput = useCallback((value: string | null) => {
     const resolver = pendingInputResolverRef.current;
@@ -333,6 +521,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
+    firstUnsavedChangeAtRef.current = null;
 
     const requestId = saveRequestIdRef.current + 1;
     saveRequestIdRef.current = requestId;
@@ -437,6 +626,77 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     [applyWorkspaceUpdate],
   );
 
+  /** True while the active document still has the source and syntax a compile was started with. */
+  const isStillActiveSnapshot = useCallback((documentId: string, source: string, syntaxId: string) => {
+    const latestWorkspace = workspaceRef.current;
+    const latestDocument = latestWorkspace ? getActiveDocument(latestWorkspace) : null;
+    return (
+      !!latestWorkspace &&
+      latestDocument?.id === documentId &&
+      latestDocument.source === source &&
+      (latestWorkspace.syntaxId ?? "cambridge-igcse") === syntaxId
+    );
+  }, []);
+
+  const liveDiagnosticsTimerRef = useRef<number | null>(null);
+
+  /** Checks the active document in the background shortly after typing stops, like an IDE's live diagnostics. */
+  const scheduleLiveDiagnostics = useCallback((delayMs = LIVE_DIAGNOSTICS_DELAY_MS) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (liveDiagnosticsTimerRef.current !== null) {
+      window.clearTimeout(liveDiagnosticsTimerRef.current);
+    }
+    liveDiagnosticsTimerRef.current = window.setTimeout(() => {
+      liveDiagnosticsTimerRef.current = null;
+      const currentWorkspace = workspaceRef.current;
+      const document = currentWorkspace ? getActiveDocument(currentWorkspace) : null;
+      if (!currentWorkspace || !document) {
+        return;
+      }
+      const syntaxId = currentWorkspace.syntaxId ?? "cambridge-igcse";
+      void compilePseudocodeInWorker(
+        { source: document.source, filename: document.name, strict: true, syntaxId },
+        getCompileCacheKey(document.id, document.name, document.source, syntaxId),
+        { background: true },
+      ).then((run) => {
+        const diagnostics = run?.result?.diagnostics;
+        const latestWorkspace = workspaceRef.current;
+        const latestDocument = latestWorkspace ? getActiveDocument(latestWorkspace) : null;
+        if (
+          !latestWorkspace ||
+          latestDocument?.id !== document.id ||
+          latestDocument.source !== document.source ||
+          (latestWorkspace.syntaxId ?? "cambridge-igcse") !== syntaxId ||
+          !diagnostics
+        ) {
+          return;
+        }
+        setCompileDiagnostics(diagnostics);
+      }, () => {
+        // A failed background check leaves the current markers; Run still reports compiler failures.
+      });
+    }, delayMs);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (liveDiagnosticsTimerRef.current !== null) {
+        window.clearTimeout(liveDiagnosticsTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const workspaceSyntaxId = workspace?.syntaxId;
+  useEffect(() => {
+    if (!activeDocumentId) {
+      return;
+    }
+    scheduleLiveDiagnostics(0);
+  }, [activeDocumentId, workspaceSyntaxId, scheduleLiveDiagnostics]);
+
   const compileSource = useCallback(async (workspaceState?: WorkspaceState) => {
     const currentWorkspace = workspaceState ?? workspaceRef.current;
     if (!currentWorkspace) {
@@ -502,7 +762,9 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     }
 
     const { document, result } = payload;
-    setCompileDiagnostics(result.diagnostics);
+    if (isStillActiveSnapshot(document.id, document.source, target.workspace.syntaxId ?? "cambridge-igcse")) {
+      setCompileDiagnostics(result.diagnostics);
+    }
     updateWorkspaceCompileSummary(document.id, result.diagnostics);
 
     updateTerminalOutput(
@@ -519,7 +781,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       document,
       result,
     };
-  }, [compileSource, ensureTerminalTarget, updateTerminalOutput, updateWorkspaceCompileSummary]);
+  }, [compileSource, ensureTerminalTarget, isStillActiveSnapshot, updateTerminalOutput, updateWorkspaceCompileSummary]);
 
   const runNow = useCallback(async () => {
     const target = ensureTerminalTarget();
@@ -538,13 +800,21 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     }
 
     const { document, result: compileResult } = payload;
-    setCompileDiagnostics(compileResult.diagnostics);
+    // The student may have switched files or kept typing while this compiled; never show stale markers.
+    if (isStillActiveSnapshot(document.id, document.source, target.workspace.syntaxId ?? "cambridge-igcse")) {
+      setCompileDiagnostics(compileResult.diagnostics);
+    }
     updateWorkspaceCompileSummary(document.id, compileResult.diagnostics);
 
+    setLastRunError(null);
     if (!compileResult.success || !compileResult.astJson) {
       track("program_run", { outcome: "compile_error", diagnostics: compileResult.diagnostics.length, inputs: 0 });
-      updateTerminalOutput(target.panelId, `Compile failed for ${document.name}.\n\n${formatDiagnostics(compileResult.diagnostics)}`);
-      return;
+      const errorCount = compileResult.diagnostics.filter((diagnostic) => diagnostic.severity === "error").length;
+      updateTerminalOutput(
+        target.panelId,
+        `Couldn't run ${document.name}: fix the ${errorCount} problem${errorCount === 1 ? "" : "s"} in Problems first.`,
+      );
+      return "compile_error" as const;
     }
 
     const astJson = compileResult.astJson;
@@ -645,18 +915,31 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
         inputs: stdinLines.length,
       });
 
-      if (runResult.stderr.trim().length > 0) {
+      const reportedError = runResult.diagnostics.find((diagnostic) => diagnostic.severity === "error");
+      // The runtime attaches the same generic hint to every error; it adds nothing, so only keep specific hints.
+      const runtimeError =
+        reportedError && reportedError.hint === GENERIC_RUNTIME_HINT ? { ...reportedError, hint: undefined } : reportedError;
+      if (runtimeError) {
+        // Output shows this as a linked error row; Problems and the editor mark the line until the next edit.
+        setLastRunError({
+          ...runtimeError,
+          documentId: document.id,
+          source: document.source,
+          syntaxId: target.workspace.syntaxId ?? "cambridge-igcse",
+        });
+      } else if (runResult.stderr.trim().length > 0) {
         transcript.push(...runResult.stderr.trim().split("\n"));
       } else if (runResult.diagnostics.length > 0) {
         transcript.push(...formatDiagnostics(runResult.diagnostics).split("\n"));
       }
 
-      if (transcript.length === 0) {
+      if (transcript.length === 0 && !runtimeError) {
         transcript.push("Program finished with no output.");
       }
 
       updateTerminalOutput(target.panelId, transcript.join("\n"));
       applyWorkspaceUpdate((current) => updateVirtualFiles(current, latestVirtualFiles), "immediate");
+      return runtimeError ? ("runtime_error" as const) : ("success" as const);
     } finally {
       resolvePendingInput(null);
       setIsRunning(false);
@@ -666,6 +949,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     applyWorkspaceUpdate,
     compileSource,
     ensureTerminalTarget,
+    isStillActiveSnapshot,
     resolvePendingInput,
     updateTerminalOutput,
     updateWorkspaceCompileSummary,
@@ -697,10 +981,11 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
 
   const handleDocumentSourceChange = useCallback(
     (documentId: string, source: string) => {
-      setCompileDiagnostics([]);
+      // Keep the current markers (Monaco moves them with the text) until the live check replaces them.
       applyWorkspaceUpdate((current) => updateDocumentSource(current, documentId, source), "debounced");
+      scheduleLiveDiagnostics();
     },
-    [applyWorkspaceUpdate],
+    [applyWorkspaceUpdate, scheduleLiveDiagnostics],
   );
 
   const toggleFolder = useCallback(
@@ -887,6 +1172,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
 
   const clearTerminal = useCallback(
     (panelId?: string) => {
+      setLastRunError(null);
       const current = workspaceRef.current;
       if (!current || !activeDocument) {
         return;
@@ -922,20 +1208,48 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     }));
   }, []);
 
+  // A runtime error stays marked for as long as the file still has the source it ran with, even across file switches.
+  const visibleDiagnostics = useMemo(() => {
+    if (
+      !lastRunError ||
+      !activeDocument ||
+      lastRunError.documentId !== activeDocument.id ||
+      lastRunError.source !== activeDocument.source ||
+      lastRunError.syntaxId !== (workspace?.syntaxId ?? "cambridge-igcse")
+    ) {
+      return compileDiagnostics;
+    }
+    const runtimeDiagnostic: Diagnostic = {
+      code: lastRunError.code,
+      message: lastRunError.message,
+      severity: lastRunError.severity,
+      line: lastRunError.line,
+      column: lastRunError.column,
+      endLine: lastRunError.endLine,
+      endColumn: lastRunError.endColumn,
+      ...(lastRunError.hint ? { hint: lastRunError.hint } : {}),
+    };
+    return [...compileDiagnostics, runtimeDiagnostic];
+  }, [activeDocument, compileDiagnostics, lastRunError, workspace?.syntaxId]);
+
   return {
     workspace,
     activeDocument,
     breadcrumbs,
-    compileDiagnostics,
+    compileDiagnostics: visibleDiagnostics,
     terminalOutputs,
     pendingInput,
     isRunning,
     lastRunTrace,
+    lastRunError,
     runningTerminalPanelId,
     saveError,
     hasPendingSave,
     isSaving,
     lastSavedAt,
+    unsyncedEditsSafeOnDevice,
+    syncNotice,
+    dismissSyncNotice: () => setSyncNotice(null),
     appNotice,
     dismissNotice,
     setPendingInputText,

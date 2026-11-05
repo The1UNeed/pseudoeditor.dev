@@ -84,10 +84,10 @@ describe("WorkspaceSidebar", () => {
     const workspace = createWorkspaceFixture();
     const props = renderSidebar(workspace);
 
-    fireEvent.click(screen.getByRole("button", { name: "Create File" }));
+    fireEvent.click(screen.getByRole("button", { name: "New file" }));
     expect(props.onCreateDocument).toHaveBeenCalledWith(workspace.rootFolderId);
 
-    fireEvent.click(screen.getByRole("button", { name: "Create Folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "New folder" }));
     expect(props.onCreateFolder).toHaveBeenCalledWith(workspace.rootFolderId);
   });
 
@@ -349,5 +349,57 @@ describe("WorkspaceSidebar", () => {
       expect(getExplorerRow("main.pseudo")).toHaveAttribute("draggable", "true");
       expect(getExplorerRow("Archive")).toHaveAttribute("draggable", "true");
     });
+  });
+
+  it("moves the selection with the arrow keys so F2 renames the row the keyboard is on", () => {
+    const props = renderSidebar();
+    const tree = screen.getByRole("tree", { name: "Explorer" });
+    fireEvent.click(getExplorerRow("second.pseudo"));
+    expect(tree).toHaveFocus();
+
+    fireEvent.keyDown(tree, { key: "ArrowUp" });
+    expect(screen.getByRole("treeitem", { name: "main.pseudo" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(tree, { key: "F2" });
+    const mainId = Object.values(props.workspace.nodes).find((node) => node.name === "main.pseudo")?.id;
+    expect(props.onRenameNode).toHaveBeenLastCalledWith(mainId);
+
+    fireEvent.keyDown(tree, { key: "End" });
+    const archive = screen.getByRole("treeitem", { name: "Archive" });
+    expect(archive).toHaveAttribute("aria-selected", "true");
+    expect(tree).toHaveAttribute("aria-activedescendant", archive.id);
+    fireEvent.keyDown(tree, { key: "ArrowRight" });
+    expect(props.onExpandFolder).toHaveBeenCalledWith("folder-archive");
+  });
+
+  it("extends the selection with Shift+Arrow from a fixed anchor", () => {
+    renderSidebar();
+    const tree = screen.getByRole("tree", { name: "Explorer" });
+    fireEvent.click(getExplorerRow("main.pseudo"));
+    fireEvent.keyDown(tree, { key: "ArrowDown", shiftKey: true });
+    fireEvent.keyDown(tree, { key: "ArrowDown", shiftKey: true });
+    const selected = screen.getAllByRole("treeitem").filter((row) => row.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveLength(3);
+  });
+
+  it("opens the context menu from the keyboard and focuses its first item", async () => {
+    renderSidebar();
+    const tree = screen.getByRole("tree", { name: "Explorer" });
+    fireEvent.click(getExplorerRow("second.pseudo"));
+    fireEvent.keyDown(tree, { key: "F10", shiftKey: true });
+    const menu = await screen.findByRole("menu");
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    expect(tree).toHaveFocus();
+  });
+
+  it("lets Cmd/Ctrl chords such as Run (Cmd+Enter) through to the workspace keymap", () => {
+    const props = renderSidebar();
+    const tree = screen.getByRole("tree", { name: "Explorer" });
+    fireEvent.click(getExplorerRow("Archive"));
+    const event = new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true, cancelable: true });
+    tree.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(props.onToggleFolder).not.toHaveBeenCalled();
   });
 });
