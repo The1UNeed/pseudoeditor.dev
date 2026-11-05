@@ -30,6 +30,21 @@ function cloudAuthRequired() {
   return platformUsesCloudSaving(getClientAppPlatform());
 }
 
+/**
+ * Clerk keeps `__client_uat` (and a suffixed copy per instance) readable by scripts: the time of
+ * the last sign-in, or 0 when signed out. With no non-zero value nobody is signed in on this
+ * browser, so the editor can open the in-memory workspace without waiting for Clerk to load.
+ */
+export function mayHaveClerkSession(cookie: string = typeof document === "undefined" ? "" : document.cookie) {
+  for (const match of cookie.matchAll(/(?:^|;\s*)__client_uat(?:_[^=;]*)?=([^;]*)/g)) {
+    const value = match[1].trim();
+    if (value !== "" && value !== "0") {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function ClerkProvider({ children }: { children: ReactNode }) {
   const locale = useLocale();
   const t = useDictionary().auth;

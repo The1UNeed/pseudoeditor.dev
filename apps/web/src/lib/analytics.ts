@@ -1,4 +1,4 @@
-import posthog, { type BeforeSendFn, type PostHogConfig } from "posthog-js";
+import type { BeforeSendFn, PostHog, PostHogConfig } from "posthog-js";
 import { POSTHOG_HOST } from "@/lib/posthogHost";
 
 /**
@@ -90,9 +90,35 @@ export function prefersNoTracking(nav: Navigator = navigator): boolean {
   return doNotTrack === "1" || globalPrivacyControl === true;
 }
 
-export function track<E extends keyof AnalyticsEvents>(event: E, properties: AnalyticsEvents[E]) {
-  if (!posthog.__loaded) {
+type AnalyticsClient = Pick<PostHog, "capture">;
+
+// PostHog loads after the page is interactive (instrumentation-client.ts), so its ~120 KB never
+// competes with hydration. Events from before then wait here, bounded, and are sent once it loads.
+const MAX_QUEUED_EVENTS = 50;
+let client: AnalyticsClient | null = null;
+// Each held event keeps the page and time it happened on, not those of when PostHog loads.
+let queue: Array<{ event: string; properties: Record<string, unknown>; url: string; at: Date }> = [];
+
+export function setAnalyticsClient(next: AnalyticsClient | null) {
+  client = next;
+  if (!next) {
+    queue = [];
     return;
   }
-  posthog.capture(event, properties);
+  const pending = queue;
+  queue = [];
+  for (const { event, properties, url, at } of pending) {
+    next.capture(event, { ...properties, $current_url: url }, { timestamp: at });
+  }
+}
+
+export function track<E extends keyof AnalyticsEvents>(event: E, properties: AnalyticsEvents[E]) {
+  if (client) {
+    client.capture(event, properties);
+    return;
+  }
+  // Only production builds load PostHog; elsewhere nothing would ever drain the queue.
+  if (process.env.NEXT_PUBLIC_POSTHOG_ENABLED === "1" && queue.length < MAX_QUEUED_EVENTS) {
+    queue.push({ event, properties, url: window.location.href, at: new Date() });
+  }
 }

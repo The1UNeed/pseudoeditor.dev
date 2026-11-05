@@ -157,6 +157,9 @@ export default async function LandingPage({ params }: LocaleParams) {
 
   return (
     <main>
+      {/* The stylesheet is inlined, so the browser could paint before the hero window has arrived and then grow
+          it. Hold the first paint until the hero has been parsed (browsers without rel=expect ignore this). */}
+      <link rel="expect" href="#after-hero" blocking="render" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <PublicHeader locale={locale} />
 
@@ -193,7 +196,7 @@ export default async function LandingPage({ params }: LocaleParams) {
         <HeroWindow workspace={t.windowWorkspace} compiled={t.windowCompiled} terminal={t.windowTerminal} />
       </section>
 
-      <section className="border-t border-[var(--line)]">
+      <section id="after-hero" className="border-t border-[var(--line)]">
         <div className="site-wrap py-16 md:py-20">
           <p className="site-eyebrow">{t.featuresEyebrow}</p>
           <h2 className="site-h2 mt-3 max-w-2xl">{t.featuresTitle}</h2>

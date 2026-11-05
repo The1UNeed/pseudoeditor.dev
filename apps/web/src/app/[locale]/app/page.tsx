@@ -72,9 +72,11 @@ import {
   SignInButton,
   UserButton,
   isCloudAuthConfigured,
+  mayHaveClerkSession,
   useAuth,
 } from "@/lib/auth-components";
 import { track } from "@/lib/analytics";
+import { afterNextPaint } from "@/lib/afterNextPaint";
 import { getTouchLayout } from "@/lib/appleTouch";
 import type { Diagnostic } from "@/compiler/types";
 import { useDictionary, useLocale } from "@/i18n/context";
@@ -309,9 +311,13 @@ export default function HomePage() {
     { href: "https://github.com/The1UNeed/pseudoeditor.dev", label: t.legal.github },
   ];
   const { getToken, isLoaded: authLoaded, isSignedIn, userId } = useAuth();
-  const authLoading = !authLoaded;
   const [appPlatform] = useState(() => getClientAppPlatform());
   const cloudSavingRequired = platformUsesCloudSaving(appPlatform);
+  // Signed-out visitors (no Clerk session cookie) get the in-memory workspace straight away instead
+  // of waiting for Clerk's scripts and API calls. If Clerk then reports a session anyway, the
+  // persistence mode changes and the workspace reloads from the cloud.
+  const [awaitClerkSession] = useState(() => mayHaveClerkSession());
+  const authLoading = !authLoaded && awaitClerkSession;
   const workspacePersistenceMode = getWorkspacePersistenceMode({
     platform: appPlatform,
     signedIn: Boolean(isSignedIn),
@@ -578,6 +584,12 @@ export default function HomePage() {
   useEffect(() => {
     currentDocumentRef.current = currentDocument;
   }, [currentDocument]);
+
+  // Run executes the workspace's active document (the last focused panel), so the deferred Run
+  // checks that one, not the first panel's.
+  useEffect(() => {
+    runTargetIdRef.current = activeDocument?.id;
+  }, [activeDocument]);
 
   useEffect(() => {
     if (renameDialog) {
@@ -847,17 +859,33 @@ export default function HomePage() {
 
   /* ── actions ── */
 
+  // A run re-renders the workspace, terminal and layout (and on a tablet the keyboard closes).
+  // Starting it after the next paint lets the tap itself paint at once.
+  const cancelScheduledRunRef = useRef<(() => void) | null>(null);
+  const runTargetIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => () => cancelScheduledRunRef.current?.(), []);
   const handleRun = useCallback(() => {
+    if (cancelScheduledRunRef.current) {
+      return;
+    }
+    // The run is for the file that was active when Run was pressed.
+    const requestedId = runTargetIdRef.current;
     shouldAutoScrollOutputRef.current = true;
-    setShowTerminal(true);
-    setPanelView("output");
     preloadRunRuntime();
-    void runNow().then((outcome) => {
-      // A program that doesn't compile has nothing to show in Output; the fix list is what the student needs.
-      if (outcome === "compile_error") {
-        setPanelView("problems");
-        setTouchOutputView("problems");
+    cancelScheduledRunRef.current = afterNextPaint(() => {
+      cancelScheduledRunRef.current = null;
+      if (runTargetIdRef.current !== requestedId) {
+        return;
       }
+      setShowTerminal(true);
+      setPanelView("output");
+      void runNow().then((outcome) => {
+        // A program that doesn't compile has nothing to show in Output; the fix list is what the student needs.
+        if (outcome === "compile_error") {
+          setPanelView("problems");
+          setTouchOutputView("problems");
+        }
+      });
     });
   }, [preloadRunRuntime, runNow, setShowTerminal]);
 
@@ -1138,7 +1166,8 @@ export default function HomePage() {
       return null;
     }
 
-    if (authLoading) {
+    // Still a placeholder until Clerk loads, even when the workspace did not wait for it.
+    if (!authLoaded) {
       return (
         <button
           type="button"
@@ -1745,11 +1774,16 @@ export default function HomePage() {
     const baseName = normalizeDocumentEditableName(createFileName);
     if (!baseName) return;
     const name = `${baseName}${PSEUDO_EXTENSION}`;
-    createDocumentInWorkspace(createFileParentId, { name });
+    const parentId = createFileParentId;
+    // Close the dialog in this frame; opening the new file lays out the whole editor, so it waits
+    // until the tap has painted.
     closeCreateFileDialog();
-    // Put the caret in the new file so the first keystrokes land in the code, as in an IDE. This runs after the
-    // dialog's focus restoration, and waits for a freshly mounted editor if this was the first file.
-    focusEditorWhenReady();
+    afterNextPaint(() => {
+      createDocumentInWorkspace(parentId, { name });
+      // Put the caret in the new file so the first keystrokes land in the code, as in an IDE. This runs after the
+      // dialog's focus restoration, and waits for a freshly mounted editor if this was the first file.
+      focusEditorWhenReady();
+    });
   };
 
   const submitRename = (event: FormEvent<HTMLFormElement>) => {
@@ -2112,9 +2146,24 @@ export default function HomePage() {
   /* ── loading state ── */
 
   if (!workspace) {
+    // This is also the prerendered HTML, so it paints the title bar before any script runs. It must
+    // not depend on browser-only state (platform, viewport), or hydration would mismatch.
     return (
-      <main>
-        <EditorLoader fullScreen label={t.loading.workspace} />
+      <main className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
+        <header className="flex h-[52px] shrink-0 items-center bg-[var(--titlebar)] px-4">
+          <Link
+            href="/"
+            className="flex items-center gap-2 transition hover:opacity-80"
+            aria-label={t.toolbar.home}
+          >
+            <BrandMark size={20} />
+            <span className="text-[13px] font-semibold text-[var(--text)]">PseudoEditor</span>
+          </Link>
+        </header>
+        <div className="h-px shrink-0 bg-[var(--separator)]" />
+        <div className="min-h-0 flex-1">
+          <EditorLoader label={t.loading.workspace} />
+        </div>
       </main>
     );
   }

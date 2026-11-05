@@ -1,6 +1,6 @@
-import posthog, { type CaptureResult } from "posthog-js";
+import type { CaptureResult } from "posthog-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { posthogConfig, prefersNoTracking, scrubUrls, stripQueryAndHash, track } from "@/lib/analytics";
+import { posthogConfig, prefersNoTracking, scrubUrls, setAnalyticsClient, stripQueryAndHash, track } from "@/lib/analytics";
 
 function captureResult(properties: Record<string, unknown>): CaptureResult {
   return { uuid: "test", event: "$pageview", properties };
@@ -84,16 +84,35 @@ describe("analytics", () => {
     expect(prefersNoTracking(nav({ globalPrivacyControl: true }))).toBe(true);
   });
 
-  it("does nothing until PostHog has been initialised", () => {
-    const capture = vi.spyOn(posthog, "capture");
-    track("syntax_changed", { syntax: "cambridge" });
-    expect(capture).not.toHaveBeenCalled();
-  });
-
   it("sends events once PostHog is loaded", () => {
-    const capture = vi.spyOn(posthog, "capture").mockReturnValue(undefined);
-    vi.spyOn(posthog, "__loaded", "get").mockReturnValue(true);
+    const capture = vi.fn();
+    setAnalyticsClient({ capture } as unknown as Parameters<typeof setAnalyticsClient>[0]);
     track("program_run", { outcome: "success", diagnostics: 0, inputs: 1 });
     expect(capture).toHaveBeenCalledWith("program_run", { outcome: "success", diagnostics: 0, inputs: 1 });
+    setAnalyticsClient(null);
+  });
+
+  it("holds production events from before PostHog loads and sends them when it does", () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_ENABLED", "1");
+    track("syntax_changed", { syntax: "cambridge" });
+    const capture = vi.fn();
+    setAnalyticsClient({ capture } as unknown as Parameters<typeof setAnalyticsClient>[0]);
+    expect(capture).toHaveBeenCalledWith(
+      "syntax_changed",
+      { syntax: "cambridge", $current_url: window.location.href },
+      { timestamp: expect.any(Date) },
+    );
+    setAnalyticsClient(null);
+    vi.unstubAllEnvs();
+  });
+
+  it("queues nothing outside production, where PostHog never loads", () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_ENABLED", "");
+    track("syntax_changed", { syntax: "cambridge" });
+    const capture = vi.fn();
+    setAnalyticsClient({ capture } as unknown as Parameters<typeof setAnalyticsClient>[0]);
+    expect(capture).not.toHaveBeenCalled();
+    setAnalyticsClient(null);
+    vi.unstubAllEnvs();
   });
 });
