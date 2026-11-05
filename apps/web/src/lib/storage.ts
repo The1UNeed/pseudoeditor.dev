@@ -79,8 +79,9 @@ interface DeviceCheckpoint {
   /** Wall-clock time of the last edit in `state` (covers deletions and settings, not just surviving nodes). */
   editedAt: number;
   /**
-   * The account version these edits were made on top of (`null` when the account could not be read). The checkpoint
-   * only replaces the account while the account is still at that version; otherwise its files are added as copies.
+   * Fingerprint of the account snapshot these edits were made on top of (`null` when the account could not be read).
+   * The checkpoint only replaces the account while the account is still that snapshot; otherwise its files are added
+   * as copies.
    */
   baseVersion: number | null;
   /**
@@ -98,7 +99,7 @@ const TAB_ID =
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-/** The account version (newest node time) this tab last read or wrote, and when by this device's clock. */
+/** The account snapshot (its fingerprint) this tab last read or wrote, and when by this device's clock. */
 const accountBaseVersions = new Map<string, { version: number; readAt: number }>();
 
 /** True when every document in the checkpoint already has the same text in the account (nothing left to sync). */
@@ -146,6 +147,31 @@ function mergeCheckpointAsCopies(
     merged = createDocument(merged, { parentId: folderId, name: node.name, source: node.source });
   }
   return merged;
+}
+
+/**
+ * Identifies an account snapshot by everything a student can change in it (files, folders, names, text, syntax), so
+ * a deletion or settings change made elsewhere counts as a new version even when no surviving file got newer.
+ */
+function accountFingerprint(state: WorkspaceState): number {
+  const parts = Object.values(state.nodes)
+    .map((node) =>
+      [node.id, node.type, node.parentId ?? "", node.name, node.type === "document" ? node.source : "", node.updatedAt]
+        .join("\u0000"),
+    )
+    .sort();
+  parts.push(`syntax:${state.syntaxId}`);
+  // FNV-1a over the sorted parts.
+  let hash = 0x811c9dc5;
+  for (const part of parts) {
+    for (let index = 0; index < part.length; index += 1) {
+      hash ^= part.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    hash ^= 0x1e;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
 }
 
 /** The newest edit time in a workspace, from its nodes' timestamps. */
@@ -280,7 +306,7 @@ export async function loadWorkspace(
 
     const cloudWorkspace = cloud.workspace;
     if (cloudWorkspace) {
-      const accountVersion = latestEditTime(cloudWorkspace);
+      const accountVersion = accountFingerprint(cloudWorkspace);
       if (owner) accountBaseVersions.set(owner, { version: accountVersion, readAt: Date.now() });
       // Restored edits are not in the account until their sync lands, so later checkpoints must keep measuring from
       // when those edits began, not from this load (else a failed sync could let them be filtered out of recovery).
@@ -288,11 +314,15 @@ export async function loadWorkspace(
         if (owner) {
           accountBaseVersions.set(owner, {
             version: accountVersion,
-            readAt: restoring.baseVersion === null ? 0 : (restoring.baseReadAt ?? restoring.baseVersion),
+            readAt: restoring.baseVersion === null ? 0 : (restoring.baseReadAt ?? 0),
           });
         }
       };
-      if (checkpoint && checkpoint.baseVersion === accountVersion && checkpoint.editedAt > accountVersion) {
+      if (
+        checkpoint &&
+        checkpoint.baseVersion === accountVersion &&
+        checkpoint.editedAt > latestEditTime(cloudWorkspace)
+      ) {
         // The account hasn't changed since these edits began: they are simply its next version.
         keepRestoredBase(checkpoint);
         return restoreCheckpoint(checkpoint);
@@ -304,7 +334,7 @@ export async function loadWorkspace(
         const merged = mergeCheckpointAsCopies(
           cloudWorkspace,
           migratePersistedWorkspace(checkpoint.state, { sampleSource }),
-          checkpoint.baseVersion === null ? null : (checkpoint.baseReadAt ?? checkpoint.baseVersion),
+          checkpoint.baseVersion === null ? null : (checkpoint.baseReadAt ?? null),
           options.recoveredFolderName ?? RECOVERED_FOLDER_NAME,
         );
         if (merged !== cloudWorkspace) {
@@ -372,7 +402,7 @@ export async function saveWorkspace(
     if (options.checkpointOwner) {
       // The account now holds edits up to this snapshot's own edit time (not the reply's arrival time), so edits
       // made while the request was in flight still count as newer than the acknowledged base.
-      const acknowledged = { version: latestEditTime(state), readAt: options.editedAt ?? Date.now() };
+      const acknowledged = { version: accountFingerprint(state), readAt: options.editedAt ?? Date.now() };
       accountBaseVersions.set(options.checkpointOwner, acknowledged);
       await clearDeviceCheckpoint(options.checkpointOwner, options.editedAt, acknowledged).catch(() => {});
     }

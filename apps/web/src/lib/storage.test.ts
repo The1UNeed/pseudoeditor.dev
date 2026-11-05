@@ -468,6 +468,39 @@ describe("workspace storage", () => {
     expect(storage.takeRecoveredCopies("user_a")).toBe(true);
   });
 
+  it("never replays a checkpoint over a deletion made elsewhere, even when no surviving file got newer", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T00:10:00.000Z"));
+    onTestFinished(() => { vi.useRealTimers(); });
+    const withOld = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "old", id: "doc-old", source: 'OUTPUT "old"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const atLoad = createDocument(withOld, {
+      name: "newest", id: "doc-newest", source: 'OUTPUT "v1"', now: "2026-03-15T00:05:00.000Z",
+    });
+    // Another device deleted "old"; "newest" is still the newest file, so the newest edit time did not change.
+    const afterDeleteElsewhere = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "newest", id: "doc-newest", source: 'OUTPUT "v1"', now: "2026-03-15T00:05:00.000Z",
+    });
+    const deviceEdit = createDocument(withOld, {
+      name: "newest", id: "doc-newest", source: 'OUTPUT "v1 plus edits here"', now: "2026-03-15T00:30:00.000Z",
+    });
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: atLoad }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: afterDeleteElsewhere }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await storage.saveDeviceCheckpoint(deviceEdit, "user_a", Date.parse("2026-03-15T00:30:00.000Z"));
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    const sources = Object.values(loaded.nodes).flatMap((node) => (node.type === "document" ? [node.source] : []));
+    expect(sources).not.toContain('OUTPUT "old"');
+    expect(sources).toContain('OUTPUT "v1"');
+    expect(sources).toContain('OUTPUT "v1 plus edits here"');
+    expect(storage.takeRecoveredCopies("user_a")).toBe(true);
+  });
+
   it("keeps work from another device when this device's older checkpoint differs", async () => {
     // This device read the account at 00:30 by its own clock; its edits are stamped by the same clock.
     vi.useFakeTimers({ toFake: ["Date"] });
