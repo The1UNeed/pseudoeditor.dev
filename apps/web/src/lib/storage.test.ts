@@ -763,4 +763,37 @@ describe("workspace storage", () => {
     const headers = fetchMock.mock.calls[1]?.[1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer account-A");
   });
+
+  it("keeps saves in request order even when an earlier save's sign-in token is slower", async () => {
+    const order: string[] = [];
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockImplementation(async (_url, init) => {
+      order.push(JSON.parse(String(init?.body)).workspace.marker);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const storage = await import("@/lib/storage");
+    const base = createEmptyWorkspace("2026-03-15T00:00:00.000Z");
+    let releaseSlowToken: (token: string) => void = () => {};
+    const slowToken = () => new Promise<string>((resolve) => { releaseSlowToken = resolve; });
+    const older = storage.saveWorkspace({ ...base, marker: "older" } as typeof base, { mode: "cloud", getAuthToken: slowToken });
+    const newer = storage.saveWorkspace({ ...base, marker: "newer" } as typeof base, { mode: "cloud", getAuthToken: async () => "t" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    releaseSlowToken("t");
+    await Promise.all([older, newer]);
+    expect(order).toEqual(["older", "newer"]);
+  });
+
+  it("asks for the sign-in token as soon as the save is requested", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    let signedInAs = "account-A";
+    const save = storage.saveWorkspace(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      mode: "cloud",
+      getAuthToken: async () => signedInAs,
+    });
+    signedInAs = "account-B";
+    await save;
+    const headers = vi.mocked(fetch).mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer account-A");
+  });
 });

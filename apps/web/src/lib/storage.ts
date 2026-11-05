@@ -349,27 +349,39 @@ export async function saveWorkspace(
   }
 
   const owner = mode === "cloud" ? (options.checkpointOwner ?? null) : null;
-  const database = await getDatabase();
-  await database.put(STORE_NAME, state, deviceCacheKey(owner));
+  if (mode !== "cloud") {
+    const database = await getDatabase();
+    await database.put(STORE_NAME, state, deviceCacheKey(owner));
+    return;
+  }
 
-  if (mode === "cloud") {
+  // Before anything is awaited: ask for this account's sign-in token and take the next account-write slot. An
+  // account switch or a slow token request after this point can neither redirect this save nor reorder it.
+  const tokenRequest = options.getAuthToken ? options.getAuthToken() : Promise.resolve(null);
+  tokenRequest.catch(() => {
+    /* reported when the queued write awaits it */
+  });
+  let deviceWrite: Promise<void> = Promise.resolve();
+  const accountWrite = enqueueCloudWrite(async () => {
+    await deviceWrite;
     if (owner && unreadableCloudOwners.has(owner)) {
       throw new Error("Your account couldn't be reached, so changes are kept on this device. Reload to sync them.");
     }
-    // Resolve the sign-in token now, so a write that waits in the queue still goes to the account that made it,
-    // even if someone signs in as another account before it is sent.
-    const token = options.getAuthToken ? await options.getAuthToken() : null;
-    await enqueueCloudWrite(async () => {
-      await saveWorkspaceToCloud(state, async () => token);
-      if (options.checkpointOwner) {
-        // The account now holds edits up to this snapshot's own edit time (not the reply's arrival time), so edits
-        // made while the request was in flight still count as newer than the acknowledged base.
-        const acknowledged = { version: latestEditTime(state), readAt: options.editedAt ?? Date.now() };
-        accountBaseVersions.set(options.checkpointOwner, acknowledged);
-        await clearDeviceCheckpoint(options.checkpointOwner, options.editedAt, acknowledged).catch(() => {});
-      }
-    });
-  }
+    const token = await tokenRequest;
+    await saveWorkspaceToCloud(state, async () => token);
+    if (options.checkpointOwner) {
+      // The account now holds edits up to this snapshot's own edit time (not the reply's arrival time), so edits
+      // made while the request was in flight still count as newer than the acknowledged base.
+      const acknowledged = { version: latestEditTime(state), readAt: options.editedAt ?? Date.now() };
+      accountBaseVersions.set(options.checkpointOwner, acknowledged);
+      await clearDeviceCheckpoint(options.checkpointOwner, options.editedAt, acknowledged).catch(() => {});
+    }
+  });
+  deviceWrite = (async () => {
+    const database = await getDatabase();
+    await database.put(STORE_NAME, state, deviceCacheKey(owner));
+  })();
+  await Promise.all([deviceWrite, accountWrite]);
 }
 
 export async function migrateWorkspace(sampleSource: string): Promise<WorkspaceState> {
