@@ -51,6 +51,7 @@ import { Dialog } from "@/app/components/Dialog";
 import { EditorLoader } from "@/app/components/EditorLoader";
 import { PracticeQuestionBanner } from "@/app/components/PracticeQuestionBanner";
 import { SettingsSelect } from "@/app/components/SettingsSelect";
+import { SyntaxColorSchemePicker } from "@/app/components/SyntaxColorSchemePicker";
 import { WorkspaceSidebar } from "@/app/components/WorkspaceSidebar";
 import { usePracticeQuestion } from "@/app/hooks/usePracticeQuestion";
 import { useWorkspaceSession } from "@/app/hooks/useWorkspaceSession";
@@ -81,6 +82,11 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 import { SYNTAX_OPTIONS, resolveSyntax } from "@/lib/pseudocodeLanguages";
+import {
+  loadSyntaxColorScheme,
+  saveSyntaxColorScheme,
+  type SyntaxColorSchemeId,
+} from "@/lib/syntaxColorSchemes";
 import type { WorkspaceSyntaxId } from "@pseudoeditor/workspace";
 
 /* ── constants ── */
@@ -373,6 +379,9 @@ export default function HomePage() {
   const [showFlowchartPrompt, setShowFlowchartPrompt] = useState(false);
   const [flowchartFileName, setFlowchartFileName] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
+  const [syntaxColorScheme, setSyntaxColorScheme] = useState<SyntaxColorSchemeId>(() =>
+    loadSyntaxColorScheme(),
+  );
   const [manualSaveStatus, setManualSaveStatus] = useState<ManualSaveStatus>("idle");
   const manualSaveStatusTimerRef = useRef<number | null>(null);
 
@@ -805,6 +814,12 @@ export default function HomePage() {
     setThemeMode(mode);
   }, []);
 
+  const handleSyntaxColorSchemeChange = useCallback((scheme: SyntaxColorSchemeId) => {
+    track("syntax_colors_changed", { scheme });
+    setSyntaxColorScheme(scheme);
+    saveSyntaxColorScheme(scheme);
+  }, []);
+
   const handleAutoSaveIntervalChange = useCallback((value: number) => {
     const nextValue = clampAutoSaveIntervalMinutes(value);
     setAutoSaveIntervalMinutes(nextValue);
@@ -985,6 +1000,28 @@ export default function HomePage() {
     </div>
   );
 
+  const renderSyntaxColorSettings = (compact = false) => (
+    <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
+      <div>
+        <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
+          {t.settings.appearance}
+        </p>
+        <h3 className="mt-2 text-[22px] font-semibold text-[var(--text)]">{t.settings.syntaxColors}</h3>
+        <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text2)]">
+          {t.settings.syntaxColorsDescription}
+        </p>
+      </div>
+
+      <SyntaxColorSchemePicker
+        value={syntaxColorScheme}
+        theme={resolvedTheme}
+        label={t.settings.syntaxColors}
+        names={t.settings.syntaxColorSchemes}
+        onChange={handleSyntaxColorSchemeChange}
+      />
+    </div>
+  );
+
   const renderSaveSettings = (compact = false) => (
     <div className={compact ? "mt-6 space-y-4" : "space-y-4"}>
       <div>
@@ -1081,6 +1118,7 @@ export default function HomePage() {
                 <div className="p-2">
                   {renderSyntaxSettings()}
                   {renderThemeSettings()}
+                  {renderSyntaxColorSettings()}
                 </div>
               </UserButton.UserProfilePage>
               <UserButton.UserProfilePage
@@ -1476,6 +1514,7 @@ export default function HomePage() {
         <div className="mt-5 space-y-6">
           {renderSyntaxSettings()}
           {renderThemeSettings()}
+          {renderSyntaxColorSettings()}
           {renderSaveSettings()}
         </div>
         <div className="mt-6 border-t border-[var(--separator)] pt-4 text-center">
@@ -1882,6 +1921,7 @@ export default function HomePage() {
                         }
                         theme={resolvedTheme}
                         syntaxId={syntaxId}
+                        colorScheme={syntaxColorScheme}
                       />
                     ) : (
                       renderStarterPanel(true)
@@ -1984,6 +2024,7 @@ export default function HomePage() {
                         }
                         theme={resolvedTheme}
                         syntaxId={syntaxId}
+                        colorScheme={syntaxColorScheme}
                       />
                     ) : (
                       renderStarterPanel(true)
@@ -2007,7 +2048,7 @@ export default function HomePage() {
                   {touchTab === "output" ? renderTouchOutputSurface(t.terminal.output) : null}
 
                   {touchTab === "settings" ? (
-                    <div className="flex h-full min-h-0 flex-col bg-[var(--bg)] px-6 py-8">
+                    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[var(--bg)] px-6 py-8">
                       <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text3)]">
                         {t.settings.heading}
                       </p>
@@ -2019,6 +2060,7 @@ export default function HomePage() {
                       </p>
                       {renderSyntaxSettings(true)}
                       {renderThemeSettings(true)}
+                      {renderSyntaxColorSettings(true)}
                       {renderSaveSettings(true)}
                       <button
                         type="button"
@@ -2339,6 +2381,7 @@ export default function HomePage() {
                     }
                     theme={resolvedTheme}
                     syntaxId={syntaxId}
+                    colorScheme={syntaxColorScheme}
                   />
                 ) : (
                   renderStarterPanel()

@@ -13,6 +13,7 @@ export type AnalyticsEvents = {
   };
   flowchart_opened: Record<string, never>;
   syntax_changed: { syntax: string };
+  syntax_colors_changed: { scheme: string };
   practice_question_opened: { question: string; source: "link" | "random" };
 };
 
