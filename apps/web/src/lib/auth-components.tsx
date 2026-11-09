@@ -217,6 +217,8 @@ export function useAuthUnavailable(): boolean {
   return useClerkStatusIsError();
 }
 
+// Relies on Clerk (checked against @clerk/react 6.18) updating `status` before it notifies `on("status")` listeners,
+// and on "error" being final for the page. The unit test uses a fake Clerk, so recheck both when upgrading.
 function useClerkStatusIsError(): boolean {
   const clerk = useClerk();
   const subscribe = useCallback(
