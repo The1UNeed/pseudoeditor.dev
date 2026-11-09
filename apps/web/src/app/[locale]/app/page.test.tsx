@@ -566,40 +566,61 @@ describe("HomePage workspace flow", () => {
     expect(saveWorkspaceMock).not.toHaveBeenCalled();
   });
 
-  it("asks before Retry reloads away edits made while Clerk is unavailable", async () => {
-    authState.user = null;
-    authState.loading = true;
-    authState.unavailable = true;
-    mockLoadedWorkspace(createWorkspaceFixture());
-    const reload = vi.fn();
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: Object.assign(new URL("https://pseudocode-compiler-preview.vercel.app/"), { reload }),
+  describe("Retry while Clerk is unavailable", () => {
+    let reload: ReturnType<typeof vi.fn>;
+    let confirm: ReturnType<typeof vi.spyOn>;
+    const unloadIsBlocked = () => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+
+    beforeEach(() => {
+      authState.user = null;
+      authState.loading = true;
+      authState.unavailable = true;
+      mockLoadedWorkspace(createWorkspaceFixture());
+      reload = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: Object.assign(new URL("https://pseudocode-compiler-preview.vercel.app/"), { reload }),
+      });
+      confirm = vi.spyOn(window, "confirm");
     });
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    try {
+
+    afterEach(() => {
+      confirm.mockRestore();
+    });
+
+    async function openWorkspace() {
       render(<HomePage />);
       const editor = await screen.findByRole("textbox", { name: "Mock editor" });
-      const [retry] = screen.getAllByRole("button", { name: "Retry" });
+      return { editor, retry: screen.getAllByRole("button", { name: "Retry" })[0] };
+    }
 
+    it("reloads straight away when nothing has been edited", async () => {
+      const { retry } = await openWorkspace();
       fireEvent.click(retry);
       expect(confirm).not.toHaveBeenCalled();
       expect(reload).toHaveBeenCalledTimes(1);
+    });
 
+    it("keeps the edits and the leave warning when the student cancels", async () => {
+      confirm.mockReturnValue(false);
+      const { editor, retry } = await openWorkspace();
       fireEvent.change(editor, { target: { value: 'OUTPUT "Changed"' } });
       fireEvent.click(retry);
       expect(confirm).toHaveBeenCalledTimes(1);
-      expect(reload).toHaveBeenCalledTimes(1);
+      expect(reload).not.toHaveBeenCalled();
+      expect(unloadIsBlocked()).toBe(true);
+    });
 
-      // Once the user agrees, the browser's own leave warning does not ask again.
+    it("does not ask a second time once the student agrees to discard edits", async () => {
       confirm.mockReturnValue(true);
+      const { editor, retry } = await openWorkspace();
+      fireEvent.change(editor, { target: { value: 'OUTPUT "Changed"' } });
+      expect(unloadIsBlocked()).toBe(true);
       fireEvent.click(retry);
-      expect(reload).toHaveBeenCalledTimes(2);
-      const unload = new Event("beforeunload", { cancelable: true });
-      expect(window.dispatchEvent(unload)).toBe(true);
-    } finally {
-      confirm.mockRestore();
-    }
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(unloadIsBlocked()).toBe(false);
+    });
   });
 
   it("does not show the sign-in notice to guests when Clerk is unavailable", async () => {
