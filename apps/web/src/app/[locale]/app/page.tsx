@@ -320,7 +320,9 @@ export default function HomePage() {
   const [awaitClerkSession] = useState(() => mayHaveClerkSession());
   // If Clerk's script never loads (blocked or offline) it never reports isLoaded: stop waiting and open the
   // in-memory workspace, with a notice, instead of leaving a signed-in student on an empty editor.
-  const authUnavailable = useAuthUnavailable() && platformUsesCloudSaving(appPlatform);
+  const authUnavailable = useAuthUnavailable() && !authLoaded;
+  // Guests lose nothing when Clerk is blocked, so only someone who has signed in here before gets the notice.
+  const showAuthUnavailableNotice = authUnavailable && awaitClerkSession;
   const authLoading = !authLoaded && awaitClerkSession && !authUnavailable;
   const workspacePersistenceMode = getWorkspacePersistenceMode({
     platform: appPlatform,
@@ -637,12 +639,15 @@ export default function HomePage() {
     saveThemeMode(themeMode);
   }, [resolvedTheme, themeMode]);
 
+  // Set once the user has already agreed to leave (Retry below), so the browser does not ask a second time.
+  const leaveConfirmedRef = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined" || !shouldWarnBeforeUnload) {
       return;
     }
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (leaveConfirmedRef.current) return;
       event.preventDefault();
       event.returnValue = t.save.leaveWarning;
       return event.returnValue;
@@ -1426,7 +1431,8 @@ export default function HomePage() {
     ) : null;
 
   const renderSignInPromptDialog = () =>
-    showSignInPrompt ? (
+    // A prompt opened before Clerk gave up would offer a Log In button that can no longer work.
+    showSignInPrompt && !authUnavailable ? (
       <Dialog labelledBy="sign-in-save-dialog-title" onClose={() => setShowSignInPrompt(false)} className="ui-dialog max-w-sm">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
@@ -1898,11 +1904,17 @@ export default function HomePage() {
 
   /** Explains account-sync situations in the notice bar, with the action that resolves them. */
   const renderSyncNotice = () => {
-    if (authUnavailable) {
+    if (showAuthUnavailableNotice) {
+      // iOS Safari never shows the leave warning, so ask here before a reload discards work in this tab.
+      const retry = () => {
+        if (shouldWarnBeforeUnload && !window.confirm(t.sync.authRetryDiscards)) return;
+        leaveConfirmedRef.current = true;
+        window.location.reload();
+      };
       return (
         <div className="flex items-center gap-3" role="status">
           <span className="text-[var(--red)]">{t.sync.authUnavailable}</span>
-          <button type="button" className="ui-btn ui-btn-secondary h-6 px-2 text-xs" onClick={() => window.location.reload()}>
+          <button type="button" className="ui-btn ui-btn-secondary h-6 px-2 text-xs" onClick={retry}>
             {t.sync.retry}
           </button>
         </div>
@@ -2216,7 +2228,7 @@ export default function HomePage() {
         style={{ height: "100dvh", minHeight: "100svh" }}
       >
         <div className="flex h-full min-h-0 flex-col overflow-hidden" style={touchSafeAreaStyle}>
-          {(saveError || appNotice || syncNotice || authUnavailable) && (
+          {(saveError || appNotice || syncNotice || showAuthUnavailableNotice) && (
             <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
               <div className="flex flex-wrap items-center gap-3 text-[11px]">
                 {renderSyncNotice()}
@@ -2697,7 +2709,7 @@ export default function HomePage() {
       </header>
 
       {/* ════════════ Notice Bar ════════════ */}
-      {(saveError || appNotice || syncNotice || authUnavailable) && (
+      {(saveError || appNotice || syncNotice || showAuthUnavailableNotice) && (
         <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
           <div className="flex flex-wrap items-center gap-3 text-[11px]">
             {renderSyncNotice()}

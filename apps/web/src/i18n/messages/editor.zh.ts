@@ -27,7 +27,7 @@ export const editorZh: typeof editorEn = {
     conflict: "此工作区也在其他标签页或设备上被修改。已保留你的版本，另一版本中不同的文件已复制到“云端副本”文件夹。",
     conflictFolder: "云端副本",
     guestFolder: "访客",
-    accountUnreachable: "无法连接你的账户，作品暂时保存在此设备上。点击“重试”即可同步。", retry: "重试", authUnavailable: "无法加载登录服务，因此无法打开已保存的文件，此处的更改也不会被保存。请检查网络连接或内容拦截插件，然后点击“重试”。", recoveredCopies: "部分只保存在此设备上的更改无法与账户中的最新版本对应。账户中的文件保持不变，此设备上的版本已放入“来自此设备”文件夹，不会丢失任何内容。", recoveredFolder: "来自此设备",
+    accountUnreachable: "无法连接你的账户，作品暂时保存在此设备上。点击“重试”即可同步。", retry: "重试", authRetryDiscards: "重试会刷新页面，打开后在此处所做的更改将会丢失。请先复制需要保留的内容。现在重试吗？", authUnavailable: "无法加载登录服务，因此无法打开已保存的文件，此处的更改也不会被保存。请检查网络连接或内容拦截插件，然后点击“重试”。", recoveredCopies: "部分只保存在此设备上的更改无法与账户中的最新版本对应。账户中的文件保持不变，此设备上的版本已放入“来自此设备”文件夹，不会丢失任何内容。", recoveredFolder: "来自此设备",
     guestImported: "登录前编写的文件已添加到“访客”文件夹。",
   },
 };

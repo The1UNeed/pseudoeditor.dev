@@ -126,6 +126,7 @@ export const editorEn = {
     guestFolder: "Guest",
     accountUnreachable: "Couldn't reach your account, so your work is kept on this device for now. Choose Retry to sync it.",
     retry: "Retry",
+    authRetryDiscards: "Retrying reloads the page, and changes made here since it opened will be lost. Copy anything you want to keep first. Retry now?",
     authUnavailable: "Couldn't load sign-in, so your saved files can't open and changes here won't be saved. Check your connection or content blocker, then choose Retry.",
     recoveredCopies: "Some changes saved only on this device couldn't be matched to your account's latest version. Your account's files are unchanged, and this device's versions are in the \"From this device\" folder so nothing is lost.",
     recoveredFolder: "From this device",
