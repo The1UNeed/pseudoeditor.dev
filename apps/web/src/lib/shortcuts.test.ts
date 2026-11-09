@@ -33,6 +33,17 @@ describe("shortcuts", () => {
     expect(matchesShortcut(key({ key: "`", code: "Backquote", metaKey: true }), panel, true)).toBe(false);
   });
 
+  it("ignores keydown events without a key, as autofill and password managers send them", () => {
+    // A plain Event, not a KeyboardEvent: no key, no code, no modifier flags.
+    const synthetic = new Event("keydown") as KeyboardEvent;
+    for (const specs of Object.values(SHORTCUTS)) {
+      for (const spec of specs) {
+        expect(() => matchesShortcut(synthetic, spec, true)).not.toThrow();
+        expect(matchesShortcut(synthetic, spec, false)).toBe(false);
+      }
+    }
+  });
+
   it("formats labels per platform", () => {
     expect(formatShortcut(SHORTCUTS.run[0], true)).toBe("⌘↩");
     expect(formatShortcut(SHORTCUTS.run[0], false)).toBe("Ctrl+Enter");

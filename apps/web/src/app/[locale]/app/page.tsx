@@ -74,6 +74,7 @@ import {
   isCloudAuthConfigured,
   mayHaveClerkSession,
   useAuth,
+  useAuthUnavailable,
 } from "@/lib/auth-components";
 import { track } from "@/lib/analytics";
 import { afterNextPaint } from "@/lib/afterNextPaint";
@@ -317,7 +318,10 @@ export default function HomePage() {
   // of waiting for Clerk's scripts and API calls. If Clerk then reports a session anyway, the
   // persistence mode changes and the workspace reloads from the cloud.
   const [awaitClerkSession] = useState(() => mayHaveClerkSession());
-  const authLoading = !authLoaded && awaitClerkSession;
+  // If Clerk's script never loads (blocked or offline) it never reports isLoaded: stop waiting and open the
+  // in-memory workspace, with a notice, instead of leaving a signed-in student on an empty editor.
+  const authUnavailable = useAuthUnavailable() && platformUsesCloudSaving(appPlatform);
+  const authLoading = !authLoaded && awaitClerkSession && !authUnavailable;
   const workspacePersistenceMode = getWorkspacePersistenceMode({
     platform: appPlatform,
     signedIn: Boolean(isSignedIn),
@@ -895,7 +899,8 @@ export default function HomePage() {
     }
 
     if (!canSaveWorkspace) {
-      setShowSignInPrompt(true);
+      // Signing in can't work while Clerk is unavailable; the notice bar already says so.
+      if (!authUnavailable) setShowSignInPrompt(true);
       return;
     }
 
@@ -906,6 +911,7 @@ export default function HomePage() {
     });
   }, [
     authLoading,
+    authUnavailable,
     canSaveWorkspace,
     clearManualSaveStatusTimer,
     cloudSavingRequired,
@@ -1164,6 +1170,22 @@ export default function HomePage() {
   const renderAccountControl = (compact = false) => {
     if (!cloudSavingRequired) {
       return null;
+    }
+
+    if (authUnavailable) {
+      return (
+        <button
+          type="button"
+          className="flex h-7 items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 text-[var(--text3)]"
+          aria-label={t.auth.unavailable}
+          disabled
+        >
+          <LogIn size={18} />
+          <span className={compact ? "sr-only" : "max-w-[8rem] truncate text-xs font-medium"}>
+            {t.auth.unavailable}
+          </span>
+        </button>
+      );
     }
 
     // Still a placeholder until Clerk loads, even when the workspace did not wait for it.
@@ -1876,6 +1898,16 @@ export default function HomePage() {
 
   /** Explains account-sync situations in the notice bar, with the action that resolves them. */
   const renderSyncNotice = () => {
+    if (authUnavailable) {
+      return (
+        <div className="flex items-center gap-3" role="status">
+          <span className="text-[var(--red)]">{t.sync.authUnavailable}</span>
+          <button type="button" className="ui-btn ui-btn-secondary h-6 px-2 text-xs" onClick={() => window.location.reload()}>
+            {t.sync.retry}
+          </button>
+        </div>
+      );
+    }
     if (!syncNotice) return null;
     const unreachable = syncNotice === "account-unreachable";
     return (
@@ -2184,7 +2216,7 @@ export default function HomePage() {
         style={{ height: "100dvh", minHeight: "100svh" }}
       >
         <div className="flex h-full min-h-0 flex-col overflow-hidden" style={touchSafeAreaStyle}>
-          {(saveError || appNotice || syncNotice) && (
+          {(saveError || appNotice || syncNotice || authUnavailable) && (
             <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
               <div className="flex flex-wrap items-center gap-3 text-[11px]">
                 {renderSyncNotice()}
@@ -2665,7 +2697,7 @@ export default function HomePage() {
       </header>
 
       {/* ════════════ Notice Bar ════════════ */}
-      {(saveError || appNotice || syncNotice) && (
+      {(saveError || appNotice || syncNotice || authUnavailable) && (
         <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
           <div className="flex flex-wrap items-center gap-3 text-[11px]">
             {renderSyncNotice()}

@@ -34,7 +34,8 @@ function eventKeyMatches(event: KeyboardEvent, key: ShortcutKey): boolean {
   if (key.length > 1) return event.key === key;
   // Letters follow the typed character so AZERTY/Dvorak users get the shortcut printed on their key; fall back to
   // the physical key for non-Latin layouts, where the typed character is not a Latin letter.
-  const typed = event.key.toLowerCase();
+  // Autofill and password managers dispatch bare `keydown` Events with no `key` (or `code`).
+  const typed = typeof event.key === "string" ? event.key.toLowerCase() : "";
   if (/^[a-z]$/.test(typed)) return typed === key;
   return event.code === `Key${key.toUpperCase()}`;
 }
