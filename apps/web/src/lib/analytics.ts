@@ -83,7 +83,7 @@ const RESIZE_OBSERVER_LOOP = /^ResizeObserver loop (completed with undelivered n
  * - The browser reports a ResizeObserver loop when a resize callback (Monaco's automaticLayout) changes layout
  *   again in the same frame; the remaining notifications are simply delivered in the next frame.
  */
-export function isBenignBrowserError(event: Parameters<typeof scrubUrls>[0]): boolean {
+function isBenignBrowserError(event: Parameters<typeof scrubUrls>[0]): boolean {
   if (!event || event.event !== "$exception") return false;
   const list = (event.properties?.$exception_list ?? []) as Array<{ type?: string; value?: string }>;
   return (

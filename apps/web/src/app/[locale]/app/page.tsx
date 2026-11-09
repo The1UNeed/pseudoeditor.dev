@@ -904,7 +904,8 @@ export default function HomePage() {
     }
 
     if (!canSaveWorkspace) {
-      // Signing in can't work while Clerk is unavailable; the notice bar already says so.
+      // Signing in can't work while Clerk is unavailable; the account control says so (and the notice bar, for
+      // anyone who has signed in here before).
       if (!authUnavailable) setShowSignInPrompt(true);
       return;
     }
