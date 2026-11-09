@@ -43,6 +43,10 @@ export function useAuth() {
   };
 }
 
+export function useClerk() {
+  return { status: "ready" as const, on: () => {}, off: () => {} };
+}
+
 export function isCloudAuthConfigured() {
   return false;
 }

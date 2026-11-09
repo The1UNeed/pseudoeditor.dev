@@ -71,14 +71,30 @@ export const posthogConfig: Partial<PostHogConfig> = {
   disable_web_experiments: true,
   disable_external_dependency_loading: true,
   advanced_disable_flags: true,
-  before_send: (event) => (isBenignEditorCancellation(event) ? null : scrubUrls(event)),
+  before_send: (event) => (isBenignBrowserError(event) ? null : scrubUrls(event)),
 };
 
-/** Monaco rejects in-flight work with `Canceled` when the editor switches models; that is not an app error. */
-function isBenignEditorCancellation(event: Parameters<typeof scrubUrls>[0]): boolean {
+// Chrome's and Firefox's wording, and the older "limit exceeded" Chrome used before version 109.
+const RESIZE_OBSERVER_LOOP = /^ResizeObserver loop (completed with undelivered notifications|limit exceeded)/;
+
+/**
+ * Exceptions that are expected and harmless, so they never reach error tracking:
+ * - Monaco rejects in-flight work with `Canceled` when the editor switches models.
+ * - The browser reports a ResizeObserver loop when a resize callback (Monaco's automaticLayout) changes layout
+ *   again in the same frame; the remaining notifications are simply delivered in the next frame.
+ */
+function isBenignBrowserError(event: Parameters<typeof scrubUrls>[0]): boolean {
   if (!event || event.event !== "$exception") return false;
   const list = (event.properties?.$exception_list ?? []) as Array<{ type?: string; value?: string }>;
-  return list.length > 0 && list.every((entry) => entry.type === "Canceled" || entry.value === "Canceled");
+  return (
+    list.length > 0 &&
+    list.every(
+      (entry) =>
+        entry.type === "Canceled" ||
+        entry.value === "Canceled" ||
+        (typeof entry.value === "string" && RESIZE_OBSERVER_LOOP.test(entry.value)),
+    )
+  );
 }
 
 /**

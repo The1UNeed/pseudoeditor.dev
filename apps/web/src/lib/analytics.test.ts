@@ -74,6 +74,32 @@ describe("analytics", () => {
     });
   });
 
+  it("drops harmless editor and browser exceptions but keeps real ones", () => {
+    const beforeSend = posthogConfig.before_send as (event: CaptureResult | null) => CaptureResult | null;
+    const exception = (...entries: Array<{ type: string; value: string }>): CaptureResult => ({
+      uuid: "test",
+      event: "$exception",
+      properties: { $current_url: "https://pseudoeditor.dev/app?x=1", $exception_list: entries },
+    });
+
+    expect(beforeSend(exception({ type: "Canceled", value: "Canceled" }))).toBeNull();
+    expect(
+      beforeSend(exception({ type: "Error", value: "ResizeObserver loop completed with undelivered notifications." })),
+    ).toBeNull();
+    expect(beforeSend(exception({ type: "Error", value: "ResizeObserver loop limit exceeded" }))).toBeNull();
+
+    const real = beforeSend(
+      exception({ type: "TypeError", value: "Cannot read properties of undefined (reading 'toLowerCase')" }),
+    );
+    expect(real?.properties.$current_url).toBe("https://pseudoeditor.dev/app");
+    // A real error alongside a harmless one is still reported.
+    expect(
+      beforeSend(exception({ type: "Canceled", value: "Canceled" }, { type: "TypeError", value: "x is undefined" })),
+    ).not.toBeNull();
+    // Other events are never dropped.
+    expect(beforeSend(captureResult({ $current_url: "https://pseudoeditor.dev/" }))).not.toBeNull();
+  });
+
   it("honours Do Not Track and Global Privacy Control", () => {
     const nav = (signals: { doNotTrack?: string | null; globalPrivacyControl?: boolean }) =>
       ({ doNotTrack: null, ...signals }) as unknown as Navigator;

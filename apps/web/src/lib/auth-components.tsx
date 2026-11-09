@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import { useCallback, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import {
   ClerkProvider as ClerkProviderBase,
   Show as ClerkShow,
@@ -8,6 +8,7 @@ import {
   SignUpButton as ClerkSignUpButton,
   UserButton as ClerkUserButton,
   useAuth as useClerkAuth,
+  useClerk,
 } from "@clerk/nextjs";
 import { zhCN } from "@clerk/localizations";
 import { localePath } from "@/i18n/config";
@@ -200,4 +201,36 @@ export function useAuth() {
   // supplies the matching provider for this stable runtime branch.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   return useClerkAuth();
+}
+
+/**
+ * True once Clerk has given up loading, usually because a school filter, content blocker or bad connection
+ * stopped its script. Clerk then never reports `isLoaded`, so anything waiting for it must stop waiting.
+ */
+export function useAuthUnavailable(): boolean {
+  if (!cloudAuthRequired() || !isCloudAuthConfigured()) {
+    return false;
+  }
+
+  // Same stable runtime branch as useAuth above.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useClerkStatusIsError();
+}
+
+// Relies on Clerk (checked against @clerk/react 6.18) updating `status` before it notifies `on("status")` listeners,
+// and on "error" being final for the page. The unit test uses a fake Clerk, so recheck both when upgrading.
+function useClerkStatusIsError(): boolean {
+  const clerk = useClerk();
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      clerk.on("status", onChange);
+      return () => clerk.off("status", onChange);
+    },
+    [clerk],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => clerk.status === "error",
+    () => false,
+  );
 }

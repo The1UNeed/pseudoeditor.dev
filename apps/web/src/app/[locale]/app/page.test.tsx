@@ -20,6 +20,8 @@ const { loadWorkspaceMock, saveWorkspaceMock, compilePseudocodeMock, runMock, ed
     loading: false,
     // Whether the browser holds a Clerk session cookie (see mayHaveClerkSession).
     sessionHint: true,
+    // Clerk's script failed to load (see useAuthUnavailable).
+    unavailable: false,
   },
 }));
 const localStore = new Map<string, string>();
@@ -108,6 +110,7 @@ vi.mock("@/lib/auth-components", () => ({
     isSignedIn: Boolean(authState.user),
     userId: authState.user?.id ?? null,
   }),
+  useAuthUnavailable: () => authState.unavailable,
 }));
 
 vi.mock("@/lib/storage", () => ({
@@ -314,6 +317,7 @@ describe("HomePage workspace flow", () => {
     };
     authState.loading = false;
     authState.sessionHint = true;
+    authState.unavailable = false;
     Object.defineProperty(window as Window & { electron?: { isDesktop?: boolean } }, "electron", {
       configurable: true,
       value: undefined,
@@ -540,6 +544,96 @@ describe("HomePage workspace flow", () => {
     expect(loadWorkspaceMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mode: "memory" }));
     // The account control stays a placeholder until Clerk has loaded.
     expect(screen.getByRole("button", { name: "Checking sign-in status" })).toBeDisabled();
+  });
+
+  it("stops waiting for Clerk and opens the in-memory workspace when Clerk fails to load", async () => {
+    authState.user = null;
+    authState.loading = true;
+    authState.unavailable = true;
+    mockLoadedWorkspace(createWorkspaceFixture());
+    render(<HomePage />);
+
+    await screen.findByRole("textbox", { name: "Mock editor" });
+    expect(loadWorkspaceMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mode: "memory" }));
+    expect(screen.getAllByText(/Couldn't load sign-in/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Sign-in unavailable" })[0]).toBeDisabled();
+    // Save can't ask for a sign-in that can't load; the notice already explains why nothing is saved.
+    fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole("dialog", { name: "Sign in to save" })).not.toBeInTheDocument();
+    expect(saveWorkspaceMock).not.toHaveBeenCalled();
+  });
+
+  describe("Retry while Clerk is unavailable", () => {
+    let reload: ReturnType<typeof vi.fn>;
+    let confirm: ReturnType<typeof vi.spyOn>;
+    const unloadIsBlocked = () => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+
+    beforeEach(() => {
+      authState.user = null;
+      authState.loading = true;
+      authState.unavailable = true;
+      mockLoadedWorkspace(createWorkspaceFixture());
+      reload = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: Object.assign(new URL("https://pseudocode-compiler-preview.vercel.app/"), { reload }),
+      });
+      confirm = vi.spyOn(window, "confirm");
+    });
+
+    afterEach(() => {
+      confirm.mockRestore();
+    });
+
+    async function openWorkspace() {
+      render(<HomePage />);
+      const editor = await screen.findByRole("textbox", { name: "Mock editor" });
+      return { editor, retry: screen.getAllByRole("button", { name: "Retry" })[0] };
+    }
+
+    it("reloads straight away when nothing has been edited", async () => {
+      const { retry } = await openWorkspace();
+      fireEvent.click(retry);
+      expect(confirm).not.toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the edits and the leave warning when the student cancels", async () => {
+      confirm.mockReturnValue(false);
+      const { editor, retry } = await openWorkspace();
+      fireEvent.change(editor, { target: { value: 'OUTPUT "Changed"' } });
+      fireEvent.click(retry);
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(reload).not.toHaveBeenCalled();
+      expect(unloadIsBlocked()).toBe(true);
+    });
+
+    it("does not ask a second time once the student agrees to discard edits", async () => {
+      confirm.mockReturnValue(true);
+      const { editor, retry } = await openWorkspace();
+      fireEvent.change(editor, { target: { value: 'OUTPUT "Changed"' } });
+      expect(unloadIsBlocked()).toBe(true);
+      fireEvent.click(retry);
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(unloadIsBlocked()).toBe(false);
+    });
+  });
+
+  it("does not show the sign-in notice to guests when Clerk is unavailable", async () => {
+    authState.user = null;
+    authState.loading = true;
+    authState.sessionHint = false;
+    authState.unavailable = true;
+    mockLoadedWorkspace(createWorkspaceFixture());
+    render(<HomePage />);
+
+    await screen.findByRole("textbox", { name: "Mock editor" });
+    expect(screen.queryByText(/Couldn't load sign-in/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Sign-in unavailable" })[0]).toBeDisabled();
   });
 
   it("offers the flowchart from the toolbar without a beta setting, loading it on first open", async () => {
