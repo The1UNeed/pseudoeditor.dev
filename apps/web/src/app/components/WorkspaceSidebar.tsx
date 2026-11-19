@@ -76,7 +76,7 @@ const CONTEXT_MENU_HEIGHT = 320;
 const CONTEXT_MENU_MARGIN = 14;
 const deleteKeyLabel =
   typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform ?? "") ? "⌫" : "Del";
-const EXPLORER_RELEASE_LABEL = `${packageJson.version}-Preview`;
+const EXPLORER_RELEASE_LABEL = `v${packageJson.version}`;
 const DRAG_EDGE_SCROLL_ZONE = 34;
 const DRAG_EDGE_SCROLL_STEP = 14;
 

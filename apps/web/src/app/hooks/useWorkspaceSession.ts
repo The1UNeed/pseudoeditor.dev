@@ -37,11 +37,15 @@ import {
 import type { Diagnostic, RunTraceStep } from "@/compiler/types";
 import { track } from "@/lib/analytics";
 import {
+  getWorkspaceTooLargeDetail,
   isAccountUnreachable,
+  isWorkspaceConflictError,
   loadWorkspace,
   saveDeviceCheckpoint,
   saveWorkspace,
+  stashGuestDraft,
   takeAccountSyncPending,
+  takeGuestImported,
   takeRecoveredCopies,
 } from "@/lib/storage";
 import type { WorkspacePersistenceMode } from "@/lib/platform";
@@ -92,6 +96,8 @@ interface WorkspaceSessionOptions {
   checkpointOwner?: string | null;
   /** Localized name of the folder that receives this device's versions after a sync conflict. */
   recoveredFolderName?: string;
+  /** Localized name of the folder that receives the files written before signing in. */
+  guestFolderName?: string;
 }
 
 interface PendingTerminalInput {
@@ -166,6 +172,10 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
   useEffect(() => {
     recoveredFolderNameRef.current = options.recoveredFolderName;
   }, [options.recoveredFolderName]);
+  const guestFolderNameRef = useRef(options.guestFolderName);
+  useEffect(() => {
+    guestFolderNameRef.current = options.guestFolderName;
+  }, [options.guestFolderName]);
   const checkpointTimerRef = useRef<number | null>(null);
   const checkpointFirstChangeAtRef = useRef<number | null>(null);
   /** Wall-clock time of the latest workspace change; ties checkpoints and saves to the edits they contain. */
@@ -175,9 +185,13 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
   >(null);
   const [appNotice, setAppNotice] = useState<AppNotice | null>(null);
   /** Account-sync situations the page explains (localized) right after loading. */
-  const [syncNotice, setSyncNotice] = useState<"account-unreachable" | "recovered-copies" | null>(null);
+  const [syncNotice, setSyncNotice] = useState<
+    "account-unreachable" | "account-changed" | "recovered-copies" | "guest-imported" | null
+  >(null);
 
   const workspaceRef = useRef<WorkspaceState | null>(null);
+  /** Changes whenever a different workspace is loaded (sign-in, sign-out, account switch). */
+  const workspaceLoadGenerationRef = useRef(0);
   const saveTimerRef = useRef<number | null>(null);
   const saveRequestIdRef = useRef(0);
   const activeSaveCountRef = useRef(0);
@@ -227,6 +241,7 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     let cancelled = false;
     loadedRef.current = false;
     workspaceRef.current = null;
+    workspaceLoadGenerationRef.current += 1;
 
     queueMicrotask(() => {
       if (cancelled) {
@@ -242,7 +257,11 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       ...(getCloudAuthTokenRef.current ? { getAuthToken: getCurrentCloudAuthToken } : {}),
       mode: persistenceMode,
       ...(checkpointOwnerRef.current
-        ? { checkpointOwner: checkpointOwnerRef.current, recoveredFolderName: recoveredFolderNameRef.current }
+        ? {
+            checkpointOwner: checkpointOwnerRef.current,
+            recoveredFolderName: recoveredFolderNameRef.current,
+            guestFolderName: guestFolderNameRef.current,
+          }
         : {}),
     }).then((loadedWorkspace) => {
       if (cancelled) {
@@ -256,8 +275,16 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       // Recovered edits (or an account that couldn't be read) still have to reach the account: sync through the
       // normal save path so "Unsaved", failures and the leave warning all reflect it until it is acknowledged.
       const owner = checkpointOwnerRef.current;
+      const recoveredCopies = takeRecoveredCopies(owner);
+      const guestImported = takeGuestImported(owner);
       setSyncNotice(
-        isAccountUnreachable(owner) ? "account-unreachable" : takeRecoveredCopies(owner) ? "recovered-copies" : null,
+        isAccountUnreachable(owner)
+          ? "account-unreachable"
+          : recoveredCopies
+            ? "recovered-copies"
+            : guestImported
+              ? "guest-imported"
+              : null,
       );
       if (takeAccountSyncPending(owner)) {
         // Stamp the recovered snapshot as this tab's latest edit so its acknowledged save clears the checkpoint.
@@ -273,6 +300,10 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       cancelled = true;
       const owner = checkpointOwnerRef.current;
       const pendingWorkspace = workspaceRef.current;
+      // Signing in replaces the guest workspace with the account's: keep the guest's files so the load adds them.
+      if (persistenceMode === "memory" && pendingWorkspace && loadedRef.current) {
+        stashGuestDraft(pendingWorkspace, guestFolderNameRef.current);
+      }
       if (checkpointTimerRef.current !== null) {
         window.clearTimeout(checkpointTimerRef.current);
         checkpointTimerRef.current = null;
@@ -342,8 +373,18 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       setHasPendingSave(false);
       setLastSavedAt(Date.now());
       return true;
-    } catch {
+    } catch (error) {
+      // Another tab or device saved first: further saves would be refused too, so ask for a reload, which keeps
+      // the account's version and adds this device's (checkpointed) changes beside it.
+      if (isWorkspaceConflictError(error)) setSyncNotice("account-changed");
       if (saveRequestIdRef.current !== requestId) {
+        return false;
+      }
+      // Over a size limit nothing will upload until files are removed, so say which limit instead of "will retry".
+      const tooLargeDetail = getWorkspaceTooLargeDetail(error);
+      if (tooLargeDetail !== null) {
+        setSaveError(`Too large: ${tooLargeDetail}`);
+        setHasPendingSave(true);
         return false;
       }
       setSaveError(
@@ -442,6 +483,18 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
     },
     [autoSaveDelayMs, persistWorkspace, persistenceMode, writeCheckpointNow],
   );
+
+  // A guest leaving the page (often a sign-in redirect) keeps their files for the account load in this tab.
+  useEffect(() => {
+    if (typeof window === "undefined" || persistenceMode !== "memory") {
+      return;
+    }
+    const stashGuestWork = () => {
+      if (workspaceRef.current && loadedRef.current) stashGuestDraft(workspaceRef.current, guestFolderNameRef.current);
+    };
+    window.addEventListener("pagehide", stashGuestWork);
+    return () => window.removeEventListener("pagehide", stashGuestWork);
+  }, [persistenceMode]);
 
   // Save before the page can be discarded: mobile Safari often skips beforeunload for backgrounded tabs.
   useEffect(() => {
@@ -784,12 +837,17 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
   }, [compileSource, ensureTerminalTarget, isStillActiveSnapshot, updateTerminalOutput, updateWorkspaceCompileSummary]);
 
   const runNow = useCallback(async () => {
+    // A run belongs to the workspace it started in; if another loads meanwhile (sign-in, account switch), it stops.
+    const runLoadGeneration = workspaceLoadGenerationRef.current;
     const target = ensureTerminalTarget();
     if (!target) {
       return;
     }
 
     const payload = await compileSource(target.workspace);
+    if (workspaceLoadGenerationRef.current !== runLoadGeneration) {
+      return;
+    }
     if (!payload) {
       updateTerminalOutput(target.panelId, "Create your first file to compile and run code.");
       return;
@@ -938,7 +996,10 @@ export function useWorkspaceSession(defaultSource: string, options: WorkspaceSes
       }
 
       updateTerminalOutput(target.panelId, transcript.join("\n"));
-      applyWorkspaceUpdate((current) => updateVirtualFiles(current, latestVirtualFiles), "immediate");
+      // A run started in another workspace (e.g. as a guest, before signing in) must not replace this one's files.
+      if (workspaceLoadGenerationRef.current === runLoadGeneration) {
+        applyWorkspaceUpdate((current) => updateVirtualFiles(current, latestVirtualFiles), "immediate");
+      }
       return runtimeError ? ("runtime_error" as const) : ("success" as const);
     } finally {
       resolvePendingInput(null);

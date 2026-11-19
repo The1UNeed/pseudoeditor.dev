@@ -25,6 +25,17 @@ function getConvexClient(authToken: string) {
   return new ConvexHttpClient(convexUrl, { auth: authToken });
 }
 
+/**
+ * The client names the account a request was made for. After an account switch a leftover request can carry the new
+ * account's sign-in, so a mismatch is refused instead of reading or overwriting the other account's workspace.
+ */
+function rejectOtherAccount(request: Request, userId: string) {
+  const intended = request.headers.get("x-workspace-account");
+  return intended && intended !== userId
+    ? NextResponse.json({ error: "This request was made for a different account." }, { status: 403 })
+    : null;
+}
+
 async function readWorkspaceRequestBody(request: Request) {
   const rawBody = await request.text();
   if (getUtf8ByteLength(rawBody) > maxWorkspaceRequestBytes) {
@@ -63,9 +74,17 @@ async function readWorkspaceRequestBody(request: Request) {
     };
   }
 
+  // The revision the client last read (`null`: it saw no workspace). Older clients send none and keep last-write-wins.
+  const rawExpectedRevision = (body as { expectedRevision?: unknown }).expectedRevision;
+  const expectedRevision =
+    rawExpectedRevision === null || (typeof rawExpectedRevision === "number" && Number.isSafeInteger(rawExpectedRevision))
+      ? rawExpectedRevision
+      : undefined;
+
   return {
     ok: true as const,
     workspaceJson: validation.serializedWorkspace,
+    expectedRevision,
   };
 }
 
@@ -87,9 +106,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Workspace authentication token is not configured." }, { status: 503 });
   }
 
-  const workspace = await getConvexClient(requestAuth.convexToken).query(api.workspaces.getCurrent, {});
+  const otherAccount = rejectOtherAccount(request, requestAuth.userId);
+  if (otherAccount) {
+    return otherAccount;
+  }
 
-  return NextResponse.json({ workspace }, { headers: { "Cache-Control": "private, no-store" } });
+  const snapshot = await getConvexClient(requestAuth.convexToken).query(api.workspaces.getCurrentSnapshot, {});
+  const workspace = snapshot?.workspaceJson ? (JSON.parse(snapshot.workspaceJson) as unknown) : null;
+
+  return NextResponse.json(
+    { workspace, revision: snapshot ? snapshot.revision : null },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 export async function PUT(request: Request) {
@@ -113,15 +141,28 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Workspace authentication token is not configured." }, { status: 503 });
   }
 
+  const otherAccount = rejectOtherAccount(request, requestAuth.userId);
+  if (otherAccount) {
+    return otherAccount;
+  }
+
   const body = await readWorkspaceRequestBody(request);
   if (!body.ok) {
     return body.response;
   }
 
-  await getConvexClient(requestAuth.convexToken).mutation(api.workspaces.saveCurrent, {
+  const result = await getConvexClient(requestAuth.convexToken).mutation(api.workspaces.saveCurrent, {
     user: buildWorkspaceSyncUser(requestAuth.claims),
     workspaceJson: body.workspaceJson,
+    ...(body.expectedRevision !== undefined ? { expectedRevision: body.expectedRevision } : {}),
   });
 
-  return NextResponse.json({ ok: true });
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: "The workspace changed in another tab or on another device.", conflict: true },
+      { status: 409 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, revision: result.revision });
 }

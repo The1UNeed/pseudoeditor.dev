@@ -389,6 +389,7 @@ export default function HomePage() {
     cloudSyncLoading: cloudSavingRequired ? authLoading : false,
     checkpointOwner: userId ?? null,
     recoveredFolderName: t.sync.recoveredFolder,
+    guestFolderName: t.sync.guestFolder,
   });
 
   /* ── local state ── */
@@ -575,7 +576,9 @@ export default function HomePage() {
     ? t.save.failedKeptManual
     : saveError?.startsWith("Autosave failed")
       ? t.save.failedKeptAuto
-      : saveError;
+      : saveError?.startsWith("Too large: ")
+        ? t.sync.tooLarge(saveError.slice("Too large: ".length))
+        : saveError;
   const flowchartVisible = showFlowchart;
   const currentSource = currentDocument?.source ?? "";
   // The flowchart stays mounted while hidden; only feed it source updates while it is visible.
@@ -1922,18 +1925,24 @@ export default function HomePage() {
       );
     }
     if (!syncNotice) return null;
-    const unreachable = syncNotice === "account-unreachable";
+    const needsReload = syncNotice === "account-unreachable" || syncNotice === "account-changed";
+    const message =
+      syncNotice === "account-unreachable"
+        ? t.sync.accountUnreachable
+        : syncNotice === "account-changed"
+          ? t.sync.conflict
+          : syncNotice === "guest-imported"
+            ? t.sync.guestImported
+            : t.sync.recoveredCopies;
     return (
       <div className="flex items-center gap-3" role="status">
-        <span className={unreachable ? "text-[var(--red)]" : "text-[var(--text2)]"}>
-          {unreachable ? t.sync.accountUnreachable : t.sync.recoveredCopies}
-        </span>
+        <span className={needsReload ? "text-[var(--red)]" : "text-[var(--text2)]"}>{message}</span>
         <button
           type="button"
           className="ui-btn ui-btn-secondary h-6 px-2 text-xs"
-          onClick={unreachable ? () => window.location.reload() : dismissSyncNotice}
+          onClick={needsReload ? () => window.location.reload() : dismissSyncNotice}
         >
-          {unreachable ? t.sync.retry : t.common.dismiss}
+          {syncNotice === "account-unreachable" ? t.sync.retry : needsReload ? t.sync.reload : t.common.dismiss}
         </button>
       </div>
     );
@@ -2233,7 +2242,7 @@ export default function HomePage() {
             <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
               <div className="flex flex-wrap items-center gap-3 text-[11px]">
                 {renderSyncNotice()}
-                {saveError && syncNotice !== "account-unreachable" && <span className="text-[var(--red)]">{localizedSaveError}</span>}
+                {saveError && syncNotice !== "account-unreachable" && syncNotice !== "account-changed" && <span className="text-[var(--red)]">{localizedSaveError}</span>}
                 {appNotice && (
                   <div className="flex items-center gap-3">
                     <span
@@ -2714,7 +2723,7 @@ export default function HomePage() {
         <div className="shrink-0 border-b border-[var(--separator)] bg-[var(--surface)] px-4 py-1.5">
           <div className="flex flex-wrap items-center gap-3 text-[11px]">
             {renderSyncNotice()}
-            {saveError && syncNotice !== "account-unreachable" && <span className="text-[var(--red)]">{localizedSaveError}</span>}
+            {saveError && syncNotice !== "account-unreachable" && syncNotice !== "account-changed" && <span className="text-[var(--red)]">{localizedSaveError}</span>}
             {appNotice && (
               <div className="flex items-center gap-3">
                 <span

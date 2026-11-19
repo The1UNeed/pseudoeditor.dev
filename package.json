@@ -1,6 +1,6 @@
 {
   "name": "pseudoeditor.dev",
-  "version": "0.1.9",
+  "version": "2.0.0",
   "private": true,
   "description": "PseudoEditor: free and open-source pseudo code editor and compiler.",
   "author": "Alex Xin LIU",
@@ -28,7 +28,7 @@
   "devDependencies": {
     "@types/node": "^20.19.43",
     "convex": "^1.45.0",
-    "next": "16.4.3",
+    "next": "16.4.5",
     "tsrs": "0.20.1-ts7.1.0-beta",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"

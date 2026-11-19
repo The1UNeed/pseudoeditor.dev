@@ -13,6 +13,8 @@ export default defineSchema({
     clerkUserId: v.string(),
     workspaceJson: v.optional(v.string()),
     workspace: v.optional(v.any()),
+    /** Bumped on every save so a client can only overwrite the version it last read. Missing on older rows: 0. */
+    revision: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_clerk_user", ["clerkUserId"]),
 });

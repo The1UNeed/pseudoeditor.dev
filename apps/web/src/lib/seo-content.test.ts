@@ -12,6 +12,6 @@ describe("blog posts", () => {
   it("lists the newest post first", () => {
     const dates = getPosts("en").map((post) => post.date);
     expect(dates).toEqual([...dates].sort().reverse());
-    expect(getPosts("en")[0].slug).toBe("flowchart-mode-out-of-beta");
+    expect(getPosts("en")[0].slug).toBe("pseudoeditor-v2");
   });
 });

@@ -250,6 +250,7 @@ function readStoredWorkspace(workspaceDoc: { workspaceJson?: string; workspace?:
   }
 }
 
+/** Kept for web deployments released before `getCurrentSnapshot`; new code reads the snapshot instead. */
 export const getCurrent = query({
   args: {},
   handler: async (ctx) => {
@@ -264,6 +265,39 @@ export const getCurrent = query({
   },
 });
 
+/**
+ * The account's workspace as JSON text plus its revision. Returned as text because Convex values only allow ASCII
+ * object keys, and the runtime's data files are keyed by student-chosen names such as "成绩.txt".
+ */
+export const getCurrentSnapshot = query({
+  args: {},
+  returns: v.union(v.null(), v.object({ workspaceJson: v.union(v.string(), v.null()), revision: v.number() })),
+  handler: async (ctx) => {
+    const clerkUserId = await requireAuthenticatedClerkUser(ctx);
+
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_clerk_user", (query) => query.eq("clerkUserId", clerkUserId))
+      .unique();
+
+    if (!workspace) {
+      return null;
+    }
+
+    // An unreadable stored copy reads as "no workspace" (as before), but keeps its revision so the next save can
+    // replace it.
+    const stored = readStoredWorkspace(workspace);
+    return {
+      workspaceJson: stored
+        ? typeof workspace.workspaceJson === "string"
+          ? workspace.workspaceJson
+          : JSON.stringify(stored)
+        : null,
+      revision: workspace.revision ?? 0,
+    };
+  },
+});
+
 export const saveCurrent = mutation({
   args: {
     user: v.object({
@@ -272,11 +306,29 @@ export const saveCurrent = mutation({
       lastName: v.union(v.string(), v.null()),
     }),
     workspaceJson: v.string(),
+    /**
+     * The revision this save builds on (`null`: the client saw no workspace yet). When given, the save is refused if
+     * the account has moved on, so a stale tab or device can never silently replace newer work.
+     */
+    expectedRevision: v.optional(v.union(v.number(), v.null())),
   },
+  returns: v.union(
+    v.object({ ok: v.literal(true), revision: v.number() }),
+    v.object({ ok: v.literal(false), conflict: v.literal(true), revision: v.union(v.number(), v.null()) }),
+  ),
   handler: async (ctx, args) => {
     const identity = await requireAuthenticatedIdentity(ctx);
     const clerkUserId = identity.subject;
     parseWorkspaceJson(args.workspaceJson);
+
+    const existingWorkspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_clerk_user", (query) => query.eq("clerkUserId", clerkUserId))
+      .unique();
+    const currentRevision = existingWorkspace ? (existingWorkspace.revision ?? 0) : null;
+    if (args.expectedRevision !== undefined && args.expectedRevision !== currentRevision) {
+      return { ok: false as const, conflict: true as const, revision: currentRevision };
+    }
 
     // Prefer identity claims from the verified token over caller-supplied profile fields.
     const user = {
@@ -304,24 +356,22 @@ export const saveCurrent = mutation({
       });
     }
 
-    const existingWorkspace = await ctx.db
-      .query("workspaces")
-      .withIndex("by_clerk_user", (query) => query.eq("clerkUserId", clerkUserId))
-      .unique();
-
+    const revision = (currentRevision ?? 0) + 1;
     if (existingWorkspace) {
       await ctx.db.patch(existingWorkspace._id, {
         workspace: undefined,
         workspaceJson: args.workspaceJson,
+        revision,
         updatedAt: now,
       });
-      return existingWorkspace._id;
+    } else {
+      await ctx.db.insert("workspaces", {
+        clerkUserId,
+        workspaceJson: args.workspaceJson,
+        revision,
+        updatedAt: now,
+      });
     }
-
-    return await ctx.db.insert("workspaces", {
-      clerkUserId,
-      workspaceJson: args.workspaceJson,
-      updatedAt: now,
-    });
+    return { ok: true as const, revision };
   },
 });
