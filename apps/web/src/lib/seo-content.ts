@@ -302,6 +302,50 @@ export const posts: SeoPost[] = [
       },
     ],
   },
+  {
+    slug: "pseudoeditor-v2",
+    title: "PseudoEditor 2.0: a real IDE, with safer saving",
+    description:
+      "Errors as you type, keyboard shortcuts, a faster editor on phones and iPads, and protection against one tab overwriting another.",
+    date: "2026-11-19",
+    readingTime: "4 min read",
+    tags: ["Release", "Editor", "Announcement"],
+    sections: [
+      {
+        heading: "Out of preview",
+        body: [
+          "The Explorer used to say 0.1.9-Preview. It now says v2.0.0. Everything below shipped in November, and it all stays free.",
+        ],
+      },
+      {
+        heading: "An editor that works like an IDE",
+        body: [
+          "Compiler errors are underlined as you type, and the Problems list jumps to each one, so you no longer have to press Run to find them. In the desktop and tablet layouts, a status bar shows problems, save state, your line and column, and your exam syntax.",
+          "Run with Ctrl+Enter or F5. With a file open in the code editor, Ctrl+Shift+P opens the command palette (⌘↩ and ⇧⌘P on a Mac). Undo, the cursor, and the scroll position stay with each file when you switch between them. Settings has seven syntax colour schemes, including High contrast, each with a light and a dark version.",
+        ],
+      },
+      {
+        heading: "Faster on phones and iPads",
+        body: [
+          "On iPads and phones, the editor answers taps while it is still loading, where before it could freeze for a second. Run and switching files react sooner, and in our tests on a slowed-down browser the editor page started drawing about five times sooner.",
+          "If you've signed in before and a school filter blocks sign-in, the editor no longer spins forever. After about 15 seconds it opens a temporary workspace and explains that your saved files can't open and changes there won't be saved.",
+        ],
+      },
+      {
+        heading: "Your work is safer",
+        body: [
+          "On pseudoeditor.dev, files you write before signing in now come with you when you sign in from the same tab: they appear in a Guest folder in your account.",
+          "If you edit the same account in two tabs or on two devices, an out-of-date tab can no longer overwrite newer work. It pauses saving and offers Reload, which keeps your account's version and adds this device's edited files beside it. Tabs left open from before this update don't have this protection, so refresh them on every device before you keep editing. When you're signed in, each tab also keeps its own crash-recovery copy, and data files with names like 成绩.txt save and load correctly.",
+        ],
+      },
+      {
+        heading: "One place to learn",
+        body: [
+          "The Manual is now part of the Docs, under Pseudocode reference, and old Manual links open the Docs. Lesson has eight learning paths: Cambridge IGCSE, O Level, and AS & A Level, AP Computer Science Principles, AP Cybersecurity, AP Computer Science A, and IB Computer Science HL and SL, in English and Chinese.",
+        ],
+      },
+    ],
+  },
 ];
 
 export type FaqItem = { question: string; answer: string };

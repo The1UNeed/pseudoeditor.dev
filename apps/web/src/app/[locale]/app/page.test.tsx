@@ -120,6 +120,10 @@ vi.mock("@/lib/storage", () => ({
   takeAccountSyncPending: vi.fn(() => false),
   takeRecoveredCopies: vi.fn(() => false),
   isAccountUnreachable: vi.fn(() => false),
+  takeGuestImported: vi.fn(() => false),
+  stashGuestDraft: vi.fn(),
+  isWorkspaceConflictError: vi.fn(() => false),
+  getWorkspaceTooLargeDetail: vi.fn(() => null),
 }));
 
 /** Makes loadWorkspace resolve to `workspace`. */

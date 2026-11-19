@@ -25,6 +25,7 @@ vi.mock("../../../../../../convex/_generated/api", () => ({
   api: {
     workspaces: {
       getCurrent: "workspaces:getCurrent",
+      getCurrentSnapshot: "workspaces:getCurrentSnapshot",
       saveCurrent: "workspaces:saveCurrent",
     },
   },
@@ -53,7 +54,7 @@ describe("/api/workspace", () => {
       convexToken: "convex-token",
       claims: { email: "alex@example.com" },
     });
-    mutationMock.mockResolvedValue("workspace_id");
+    mutationMock.mockResolvedValue({ ok: true, revision: 1 });
 
     const { PUT } = await import("./route");
     const response = await PUT(
@@ -75,6 +76,37 @@ describe("/api/workspace", () => {
       },
       workspaceJson: expect.any(String),
     });
+    await expect(response.json()).resolves.toEqual({ ok: true, revision: 1 });
+  });
+
+  it("passes the expected revision to Convex and reports a conflicting save as 409", async () => {
+    const workspace = createDefaultWorkspace({ sampleSource: 'OUTPUT "Stale"' });
+    authMock.mockResolvedValue({ userId: "user_123", convexToken: "convex-token", claims: { email: "alex@example.com" } });
+    mutationMock.mockResolvedValue({ ok: false, conflict: true, revision: 4 });
+
+    const { PUT } = await import("./route");
+    const response = await PUT(
+      new Request("https://app.test/api/workspace", {
+        method: "PUT",
+        body: JSON.stringify({ workspace, expectedRevision: 3 }),
+      }),
+    );
+
+    expect(mutationMock).toHaveBeenCalledWith("workspaces:saveCurrent", expect.objectContaining({ expectedRevision: 3 }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ conflict: true });
+  });
+
+  it("returns the account workspace and its revision, including data files with non-ASCII names", async () => {
+    const workspace = { ...createDefaultWorkspace({ sampleSource: 'OUTPUT "Cloud"' }), virtualFiles: { "成绩.txt": ["90"] } };
+    authMock.mockResolvedValue({ userId: "user_123", convexToken: "convex-token", claims: { email: "alex@example.com" } });
+    queryMock.mockResolvedValue({ workspaceJson: JSON.stringify(workspace), revision: 7 });
+
+    const { GET } = await import("./route");
+    const response = await GET(new Request("https://app.test/api/workspace"));
+
+    expect(queryMock).toHaveBeenCalledWith("workspaces:getCurrentSnapshot", {});
+    await expect(response.json()).resolves.toEqual({ workspace, revision: 7 });
   });
 
   it("rejects malformed workspace bodies before Convex mutation", async () => {
@@ -114,5 +146,25 @@ describe("/api/workspace", () => {
 
     expect(response.status).toBe(413);
     expect(mutationMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a request made for a different account than the one signed in", async () => {
+    const workspace = createDefaultWorkspace({ sampleSource: 'OUTPUT "Account A draft"' });
+    authMock.mockResolvedValue({ userId: "user_b", convexToken: "convex-token", claims: { email: "b@example.com" } });
+
+    const { GET, PUT } = await import("./route");
+    const put = await PUT(
+      new Request("https://app.test/api/workspace", {
+        method: "PUT",
+        headers: { "X-Workspace-Account": "user_a" },
+        body: JSON.stringify({ workspace, expectedRevision: 1 }),
+      }),
+    );
+    const get = await GET(new Request("https://app.test/api/workspace", { headers: { "X-Workspace-Account": "user_a" } }));
+
+    expect(put.status).toBe(403);
+    expect(get.status).toBe(403);
+    expect(mutationMock).not.toHaveBeenCalled();
+    expect(queryMock).not.toHaveBeenCalled();
   });
 });

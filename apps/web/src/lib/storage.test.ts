@@ -5,6 +5,7 @@ import {
   getActiveDocument,
   updateDocumentSource,
   updateVirtualFiles,
+  type WorkspaceState,
 } from "@pseudoeditor/workspace";
 
 const dbStore = new Map<string, unknown>();
@@ -16,6 +17,7 @@ interface MockDatabase {
   };
   createObjectStore: ReturnType<typeof vi.fn>;
   get: (_storeName: string, key: string) => Promise<unknown>;
+  getAllKeys: (_storeName: string) => Promise<string[]>;
   put: (_storeName: string, value: unknown, key: string) => Promise<void>;
   delete: (_storeName: string, key: string) => Promise<void>;
   transaction: (_storeName: string, _mode: string) => {
@@ -41,6 +43,9 @@ vi.mock("idb", () => ({
       createObjectStore: vi.fn(),
       async get(_storeName: string, key: string) {
         return dbStore.get(key);
+      },
+      async getAllKeys() {
+        return [...dbStore.keys()];
       },
       async put(_storeName: string, value: unknown, key: string) {
         dbStore.set(key, value);
@@ -70,6 +75,18 @@ vi.mock("idb", () => ({
     return database;
   }),
 }));
+
+/** Checkpoints are kept per tab (`unsynced:<owner>:<tab>`); these find any tab's checkpoint for an account. */
+function checkpointKeys(owner: string) {
+  return [...dbStore.keys()].filter((key) => key === `unsynced:${owner}` || key.startsWith(`unsynced:${owner}:`));
+}
+function hasCheckpoint(owner: string) {
+  return checkpointKeys(owner).length > 0;
+}
+function getCheckpoint(owner: string) {
+  const [key] = checkpointKeys(owner);
+  return key === undefined ? undefined : dbStore.get(key);
+}
 
 describe("workspace storage", () => {
   beforeEach(() => {
@@ -269,7 +286,7 @@ describe("workspace storage", () => {
     // The session syncs recovered edits itself (so its status reflects the outcome); storage just flags them.
     expect(storage.takeAccountSyncPending("user_a")).toBe(true);
     expect(storage.takeAccountSyncPending("user_a")).toBe(false);
-    expect(dbStore.has("unsynced:user_a")).toBe(true);
+    expect(hasCheckpoint("user_a")).toBe(true);
   });
 
   it("never restores another account's checkpoint", async () => {
@@ -286,7 +303,7 @@ describe("workspace storage", () => {
     const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_b" });
 
     expect(getActiveDocument(loaded)?.source).toBe('OUTPUT "B cloud"');
-    expect(dbStore.has("unsynced:user_a")).toBe(true);
+    expect(hasCheckpoint("user_a")).toBe(true);
   });
 
   it("drops the checkpoint once an account sync succeeds", async () => {
@@ -297,7 +314,7 @@ describe("workspace storage", () => {
     const storage = await import("@/lib/storage");
     await storage.saveDeviceCheckpoint(workspace, "user_a", 1000);
     await storage.saveWorkspace(workspace, { mode: "cloud", checkpointOwner: "user_a", editedAt: 1000 });
-    expect(dbStore.has("unsynced:user_a")).toBe(false);
+    expect(hasCheckpoint("user_a")).toBe(false);
   });
 
   it("keeps a checkpoint newer than the snapshot an account sync wrote", async () => {
@@ -308,7 +325,7 @@ describe("workspace storage", () => {
     const storage = await import("@/lib/storage");
     await storage.saveDeviceCheckpoint(workspace, "user_a", 2000);
     await storage.saveWorkspace(workspace, { mode: "cloud", checkpointOwner: "user_a", editedAt: 1000 });
-    expect(dbStore.has("unsynced:user_a")).toBe(true);
+    expect(hasCheckpoint("user_a")).toBe(true);
   });
 
   it("restores a newer checkpoint even when its change was a deletion", async () => {
@@ -600,7 +617,7 @@ describe("workspace storage", () => {
     const recovered = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
     // What the session does: sync the recovered snapshot stamped as its latest edit.
     await storage.saveWorkspace(recovered, { mode: "cloud", checkpointOwner: "user_a", editedAt: Date.now() });
-    expect(dbStore.has("unsynced:user_a")).toBe(false);
+    expect(hasCheckpoint("user_a")).toBe(false);
   });
 
   it("moves a newer checkpoint's base forward when this tab's earlier save is acknowledged", async () => {
@@ -633,14 +650,15 @@ describe("workspace storage", () => {
     });
     const tabB = await import("@/lib/storage");
     await tabB.saveDeviceCheckpoint(workspace, "user_a", 1000);
-    const before = dbStore.get("unsynced:user_a");
+    const before = getCheckpoint("user_a");
+    expect(before).toBeDefined();
 
     vi.resetModules();
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     const tabA = await import("@/lib/storage");
     await tabA.saveWorkspace(workspace, { mode: "cloud", checkpointOwner: "user_a", editedAt: 5000 });
 
-    expect(dbStore.get("unsynced:user_a")).toEqual(before);
+    expect(getCheckpoint("user_a")).toEqual(before);
   });
 
   it("copies only the files this device edited after its base version", async () => {
@@ -712,7 +730,7 @@ describe("workspace storage", () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ workspace: synced }), { status: 200 }));
     const storage = await import("@/lib/storage");
     await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
-    await vi.waitFor(() => expect(dbStore.has("unsynced:user_a")).toBe(false));
+    await vi.waitFor(() => expect(hasCheckpoint("user_a")).toBe(false));
   });
 
   it("keeps an edit made while an earlier save was in flight recoverable after that save is acknowledged", async () => {
@@ -884,5 +902,357 @@ describe("workspace storage", () => {
     await save;
     const headers = vi.mocked(fetch).mock.calls[0]?.[1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer account-A");
+  });
+  it("keeps every tab's unsynced checkpoint and recovers all of them", async () => {
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "essay", id: "doc-essay", source: 'OUTPUT "v1"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const accountResponse = () => new Response(JSON.stringify({ workspace: account }), { status: 200 });
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(accountResponse()).mockResolvedValueOnce(accountResponse()).mockResolvedValueOnce(accountResponse());
+    const later = (ms: number) => new Date(Date.now() + ms).toISOString();
+
+    // Two tabs open the account, then both edit before either syncs.
+    const tabA = await import("@/lib/storage");
+    await tabA.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    vi.resetModules();
+    const tabB = await import("@/lib/storage");
+    await tabB.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await tabA.saveDeviceCheckpoint(updateDocumentSource(account, "doc-essay", 'OUTPUT "Tab A"', later(1000)), "user_a", Date.now() + 1000);
+    await tabB.saveDeviceCheckpoint(
+      createDocument(account, { name: "notes", source: 'OUTPUT "Tab B"', now: later(2000) }),
+      "user_a",
+      Date.now() + 2000,
+    );
+    expect(checkpointKeys("user_a")).toHaveLength(2);
+
+    vi.resetModules();
+    const reopened = await import("@/lib/storage");
+    const loaded = await reopened.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    const sources = Object.values(loaded.nodes).flatMap((node) => (node.type === "document" ? [node.source] : []));
+    expect(sources).toContain('OUTPUT "Tab A"');
+    expect(sources).toContain('OUTPUT "Tab B"');
+    expect(reopened.takeAccountSyncPending("user_a")).toBe(true);
+    // Both are now carried by the reopened tab's single checkpoint until its sync lands.
+    expect(checkpointKeys("user_a")).toHaveLength(1);
+  });
+
+  it("saves only over the account revision it last read and refuses to overwrite a newer one", async () => {
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "essay", id: "doc-essay", source: 'OUTPUT "v1"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account, revision: 3 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, revision: 4 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "changed", conflict: true }), { status: 409 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+
+    const first = updateDocumentSource(account, "doc-essay", 'OUTPUT "v2"');
+    await storage.saveWorkspace(first, { mode: "cloud", checkpointOwner: "user_a", editedAt: Date.now() });
+    expect(JSON.parse(String(fetchMock.mock.calls[1]![1]!.body))).toMatchObject({ expectedRevision: 3 });
+
+    const second = updateDocumentSource(first, "doc-essay", 'OUTPUT "v3"');
+    await storage.saveDeviceCheckpoint(second, "user_a", Date.now() + 1);
+    const rejected = storage.saveWorkspace(second, { mode: "cloud", checkpointOwner: "user_a", editedAt: Date.now() + 1 });
+    await expect(rejected).rejects.toSatisfy(storage.isWorkspaceConflictError);
+    expect(JSON.parse(String(fetchMock.mock.calls[2]![1]!.body))).toMatchObject({ expectedRevision: 4 });
+    // The refused edits stay on this device for the reload that brings both versions together.
+    expect(hasCheckpoint("user_a")).toBe(true);
+  });
+
+  it("adds the files written before signing in to the account and syncs them", async () => {
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "essay", source: 'OUTPUT "Account"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const guest = createDocument(createEmptyWorkspace(), { name: "draft", source: 'OUTPUT "Written as a guest"' });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    storage.stashGuestDraft(guest);
+    // A later empty guest workspace (e.g. the page reopened after a sign-in redirect) never replaces the draft.
+    storage.stashGuestDraft(createEmptyWorkspace());
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', {
+      mode: "cloud", checkpointOwner: "user_a", guestFolderName: "Guest",
+    });
+
+    const folder = Object.values(loaded.nodes).find((node) => node.type === "folder" && node.name === "Guest");
+    const imported = Object.values(loaded.nodes).filter((node) => node.parentId === folder?.id);
+    expect(imported.map((node) => (node.type === "document" ? node.source : ""))).toEqual(['OUTPUT "Written as a guest"']);
+    expect(Object.values(loaded.nodes).some((node) => node.type === "document" && node.source === 'OUTPUT "Account"')).toBe(true);
+    expect(storage.takeGuestImported("user_a")).toBe(true);
+    expect(storage.takeAccountSyncPending("user_a")).toBe(true);
+    expect(hasCheckpoint("user_a")).toBe(true);
+    expect(window.sessionStorage.getItem("pseudoeditor-guest-draft")).toBeNull();
+  });
+  it("keeps a guest's data files when they sign in, never overwriting the account's own", async () => {
+    const account = updateVirtualFiles(
+      createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), { name: "essay", source: "OUTPUT 1" }),
+      { "scores.txt": ["account"] },
+    );
+    const guest = updateVirtualFiles(createEmptyWorkspace(), { "scores.txt": ["90", "85"], "names.txt": ["Ada"] });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    storage.stashGuestDraft(guest);
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', {
+      mode: "cloud", checkpointOwner: "user_a", guestFolderName: "Guest",
+    });
+
+    expect(loaded.virtualFiles).toEqual({
+      "scores.txt": ["account"],
+      "scores (Guest).txt": ["90", "85"],
+      "names.txt": ["Ada"],
+    });
+    expect(storage.takeAccountSyncPending("user_a")).toBe(true);
+  });
+
+  it("keeps this device's data-file edits as copies when the account changed elsewhere", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T10:00:00.000Z"));
+    onTestFinished(() => { vi.useRealTimers(); });
+    const atLoad = updateVirtualFiles(
+      createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+        name: "essay", id: "doc-essay", source: "OUTPUT 1", now: "2026-03-15T00:00:00.000Z",
+      }),
+      { "scores.txt": ["1"] },
+      "2026-03-15T00:00:00.000Z",
+    );
+    const changedElsewhere = updateDocumentSource(atLoad, "doc-essay", "OUTPUT 2", "2026-03-15T11:00:00.000Z");
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: atLoad }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: changedElsewhere }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    // Only a data file changed on this device before it closed.
+    await storage.saveDeviceCheckpoint(updateVirtualFiles(atLoad, { "scores.txt": ["1", "2"] }), "user_a", Date.now());
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', {
+      mode: "cloud", checkpointOwner: "user_a", recoveredFolderName: "From this device",
+    });
+    expect(loaded.virtualFiles).toEqual({ "scores.txt": ["1"], "scores (From this device).txt": ["1", "2"] });
+    expect(storage.takeRecoveredCopies("user_a")).toBe(true);
+  });
+
+  it("never deletes a checkpoint another open tab updated while this tab was loading", async () => {
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "essay", id: "doc-essay", source: 'OUTPUT "v1"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account }), { status: 200 }));
+    const tabA = await import("@/lib/storage");
+    await tabA.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    const later = (ms: number) => new Date(Date.now() + ms).toISOString();
+    await tabA.saveDeviceCheckpoint(updateDocumentSource(account, "doc-essay", 'OUTPUT "A1"', later(1000)), "user_a", Date.now() + 1000);
+
+    let releaseRead: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { releaseRead = resolve; }));
+    vi.resetModules();
+    const tabB = await import("@/lib/storage");
+    const loading = tabB.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // Tab A keeps typing while tab B's account read is in flight.
+    const newer = updateDocumentSource(account, "doc-essay", 'OUTPUT "A2"', later(2000));
+    await tabA.saveDeviceCheckpoint(newer, "user_a", Date.now() + 2000);
+    releaseRead(new Response(JSON.stringify({ workspace: account }), { status: 200 }));
+    await loading;
+
+    const sources = checkpointKeys("user_a").map((key) => {
+      const state = (dbStore.get(key) as { state: WorkspaceState }).state;
+      return state.nodes["doc-essay"]?.type === "document" ? state.nodes["doc-essay"].source : "";
+    });
+    expect(sources).toContain('OUTPUT "A2"');
+  });
+
+  it("never hands a fresh revision to a save requested before the read", async () => {
+    const v1 = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "essay", id: "doc-essay", source: 'OUTPUT "v1"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const fromOtherDevice = updateDocumentSource(v1, "doc-essay", 'OUTPUT "other device"');
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: v1, revision: 1 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "changed", conflict: true }), { status: 409 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: fromOtherDevice, revision: 2 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+
+    // A save built on revision 1 is still waiting for its sign-in token when the workspace is read again.
+    let releaseToken: (token: string) => void = () => {};
+    const tokenRequest = new Promise<string>((resolve) => { releaseToken = resolve; });
+    const stale = storage.saveWorkspace(updateDocumentSource(v1, "doc-essay", 'OUTPUT "stale"'), {
+      mode: "cloud", checkpointOwner: "user_a", editedAt: Date.now(), getAuthToken: () => tokenRequest,
+    });
+    const reload = storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    releaseToken("token");
+
+    await expect(stale).rejects.toSatisfy(storage.isWorkspaceConflictError);
+    expect(JSON.parse(String(fetchMock.mock.calls[1]![1]!.body))).toMatchObject({ expectedRevision: 1 });
+    await reload;
+  });
+  it("never drops a guest's data file, even when the account is at the data-file limit", async () => {
+    const full = Object.fromEntries(Array.from({ length: 100 }, (_, index) => [`f${index}.txt`, ["x"]]));
+    const account = updateVirtualFiles(createDocument(createEmptyWorkspace(), { name: "essay", source: "OUTPUT 1" }), full);
+    const guest = updateVirtualFiles(createEmptyWorkspace(), { "mine.txt": ["typed as a guest"] });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    storage.stashGuestDraft(guest);
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+
+    // Over the save limit the account sync is refused (and explained), but the file stays on this device.
+    expect(loaded.virtualFiles["mine.txt"]).toEqual(["typed as a guest"]);
+    const checkpoint = getCheckpoint("user_a") as { state: WorkspaceState };
+    expect(checkpoint.state.virtualFiles["mine.txt"]).toEqual(["typed as a guest"]);
+  });
+
+  it("shares one account load between overlapping callers so recovered work isn't loaded twice or lost", async () => {
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), { name: "essay", source: "OUTPUT 1" });
+    let releaseRead: (response: Response) => void = () => {};
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { releaseRead = resolve; }));
+    const storage = await import("@/lib/storage");
+    storage.stashGuestDraft(createDocument(createEmptyWorkspace(), { name: "draft", source: 'OUTPUT "guest"' }));
+
+    // The editor is left and reopened while the first load is still waiting for the account.
+    const first = storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    const second = storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    releaseRead(new Response(JSON.stringify({ workspace: account, revision: 1 }), { status: 200 }));
+
+    const [a, b] = await Promise.all([first, second]);
+    expect(b).toBe(a);
+    expect(Object.values(b.nodes).some((node) => node.type === "document" && node.source === 'OUTPUT "guest"')).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports which size limit the account refused a save for", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "Workspace payload has too many virtual files (101/100)." }), { status: 413 }),
+    );
+    const storage = await import("@/lib/storage");
+    const save = storage.saveWorkspace(createEmptyWorkspace(), { mode: "cloud", checkpointOwner: "user_a", editedAt: 1 });
+    const error = await save.then(() => null, (reason: unknown) => reason);
+    expect(storage.getWorkspaceTooLargeDetail(error)).toBe("Workspace payload has too many virtual files (101/100).");
+  });
+  it("leaves the guest draft to the account signed into last when an earlier account's load is abandoned", async () => {
+    const accountA = createDocument(createEmptyWorkspace(), { name: "a", source: 'OUTPUT "A"' });
+    const accountB = createDocument(createEmptyWorkspace(), { name: "b", source: 'OUTPUT "B"' });
+    let releaseA: (response: Response) => void = () => {};
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { releaseA = resolve; }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: accountB, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+
+    // A slow load for account A starts; the student signs out, writes guest work, then signs into B.
+    const abandoned = storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    storage.stashGuestDraft(createDocument(createEmptyWorkspace(), { name: "draft", source: 'OUTPUT "guest"' }));
+    const loadB = storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_b" });
+    releaseA(new Response(JSON.stringify({ workspace: accountA, revision: 1 }), { status: 200 }));
+
+    const [a, b] = await Promise.all([abandoned, loadB]);
+    const hasGuest = (state: WorkspaceState) =>
+      Object.values(state.nodes).some((node) => node.type === "document" && node.source === 'OUTPUT "guest"');
+    expect(hasGuest(a)).toBe(false);
+    expect(hasGuest(b)).toBe(true);
+    expect(storage.takeGuestImported("user_b")).toBe(true);
+  });
+
+  it("measures copies adopted from another tab from that tab's base, not from the load", async () => {
+    const account = createDocument(createEmptyWorkspace("2026-03-15T00:00:00.000Z"), {
+      name: "essay", id: "doc-essay", source: 'OUTPUT "v1"', now: "2026-03-15T00:00:00.000Z",
+    });
+    const accountResponse = () => new Response(JSON.stringify({ workspace: account }), { status: 200 });
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(accountResponse()).mockResolvedValueOnce(accountResponse());
+    const tabA = await import("@/lib/storage");
+    await tabA.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await tabA.saveDeviceCheckpoint(
+      createDocument(account, { name: "notes", source: 'OUTPUT "A"', now: new Date(Date.now() + 1000).toISOString() }),
+      "user_a",
+      Date.now() + 1000,
+    );
+    const tabABase = (getCheckpoint("user_a") as { baseReadAt: number }).baseReadAt;
+    // The newest checkpoint (another tab's) holds nothing the account lacks, but was made on an older account version,
+    // so it is not restored and tab A's work is folded in on its own.
+    dbStore.set("unsynced:user_a:other-tab", {
+      owner: "user_a", state: account, editedAt: Date.now() + 5000, baseVersion: 1, baseReadAt: Date.now() + 5000, tabId: "other-tab",
+    });
+
+    vi.resetModules();
+    const reopened = await import("@/lib/storage");
+    const loaded = await reopened.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    expect(Object.values(loaded.nodes).some((node) => node.type === "document" && node.source === 'OUTPUT "A"')).toBe(true);
+    const [key] = checkpointKeys("user_a");
+    expect((dbStore.get(key!) as { baseReadAt: number }).baseReadAt).toBe(tabABase);
+  });
+  it("keeps every answer a guest wrote in this tab, not just the last workspace before signing in", async () => {
+    const account = createDocument(createEmptyWorkspace(), { name: "essay", source: "OUTPUT 1" });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    const firstQuestion = createDocument(createEmptyWorkspace(), { name: "q1", source: 'OUTPUT "my answer"' });
+    storage.stashGuestDraft(firstQuestion);
+    // The guest opens another practice question (a fresh in-memory workspace) and edits again.
+    const secondQuestion = createDocument(createEmptyWorkspace(), { name: "q2", source: 'OUTPUT "starter"' });
+    storage.stashGuestDraft(secondQuestion);
+    // The first answer edited again later keeps its newest text.
+    storage.stashGuestDraft(updateDocumentSource(firstQuestion, firstQuestion.activeDocumentId!, 'OUTPUT "my answer v2"'));
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    const sources = Object.values(loaded.nodes).flatMap((node) => (node.type === "document" ? [node.source] : []));
+    expect(sources).toEqual(expect.arrayContaining(['OUTPUT "my answer v2"', 'OUTPUT "starter"']));
+    expect(sources).not.toContain('OUTPUT "my answer"');
+  });
+
+  it("lets signing out supersede an account load that is still running", async () => {
+    const accountA = createDocument(createEmptyWorkspace(), { name: "a", source: 'OUTPUT "A"' });
+    const accountB = createDocument(createEmptyWorkspace(), { name: "b", source: 'OUTPUT "B"' });
+    let releaseA: (response: Response) => void = () => {};
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { releaseA = resolve; }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace: accountB, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    storage.stashGuestDraft(createDocument(createEmptyWorkspace(), { name: "draft", source: 'OUTPUT "guest"' }));
+
+    const abandoned = storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "memory" });
+    releaseA(new Response(JSON.stringify({ workspace: accountA, revision: 1 }), { status: 200 }));
+    await abandoned;
+
+    const b = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_b" });
+    expect(Object.values(b.nodes).some((node) => node.type === "document" && node.source === 'OUTPUT "guest"')).toBe(true);
+  });
+
+  it("names the account each cloud request was made for", async () => {
+    const workspace = createDocument(createEmptyWorkspace(), { name: "essay", source: "OUTPUT 1" });
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ workspace, revision: 1 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, revision: 2 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a" });
+    await storage.saveWorkspace(workspace, { mode: "cloud", checkpointOwner: "user_a", editedAt: Date.now() });
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect((init!.headers as Record<string, string>)["X-Workspace-Account"]).toBe("user_a");
+    }
+  });
+
+  it("keeps a guest's earlier data file when another question writes one with the same name", async () => {
+    const account = createDocument(createEmptyWorkspace(), { name: "essay", source: "OUTPUT 1" });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ workspace: account, revision: 1 }), { status: 200 }));
+    const storage = await import("@/lib/storage");
+    storage.stashGuestDraft(updateVirtualFiles(createDocument(createEmptyWorkspace(), { name: "q1", source: "OUTPUT 1" }), { "results.txt": ["q1 results"] }), "Guest");
+    storage.stashGuestDraft(updateVirtualFiles(createDocument(createEmptyWorkspace(), { name: "q2", source: "OUTPUT 2" }), { "results.txt": ["q2 results"] }), "Guest");
+
+    const loaded = await storage.loadWorkspace('OUTPUT "Fallback"', { mode: "cloud", checkpointOwner: "user_a", guestFolderName: "Guest" });
+    const contents = Object.values(loaded.virtualFiles).map((lines) => lines.join("\n"));
+    expect(contents).toEqual(expect.arrayContaining(["q1 results", "q2 results"]));
   });
 });

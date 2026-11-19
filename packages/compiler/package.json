@@ -1,6 +1,6 @@
 {
   "name": "@pseudoeditor/compiler",
-  "version": "0.1.9",
+  "version": "2.0.0",
   "private": true,
   "description": "Pseudocode compiler core — tokenizer, parser, semantics, and AST generation.",
   "main": "./src/index.ts",
